@@ -135,6 +135,11 @@
         background-color: #8cff8c !important;
     }
 
+    .cell.selected {
+        outline: 3px solid #4a90e2;
+        z-index: 2;
+    }
+
     /* Box borders */
     .cell.box-right {
         border-right: 2px solid #000;
@@ -143,7 +148,7 @@
         border-bottom: 2px solid #000;
     }
 
-    /* Pencil marks (simple single number) */
+    /* Pencil marks */
     .cell.pencil {
         font-size: 14px;
         opacity: 0.7;
@@ -179,7 +184,6 @@
 <script>
 /* -----------------------------
    PUZZLE & SOLUTION
-   (0 = empty cell)
 ------------------------------*/
 const puzzle = [
     [5,3,0, 0,7,0, 0,0,0],
@@ -213,10 +217,11 @@ const solution = [
    STATE
 ------------------------------*/
 let pencilMode = false;
+let selectedCell = null;
 let selectedNumber = null;
-let correctCount = 0; // number of correctly filled non-given cells (should reach 81 - givens)
+let correctCount = 0;
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
-const givenMask = []; // true if cell is a given
+const givenMask = [];
 const board = document.getElementById("board");
 const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
@@ -231,6 +236,64 @@ for (let n = 1; n <= 9; n++) {
     tile.textContent = n;
 
     tile.addEventListener("click", () => {
+        if (!selectedCell) {
+            statusEl.textContent = "Select a cell first.";
+            selectedNumber = n;
+            updateNumberTileStyles();
+            return;
+        }
+
+        const r = parseInt(selectedCell.dataset.row, 10);
+        const c = parseInt(selectedCell.dataset.col, 10);
+
+        if (givenMask[r][c]) {
+            statusEl.textContent = "You can't change a given cell.";
+            return;
+        }
+
+        const correctValue = solution[r][c];
+
+        if (pencilMode) {
+            selectedCell.classList.add("pencil");
+            selectedCell.style.opacity = 0.7;
+            selectedCell.textContent = n;
+            statusEl.textContent = "Pencil mark added.";
+            selectedNumber = n;
+            updateNumberTileStyles();
+            return;
+        }
+
+        if (n !== correctValue) {
+            flashWrong(selectedCell);
+            statusEl.textContent = "Incorrect number.";
+            selectedNumber = n;
+            updateNumberTileStyles();
+            return;
+        }
+
+        const previousText = selectedCell.textContent;
+        const wasCorrect = previousText && parseInt(previousText, 10) === correctValue;
+
+        selectedCell.classList.remove("pencil", "wrong");
+        selectedCell.style.opacity = 1;
+        selectedCell.textContent = correctValue;
+
+        const index = r * 9 + c;
+        if (!placements[correctValue].includes(index)) {
+            placements[correctValue].push(index);
+            if (!wasCorrect) correctCount++;
+        }
+
+        statusEl.textContent = "Correct.";
+
+        if (placements[correctValue].length === 9) {
+            highlightCompleted(correctValue);
+        }
+
+        if (correctCount === 81) {
+            onWin();
+        }
+
         selectedNumber = n;
         updateNumberTileStyles();
     });
@@ -242,18 +305,14 @@ function updateNumberTileStyles() {
     [...numberBar.children].forEach(tile => {
         const n = parseInt(tile.textContent, 10);
         tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}`;
-        if (n === selectedNumber) {
-            tile.classList.add("selected");
-        }
+        if (n === selectedNumber) tile.classList.add("selected");
     });
 }
 
 /* -----------------------------
    PENCIL MODE TOGGLE
 ------------------------------*/
-const pencilToggle = document.getElementById("pencilToggle");
-
-pencilToggle.addEventListener("click", () => {
+document.getElementById("pencilToggle").addEventListener("click", () => {
     pencilMode = !pencilMode;
     pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
     pencilToggle.classList.toggle("active", pencilMode);
@@ -268,6 +327,7 @@ function buildBoard() {
     givenMask.length = 0;
     correctCount = 0;
     for (let k = 1; k <= 9; k++) placements[k] = [];
+    selectedCell = null;
 
     for (let r = 0; r < 9; r++) {
         givenMask[r] = [];
@@ -275,7 +335,6 @@ function buildBoard() {
             const cell = document.createElement("div");
             cell.className = "cell";
 
-            // Box borders
             if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add("box-right");
             if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add("box-bottom");
 
@@ -284,7 +343,7 @@ function buildBoard() {
                 cell.textContent = val;
                 cell.classList.add("given");
                 givenMask[r][c] = true;
-                correctCount++; // givens are already correct
+                correctCount++;
                 placements[val].push(r * 9 + c);
             } else {
                 givenMask[r][c] = false;
@@ -299,14 +358,7 @@ function buildBoard() {
         }
     }
 
-    // Pre-highlight any digits already at 9 (unlikely here, but safe)
-    for (let n = 1; n <= 9; n++) {
-        if (placements[n].length === 9) {
-            highlightCompleted(n);
-        }
-    }
-
-    statusEl.textContent = "Puzzle loaded. Select a number, then click a cell.";
+    statusEl.textContent = "Puzzle loaded. Select a cell, then choose a number.";
     winMessage.textContent = "";
 }
 
@@ -317,58 +369,14 @@ function onCellClick(cell) {
     const r = parseInt(cell.dataset.row, 10);
     const c = parseInt(cell.dataset.col, 10);
 
-    if (givenMask[r][c]) return; // can't change givens
-    if (!selectedNumber) {
-        statusEl.textContent = "Select a number first.";
-        return;
-    }
+    if (givenMask[r][c]) return;
 
-    const correctValue = solution[r][c];
+    if (selectedCell) selectedCell.classList.remove("selected");
 
-    if (pencilMode) {
-        // Pencil mark: just show the candidate, no validation
-        cell.classList.add("pencil");
-        cell.style.opacity = 0.7;
-        cell.textContent = selectedNumber;
-        return;
-    }
+    selectedCell = cell;
+    cell.classList.add("selected");
 
-    // Ink mode: validate against solution
-    if (selectedNumber !== correctValue) {
-        flashWrong(cell);
-        statusEl.textContent = "That number is incorrect for this cell.";
-        return;
-    }
-
-    // Correct placement
-    const previousText = cell.textContent;
-    const wasCorrect = previousText && parseInt(previousText, 10) === correctValue;
-
-    cell.classList.remove("pencil", "wrong");
-    cell.style.opacity = 1;
-    cell.textContent = correctValue;
-
-    const index = r * 9 + c;
-
-    if (!placements[correctValue].includes(index)) {
-        placements[correctValue].push(index);
-    }
-
-    if (!wasCorrect) {
-        correctCount++;
-    }
-
-    statusEl.textContent = "Nice. Correct move.";
-
-    // If nine placements reached for this digit, highlight
-    if (placements[correctValue].length === 9) {
-        highlightCompleted(correctValue);
-    }
-
-    // Check win
-    if (correctCount === 81) {
-        onWin();
-    }
+    statusEl.textContent = "Now choose a number.";
 }
 
 /* -----------------------------
@@ -376,9 +384,7 @@ function onCellClick(cell) {
 ------------------------------*/
 function flashWrong(cell) {
     cell.classList.add("wrong");
-    setTimeout(() => {
-        cell.classList.remove("wrong");
-    }, 400);
+    setTimeout(() => cell.classList.remove("wrong"), 400);
 }
 
 /* -----------------------------
@@ -386,7 +392,6 @@ function flashWrong(cell) {
 ------------------------------*/
 function highlightCompleted(num) {
     const cells = placements[num].map(i => board.children[i]);
-
     const previous = cells.map(c => c.style.backgroundColor);
 
     cells.forEach(c => c.classList.add("highlight-completed"));
@@ -426,9 +431,7 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
 /* -----------------------------
    NEW GAME / LOAD PUZZLE
 ------------------------------*/
-document.getElementById("newGameBtn").addEventListener("click", () => {
-    buildBoard();
-});
+document.getElementById("newGameBtn").addEventListener("click", buildBoard);
 
 /* -----------------------------
    INITIALIZE
