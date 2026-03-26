@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sudoku UI Demo</title>
+<style>
+    body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 30px;
+        background: #f5f5f5;
+    }
+
+    /* --- Number Selection Tiles --- */
+    .number-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .number-tile {
+        width: 45px;
+        height: 45px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+        cursor: pointer;
+        transition: background-color 0.2s, border 0.2s, opacity 0.2s;
+        user-select: none;
+    }
+
+    .number-tile.ink {
+        background-color: #eee;
+        border: 2px solid #aaa;
+    }
+
+    .number-tile.pencil {
+        background-color: #fff;
+        border: 2px dashed #888;
+        opacity: 0.7;
+    }
+
+    .number-tile:hover {
+        background-color: #ddd;
+    }
+
+    /* --- Pencil Mode Toggle --- */
+    #pencilToggle {
+        margin-bottom: 20px;
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 2px solid #666;
+        background: #fff;
+        font-size: 16px;
+    }
+
+    #pencilToggle.active {
+        background: #ffe9b3;
+        border-color: #cc9900;
+    }
+
+    /* --- Sudoku Board --- */
+    .board {
+        display: grid;
+        grid-template-columns: repeat(9, 50px);
+        grid-template-rows: repeat(9, 50px);
+        gap: 2px;
+    }
+
+    .cell {
+        width: 50px;
+        height: 50px;
+        background: white;
+        border: 1px solid #ccc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+        transition: background-color 0.3s;
+        user-select: none;
+        cursor: pointer;
+    }
+
+    .cell.highlight-completed {
+        background-color: #8cff8c !important;
+    }
+</style>
+</head>
+<body>
+
+<h2>Sudoku UI Demo</h2>
+
+<button id="pencilToggle">Pencil Mode: OFF</button>
+
+<div class="number-bar" id="numberBar"></div>
+
+<div class="board" id="board"></div>
+
+<script>
+/* -----------------------------
+   STATE
+------------------------------*/
+let pencilMode = false;
+let selectedNumber = null;
+
+// Track placements: number → array of cell indices
+const placements = {
+    1: [], 2: [], 3: [], 4: [], 5: [],
+    6: [], 7: [], 8: [], 9: []
+};
+
+/* -----------------------------
+   BUILD NUMBER BAR
+------------------------------*/
+const numberBar = document.getElementById("numberBar");
+
+for (let n = 1; n <= 9; n++) {
+    const tile = document.createElement("div");
+    tile.className = "number-tile ink";
+    tile.textContent = n;
+
+    tile.addEventListener("click", () => {
+        selectedNumber = n;
+        updateNumberTileStyles();
+    });
+
+    numberBar.appendChild(tile);
+}
+
+function updateNumberTileStyles() {
+    [...numberBar.children].forEach(tile => {
+        tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}`;
+    });
+}
+
+/* -----------------------------
+   PENCIL MODE TOGGLE
+------------------------------*/
+const pencilToggle = document.getElementById("pencilToggle");
+
+pencilToggle.addEventListener("click", () => {
+    pencilMode = !pencilMode;
+    pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
+    pencilToggle.classList.toggle("active", pencilMode);
+    updateNumberTileStyles();
+});
+
+/* -----------------------------
+   BUILD BOARD
+------------------------------*/
+const board = document.getElementById("board");
+
+for (let i = 0; i < 81; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+
+    cell.addEventListener("click", () => {
+        if (!selectedNumber) return;
+
+        // Pencil mode: show small faded number
+        if (pencilMode) {
+            cell.style.opacity = 0.5;
+            cell.textContent = selectedNumber;
+            return;
+        }
+
+        // Ink mode: solid number
+        cell.style.opacity = 1;
+        cell.textContent = selectedNumber;
+
+        // Track placement
+        const num = selectedNumber;
+        if (!placements[num].includes(i)) {
+            placements[num].push(i);
+        }
+
+        // If nine placements reached, highlight
+        if (placements[num].length === 9) {
+            highlightCompleted(num);
+        }
+    });
+
+    board.appendChild(cell);
+}
+
+/* -----------------------------
+   HIGHLIGHT COMPLETED NUMBER
+------------------------------*/
+function highlightCompleted(num) {
+    const cells = placements[num].map(i => board.children[i]);
+
+    // Save previous background colors
+    const previous = cells.map(c => c.style.backgroundColor);
+
+    // Apply highlight
+    cells.forEach(c => c.classList.add("highlight-completed"));
+
+    // Remove after 1 second
+    setTimeout(() => {
+        cells.forEach((c, idx) => {
+            c.classList.remove("highlight-completed");
+            c.style.backgroundColor = previous[idx];
+        });
+    }, 1000);
+}
+</script>
+
+</body>
+</html>
