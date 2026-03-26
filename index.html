@@ -2,34 +2,44 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Sudoku UI Demo</title>
+<title>Sudoku Game</title>
 <style>
     body {
         font-family: sans-serif;
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin-top: 30px;
+        margin-top: 20px;
         background: #f5f5f5;
     }
 
-    /* --- Number Selection Tiles --- */
+    h2 {
+        margin-bottom: 5px;
+    }
+
+    #status {
+        margin-bottom: 15px;
+        min-height: 20px;
+        font-weight: 600;
+    }
+
+    /* Number Selection Tiles */
     .number-bar {
         display: flex;
         gap: 10px;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
 
     .number-tile {
-        width: 45px;
-        height: 45px;
+        width: 40px;
+        height: 40px;
         border-radius: 6px;
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 22px;
+        font-size: 20px;
         cursor: pointer;
-        transition: background-color 0.2s, border 0.2s, opacity 0.2s;
+        transition: background-color 0.2s, border 0.2s, opacity 0.2s, transform 0.1s;
         user-select: none;
     }
 
@@ -44,19 +54,25 @@
         opacity: 0.7;
     }
 
+    .number-tile.selected {
+        transform: scale(1.05);
+        border-color: #0077cc;
+        background-color: #d9ecff;
+    }
+
     .number-tile:hover {
         background-color: #ddd;
     }
 
-    /* --- Pencil Mode Toggle --- */
+    /* Pencil Mode Toggle */
     #pencilToggle {
-        margin-bottom: 20px;
+        margin-bottom: 15px;
         cursor: pointer;
-        padding: 8px 16px;
+        padding: 6px 14px;
         border-radius: 6px;
         border: 2px solid #666;
         background: #fff;
-        font-size: 16px;
+        font-size: 14px;
     }
 
     #pencilToggle.active {
@@ -64,36 +80,93 @@
         border-color: #cc9900;
     }
 
-    /* --- Sudoku Board --- */
+    /* Controls */
+    .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .controls button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background: #fff;
+        font-size: 14px;
+    }
+
+    /* Sudoku Board */
     .board {
         display: grid;
-        grid-template-columns: repeat(9, 50px);
-        grid-template-rows: repeat(9, 50px);
+        grid-template-columns: repeat(9, 46px);
+        grid-template-rows: repeat(9, 46px);
         gap: 2px;
+        background: #000;
+        padding: 3px;
     }
 
     .cell {
-        width: 50px;
-        height: 50px;
+        width: 46px;
+        height: 46px;
         background: white;
         border: 1px solid #ccc;
         display: flex;
         justify-content: center;
         align-items: center;
         font-size: 22px;
-        transition: background-color 0.3s;
+        transition: background-color 0.2s, color 0.2s;
         user-select: none;
         cursor: pointer;
+        position: relative;
+    }
+
+    .cell.given {
+        background: #e9ecf5;
+        font-weight: 700;
+        cursor: default;
+    }
+
+    .cell.wrong {
+        background-color: #ffb3b3;
     }
 
     .cell.highlight-completed {
         background-color: #8cff8c !important;
     }
+
+    /* Box borders */
+    .cell.box-right {
+        border-right: 2px solid #000;
+    }
+    .cell.box-bottom {
+        border-bottom: 2px solid #000;
+    }
+
+    /* Pencil marks (simple single number) */
+    .cell.pencil {
+        font-size: 14px;
+        opacity: 0.7;
+    }
+
+    /* Win overlay */
+    #winMessage {
+        margin-top: 15px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #007700;
+    }
 </style>
 </head>
 <body>
 
-<h2>Sudoku UI Demo</h2>
+<h2>Sudoku Game</h2>
+<div id="status"></div>
+
+<div class="controls">
+    <button id="newGameBtn">Load Puzzle</button>
+    <button id="clearNotesBtn">Clear Pencil Marks</button>
+</div>
 
 <button id="pencilToggle">Pencil Mode: OFF</button>
 
@@ -101,24 +174,57 @@
 
 <div class="board" id="board"></div>
 
+<div id="winMessage"></div>
+
 <script>
+/* -----------------------------
+   PUZZLE & SOLUTION
+   (0 = empty cell)
+------------------------------*/
+const puzzle = [
+    [5,3,0, 0,7,0, 0,0,0],
+    [6,0,0, 1,9,5, 0,0,0],
+    [0,9,8, 0,0,0, 0,6,0],
+
+    [8,0,0, 0,6,0, 0,0,3],
+    [4,0,0, 8,0,3, 0,0,1],
+    [7,0,0, 0,2,0, 0,0,6],
+
+    [0,6,0, 0,0,0, 2,8,0],
+    [0,0,0, 4,1,9, 0,0,5],
+    [0,0,0, 0,8,0, 0,7,9]
+];
+
+const solution = [
+    [5,3,4, 6,7,8, 9,1,2],
+    [6,7,2, 1,9,5, 3,4,8],
+    [1,9,8, 3,4,2, 5,6,7],
+
+    [8,5,9, 7,6,1, 4,2,3],
+    [4,2,6, 8,5,3, 7,9,1],
+    [7,1,3, 9,2,4, 8,5,6],
+
+    [9,6,1, 5,3,7, 2,8,4],
+    [2,8,7, 4,1,9, 6,3,5],
+    [3,4,5, 2,8,6, 1,7,9]
+];
+
 /* -----------------------------
    STATE
 ------------------------------*/
 let pencilMode = false;
 let selectedNumber = null;
-
-// Track placements: number → array of cell indices
-const placements = {
-    1: [], 2: [], 3: [], 4: [], 5: [],
-    6: [], 7: [], 8: [], 9: []
-};
+let correctCount = 0; // number of correctly filled non-given cells (should reach 81 - givens)
+const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
+const givenMask = []; // true if cell is a given
+const board = document.getElementById("board");
+const numberBar = document.getElementById("numberBar");
+const statusEl = document.getElementById("status");
+const winMessage = document.getElementById("winMessage");
 
 /* -----------------------------
    BUILD NUMBER BAR
 ------------------------------*/
-const numberBar = document.getElementById("numberBar");
-
 for (let n = 1; n <= 9; n++) {
     const tile = document.createElement("div");
     tile.className = "number-tile ink";
@@ -134,7 +240,11 @@ for (let n = 1; n <= 9; n++) {
 
 function updateNumberTileStyles() {
     [...numberBar.children].forEach(tile => {
+        const n = parseInt(tile.textContent, 10);
         tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}`;
+        if (n === selectedNumber) {
+            tile.classList.add("selected");
+        }
     });
 }
 
@@ -153,39 +263,122 @@ pencilToggle.addEventListener("click", () => {
 /* -----------------------------
    BUILD BOARD
 ------------------------------*/
-const board = document.getElementById("board");
+function buildBoard() {
+    board.innerHTML = "";
+    givenMask.length = 0;
+    correctCount = 0;
+    for (let k = 1; k <= 9; k++) placements[k] = [];
 
-for (let i = 0; i < 81; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
+    for (let r = 0; r < 9; r++) {
+        givenMask[r] = [];
+        for (let c = 0; c < 9; c++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
 
-    cell.addEventListener("click", () => {
-        if (!selectedNumber) return;
+            // Box borders
+            if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add("box-right");
+            if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add("box-bottom");
 
-        // Pencil mode: show small faded number
-        if (pencilMode) {
-            cell.style.opacity = 0.5;
-            cell.textContent = selectedNumber;
-            return;
+            const val = puzzle[r][c];
+            if (val !== 0) {
+                cell.textContent = val;
+                cell.classList.add("given");
+                givenMask[r][c] = true;
+                correctCount++; // givens are already correct
+                placements[val].push(r * 9 + c);
+            } else {
+                givenMask[r][c] = false;
+            }
+
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+
+            cell.addEventListener("click", () => onCellClick(cell));
+
+            board.appendChild(cell);
         }
+    }
 
-        // Ink mode: solid number
-        cell.style.opacity = 1;
+    // Pre-highlight any digits already at 9 (unlikely here, but safe)
+    for (let n = 1; n <= 9; n++) {
+        if (placements[n].length === 9) {
+            highlightCompleted(n);
+        }
+    }
+
+    statusEl.textContent = "Puzzle loaded. Select a number, then click a cell.";
+    winMessage.textContent = "";
+}
+
+/* -----------------------------
+   CELL CLICK HANDLER
+------------------------------*/
+function onCellClick(cell) {
+    const r = parseInt(cell.dataset.row, 10);
+    const c = parseInt(cell.dataset.col, 10);
+
+    if (givenMask[r][c]) return; // can't change givens
+    if (!selectedNumber) {
+        statusEl.textContent = "Select a number first.";
+        return;
+    }
+
+    const correctValue = solution[r][c];
+
+    if (pencilMode) {
+        // Pencil mark: just show the candidate, no validation
+        cell.classList.add("pencil");
+        cell.style.opacity = 0.7;
         cell.textContent = selectedNumber;
+        return;
+    }
 
-        // Track placement
-        const num = selectedNumber;
-        if (!placements[num].includes(i)) {
-            placements[num].push(i);
-        }
+    // Ink mode: validate against solution
+    if (selectedNumber !== correctValue) {
+        flashWrong(cell);
+        statusEl.textContent = "That number is incorrect for this cell.";
+        return;
+    }
 
-        // If nine placements reached, highlight
-        if (placements[num].length === 9) {
-            highlightCompleted(num);
-        }
-    });
+    // Correct placement
+    const previousText = cell.textContent;
+    const wasCorrect = previousText && parseInt(previousText, 10) === correctValue;
 
-    board.appendChild(cell);
+    cell.classList.remove("pencil", "wrong");
+    cell.style.opacity = 1;
+    cell.textContent = correctValue;
+
+    const index = r * 9 + c;
+
+    if (!placements[correctValue].includes(index)) {
+        placements[correctValue].push(index);
+    }
+
+    if (!wasCorrect) {
+        correctCount++;
+    }
+
+    statusEl.textContent = "Nice. Correct move.";
+
+    // If nine placements reached for this digit, highlight
+    if (placements[correctValue].length === 9) {
+        highlightCompleted(correctValue);
+    }
+
+    // Check win
+    if (correctCount === 81) {
+        onWin();
+    }
+}
+
+/* -----------------------------
+   WRONG FLASH
+------------------------------*/
+function flashWrong(cell) {
+    cell.classList.add("wrong");
+    setTimeout(() => {
+        cell.classList.remove("wrong");
+    }, 400);
 }
 
 /* -----------------------------
@@ -194,13 +387,10 @@ for (let i = 0; i < 81; i++) {
 function highlightCompleted(num) {
     const cells = placements[num].map(i => board.children[i]);
 
-    // Save previous background colors
     const previous = cells.map(c => c.style.backgroundColor);
 
-    // Apply highlight
     cells.forEach(c => c.classList.add("highlight-completed"));
 
-    // Remove after 1 second
     setTimeout(() => {
         cells.forEach((c, idx) => {
             c.classList.remove("highlight-completed");
@@ -208,6 +398,43 @@ function highlightCompleted(num) {
         });
     }, 1000);
 }
+
+/* -----------------------------
+   WIN HANDLER
+------------------------------*/
+function onWin() {
+    winMessage.textContent = "🎉 Puzzle complete! Great job.";
+    statusEl.textContent = "";
+}
+
+/* -----------------------------
+   CLEAR PENCIL MARKS
+------------------------------*/
+document.getElementById("clearNotesBtn").addEventListener("click", () => {
+    [...board.children].forEach(cell => {
+        const r = parseInt(cell.dataset.row, 10);
+        const c = parseInt(cell.dataset.col, 10);
+        if (givenMask[r][c]) return;
+        if (cell.classList.contains("pencil")) {
+            cell.classList.remove("pencil");
+            cell.textContent = "";
+            cell.style.opacity = 1;
+        }
+    });
+});
+
+/* -----------------------------
+   NEW GAME / LOAD PUZZLE
+------------------------------*/
+document.getElementById("newGameBtn").addEventListener("click", () => {
+    buildBoard();
+});
+
+/* -----------------------------
+   INITIALIZE
+------------------------------*/
+buildBoard();
+updateNumberTileStyles();
 </script>
 
 </body>
