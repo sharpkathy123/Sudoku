@@ -21,6 +21,55 @@
         font-weight: 600;
     }
 
+    /* Top bar: difficulty + new game */
+    .top-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .top-bar select,
+    .top-bar button {
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background: #fff;
+        font-size: 14px;
+    }
+
+    .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .controls button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background: #fff;
+        font-size: 14px;
+    }
+
+    /* Pencil Mode Toggle */
+    #pencilToggle {
+        margin-bottom: 15px;
+        cursor: pointer;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 2px solid #666;
+        background: #fff;
+        font-size: 14px;
+    }
+
+    #pencilToggle.active {
+        background: #ffe9b3;
+        border-color: #cc9900;
+    }
+
     /* Number Selection Tiles */
     .number-bar {
         display: flex;
@@ -60,38 +109,6 @@
 
     .number-tile:hover { background-color: #ddd; }
 
-    /* Pencil Mode Toggle */
-    #pencilToggle {
-        margin-bottom: 15px;
-        cursor: pointer;
-        padding: 6px 14px;
-        border-radius: 6px;
-        border: 2px solid #666;
-        background: #fff;
-        font-size: 14px;
-    }
-
-    #pencilToggle.active {
-        background: #ffe9b3;
-        border-color: #cc9900;
-    }
-
-    /* Controls */
-    .controls {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
-
-    .controls button {
-        cursor: pointer;
-        padding: 6px 12px;
-        border-radius: 6px;
-        border: 1px solid #666;
-        background: #fff;
-        font-size: 14px;
-    }
-
     /* Sudoku Board */
     .board {
         display: grid;
@@ -107,13 +124,14 @@
         height: 46px;
         background: white;
         border: 1px solid #ccc;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 22px;
-        transition: background-color 0.2s, color 0.2s;
-        user-select: none;
+        position: relative;
         cursor: pointer;
+        user-select: none;
+    }
+
+    .cell-inner {
+        width: 100%;
+        height: 100%;
         position: relative;
     }
 
@@ -125,10 +143,6 @@
 
     .cell.wrong { background-color: #ffb3b3; }
 
-    .cell.highlight-completed {
-        background-color: #8cff8c !important;
-    }
-
     .cell.selected {
         outline: 3px solid #4a90e2;
         z-index: 2;
@@ -138,15 +152,54 @@
         background-color: #fff3b0 !important;
     }
 
+    /* Pencil digits (floating 3x3 layout, no visible grid) */
+    .pencil-container {
+        position: absolute;
+        inset: 2px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        font-size: 9px;
+        color: #666;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .pencil-digit {
+        justify-self: center;
+        align-self: center;
+        visibility: hidden;
+    }
+
+    .pencil-digit.active {
+        visibility: visible;
+    }
+
+    /* Main value */
+    .cell-value {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+        z-index: 2;
+    }
+
+    /* Neon Glow Animation */
+    @keyframes neonGlow {
+        0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+        50%  { box-shadow: 0 0 12px 6px rgba(0,150,255,0.7); }
+        100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+    }
+
+    .glow {
+        animation: neonGlow 1s ease-out;
+    }
+
     /* Box borders */
     .cell.box-right { border-right: 2px solid #000; }
     .cell.box-bottom { border-bottom: 2px solid #000; }
-
-    /* Pencil marks */
-    .cell.pencil {
-        font-size: 14px;
-        opacity: 0.7;
-    }
 
     /* Win overlay */
     #winMessage {
@@ -162,8 +215,18 @@
 <h2>Sudoku Game</h2>
 <div id="status"></div>
 
+<div class="top-bar">
+    <label for="difficulty">Difficulty:</label>
+    <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+        <option value="expert">Expert</option>
+    </select>
+    <button id="newGameBtn">New Random Puzzle</button>
+</div>
+
 <div class="controls">
-    <button id="newGameBtn">Load Puzzle</button>
     <button id="clearNotesBtn">Clear Pencil Marks</button>
 </div>
 
@@ -177,39 +240,11 @@
 
 <script>
 /* -----------------------------
-   PUZZLE & SOLUTION
+   GLOBAL STATE
 ------------------------------*/
-const puzzle = [
-    [5,3,0, 0,7,0, 0,0,0],
-    [6,0,0, 1,9,5, 0,0,0],
-    [0,9,8, 0,0,0, 0,6,0],
+let puzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
+let solution = Array.from({ length: 9 }, () => Array(9).fill(0));
 
-    [8,0,0, 0,6,0, 0,0,3],
-    [4,0,0, 8,0,3, 0,0,1],
-    [7,0,0, 0,2,0, 0,0,6],
-
-    [0,6,0, 0,0,0, 2,8,0],
-    [0,0,0, 4,1,9, 0,0,5],
-    [0,0,0, 0,8,0, 0,7,9]
-];
-
-const solution = [
-    [5,3,4, 6,7,8, 9,1,2],
-    [6,7,2, 1,9,5, 3,4,8],
-    [1,9,8, 3,4,2, 5,6,7],
-
-    [8,5,9, 7,6,1, 4,2,3],
-    [4,2,6, 8,5,3, 7,9,1],
-    [7,1,3, 9,2,4, 8,5,6],
-
-    [9,6,1, 5,3,7, 2,8,4],
-    [2,8,7, 4,1,9, 6,3,5],
-    [3,4,5, 2,8,6, 1,7,9]
-];
-
-/* -----------------------------
-   STATE
-------------------------------*/
 let pencilMode = false;
 let selectedCell = null;
 let selectedNumber = null;
@@ -220,6 +255,152 @@ const board = document.getElementById("board");
 const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
 const winMessage = document.getElementById("winMessage");
+const difficultySelect = document.getElementById("difficulty");
+
+/* -----------------------------
+   UTILS
+------------------------------*/
+function deepCopyGrid(grid) {
+    return grid.map(row => row.slice());
+}
+
+/* -----------------------------
+   SOLVER (BACKTRACKING + COUNT)
+------------------------------*/
+function findEmpty(grid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (grid[r][c] === 0) return [r, c];
+        }
+    }
+    return null;
+}
+
+function isSafe(grid, r, c, n) {
+    for (let i = 0; i < 9; i++) {
+        if (grid[r][i] === n) return false;
+        if (grid[i][c] === n) return false;
+    }
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for (let rr = br; rr < br + 3; rr++) {
+        for (let cc = bc; cc < bc + 3; cc++) {
+            if (grid[rr][cc] === n) return false;
+        }
+    }
+    return true;
+}
+
+function solveGrid(grid) {
+    const pos = findEmpty(grid);
+    if (!pos) return true;
+    const [r, c] = pos;
+
+    const nums = [1,2,3,4,5,6,7,8,9];
+    for (let i = nums.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [nums[i], nums[j]] = [nums[j], nums[i]];
+    }
+
+    for (const n of nums) {
+        if (isSafe(grid, r, c, n)) {
+            grid[r][c] = n;
+            if (solveGrid(grid)) return true;
+            grid[r][c] = 0;
+        }
+    }
+    return false;
+}
+
+function countSolutions(grid, limit = 2) {
+    let count = 0;
+
+    function backtrack() {
+        if (count >= limit) return;
+        const pos = findEmpty(grid);
+        if (!pos) {
+            count++;
+            return;
+        }
+        const [r, c] = pos;
+        for (let n = 1; n <= 9; n++) {
+            if (isSafe(grid, r, c, n)) {
+                grid[r][c] = n;
+                backtrack();
+                grid[r][c] = 0;
+                if (count >= limit) return;
+            }
+        }
+    }
+
+    backtrack();
+    return count;
+}
+
+/* -----------------------------
+   GENERATOR
+------------------------------*/
+function generateFullSolution() {
+    const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    solveGrid(grid);
+    return grid;
+}
+
+function generatePuzzleFromSolution(fullSolution, difficulty) {
+    const grid = deepCopyGrid(fullSolution);
+
+    let cluesTarget;
+    if (difficulty === "easy") cluesTarget = 40;
+    else if (difficulty === "medium") cluesTarget = 32;
+    else if (difficulty === "hard") cluesTarget = 26;
+    else cluesTarget = 22; // expert
+
+    const positions = [];
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            positions.push([r, c]);
+        }
+    }
+    for (let i = positions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+
+    let cluesCount = 81;
+    for (const [r, c] of positions) {
+        if (cluesCount <= cluesTarget) break;
+        const backup = grid[r][c];
+        grid[r][c] = 0;
+
+        const testGrid = deepCopyGrid(grid);
+        const solCount = countSolutions(testGrid, 2);
+        if (solCount !== 1) {
+            grid[r][c] = backup;
+        } else {
+            cluesCount--;
+        }
+    }
+
+    return grid;
+}
+
+function generateNewPuzzle() {
+    statusEl.textContent = "Generating puzzle...";
+    winMessage.textContent = "";
+    selectedCell = null;
+    selectedNumber = null;
+
+    const full = generateFullSolution();
+    const diff = difficultySelect.value;
+    const puzz = generatePuzzleFromSolution(full, diff);
+
+    solution = full;
+    puzzle = puzz;
+
+    buildBoard();
+    updateNumberTileStyles();
+    statusEl.textContent = `Puzzle loaded (${diff}). Select a cell, then choose a number.`;
+}
 
 /* -----------------------------
    BUILD NUMBER BAR
@@ -248,9 +429,7 @@ for (let n = 1; n <= 9; n++) {
         const correctValue = solution[r][c];
 
         if (pencilMode) {
-            selectedCell.classList.add("pencil");
-            selectedCell.style.opacity = 0.7;
-            selectedCell.textContent = n;
+            togglePencilMark(selectedCell, n);
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
@@ -265,12 +444,12 @@ for (let n = 1; n <= 9; n++) {
             return;
         }
 
-        const previousText = selectedCell.textContent;
+        const valueSpan = selectedCell.querySelector(".cell-value");
+        const previousText = valueSpan.textContent;
         const wasCorrect = previousText && parseInt(previousText, 10) === correctValue;
 
-        selectedCell.classList.remove("pencil", "wrong");
-        selectedCell.style.opacity = 1;
-        selectedCell.textContent = correctValue;
+        clearAllPencilsInCell(selectedCell);
+        valueSpan.textContent = correctValue;
 
         const index = r * 9 + c;
         if (!placements[correctValue].includes(index)) {
@@ -278,8 +457,14 @@ for (let n = 1; n <= 9; n++) {
             if (!wasCorrect) correctCount++;
         }
 
+        autoRemovePencilMarks(r, c, correctValue);
+
+        checkRowCompletion(r);
+        checkColumnCompletion(c);
+        checkBlockCompletion(r, c);
+
         if (placements[correctValue].length === 9) {
-            highlightCompleted(correctValue);
+            glowCells(placements[correctValue]);
         }
 
         if (correctCount === 81) {
@@ -305,7 +490,8 @@ function updateNumberTileStyles() {
 /* -----------------------------
    PENCIL MODE TOGGLE
 ------------------------------*/
-document.getElementById("pencilToggle").addEventListener("click", () => {
+const pencilToggle = document.getElementById("pencilToggle");
+pencilToggle.addEventListener("click", () => {
     pencilMode = !pencilMode;
     pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
     pencilToggle.classList.toggle("active", pencilMode);
@@ -313,7 +499,7 @@ document.getElementById("pencilToggle").addEventListener("click", () => {
 });
 
 /* -----------------------------
-   BUILD BOARD
+   BOARD BUILDING
 ------------------------------*/
 function buildBoard() {
     board.innerHTML = "";
@@ -331,9 +517,31 @@ function buildBoard() {
             if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add("box-right");
             if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add("box-bottom");
 
+            const inner = document.createElement("div");
+            inner.className = "cell-inner";
+
+            const pencilContainer = document.createElement("div");
+            pencilContainer.className = "pencil-container";
+
+            const pencilDigits = {};
+            for (let n = 1; n <= 9; n++) {
+                const span = document.createElement("div");
+                span.className = "pencil-digit";
+                span.textContent = n;
+                pencilContainer.appendChild(span);
+                pencilDigits[n] = span;
+            }
+
+            const valueSpan = document.createElement("div");
+            valueSpan.className = "cell-value";
+
+            inner.appendChild(pencilContainer);
+            inner.appendChild(valueSpan);
+            cell.appendChild(inner);
+
             const val = puzzle[r][c];
             if (val !== 0) {
-                cell.textContent = val;
+                valueSpan.textContent = val;
                 cell.classList.add("given");
                 givenMask[r][c] = true;
                 correctCount++;
@@ -344,6 +552,7 @@ function buildBoard() {
 
             cell.dataset.row = r;
             cell.dataset.col = c;
+            cell._pencilDigits = pencilDigits;
 
             cell.addEventListener("click", () => onCellClick(cell));
 
@@ -351,12 +560,11 @@ function buildBoard() {
         }
     }
 
-    statusEl.textContent = "Puzzle loaded. Select a cell, then choose a number.";
     winMessage.textContent = "";
 }
 
 /* -----------------------------
-   CELL CLICK HANDLER
+   CELL CLICK
 ------------------------------*/
 function onCellClick(cell) {
     const r = parseInt(cell.dataset.row, 10);
@@ -368,7 +576,8 @@ function onCellClick(cell) {
     selectedCell = cell;
     cell.classList.add("selected");
 
-    const val = cell.textContent.trim();
+    const valueSpan = cell.querySelector(".cell-value");
+    const val = valueSpan.textContent.trim();
     if (val && !isNaN(val)) {
         highlightSameNumbers(parseInt(val, 10));
     }
@@ -377,13 +586,61 @@ function onCellClick(cell) {
 }
 
 /* -----------------------------
-   HIGHLIGHT ALL MATCHING NUMBERS
+   PENCIL MARKS
+------------------------------*/
+function togglePencilMark(cell, num) {
+    const digits = cell._pencilDigits;
+    const span = digits[num];
+    if (!span) return;
+
+    if (span.classList.contains("active")) {
+        span.classList.remove("active");
+    } else {
+        span.classList.add("active");
+    }
+}
+
+function clearAllPencilsInCell(cell) {
+    const digits = cell._pencilDigits;
+    for (let n = 1; n <= 9; n++) {
+        digits[n].classList.remove("active");
+    }
+}
+
+function autoRemovePencilMarks(r, c, num) {
+    for (let cc = 0; cc < 9; cc++) {
+        if (cc === c) continue;
+        const cell = board.children[r * 9 + cc];
+        const digits = cell._pencilDigits;
+        if (digits && digits[num]) digits[num].classList.remove("active");
+    }
+    for (let rr = 0; rr < 9; rr++) {
+        if (rr === r) continue;
+        const cell = board.children[rr * 9 + c];
+        const digits = cell._pencilDigits;
+        if (digits && digits[num]) digits[num].classList.remove("active");
+    }
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for (let rr = br; rr < br + 3; rr++) {
+        for (let cc = bc; cc < bc + 3; cc++) {
+            if (rr === r && cc === c) continue;
+            const cell = board.children[rr * 9 + cc];
+            const digits = cell._pencilDigits;
+            if (digits && digits[num]) digits[num].classList.remove("active");
+        }
+    }
+}
+
+/* -----------------------------
+   HIGHLIGHT MATCHING NUMBERS
 ------------------------------*/
 function highlightSameNumbers(num) {
     clearNumberHighlights();
 
     [...board.children].forEach(cell => {
-        const val = cell.textContent.trim();
+        const valueSpan = cell.querySelector(".cell-value");
+        const val = valueSpan.textContent.trim();
         if (val && parseInt(val, 10) === num) {
             cell.classList.add("highlight-number");
         }
@@ -405,20 +662,56 @@ function flashWrong(cell) {
 }
 
 /* -----------------------------
-   HIGHLIGHT COMPLETED NUMBER
+   GLOW EFFECT
 ------------------------------*/
-function highlightCompleted(num) {
-    const cells = placements[num].map(i => board.children[i]);
-    const previous = cells.map(c => c.style.backgroundColor);
+function glowCells(indices) {
+    indices.forEach(i => {
+        const cell = board.children[i];
+        cell.classList.add("glow");
+        setTimeout(() => cell.classList.remove("glow"), 1000);
+    });
+}
 
-    cells.forEach(c => c.classList.add("highlight-completed"));
+/* -----------------------------
+   ROW / COLUMN / BLOCK COMPLETION
+------------------------------*/
+function checkRowCompletion(r) {
+    const indices = [];
+    for (let c = 0; c < 9; c++) {
+        const cell = board.children[r * 9 + c];
+        const valueSpan = cell.querySelector(".cell-value");
+        if (parseInt(valueSpan.textContent, 10) !== solution[r][c]) return;
+        indices.push(r * 9 + c);
+    }
+    glowCells(indices);
+}
 
-    setTimeout(() => {
-        cells.forEach((c, idx) => {
-            c.classList.remove("highlight-completed");
-            c.style.backgroundColor = previous[idx];
-        });
-    }, 1000);
+function checkColumnCompletion(c) {
+    const indices = [];
+    for (let r = 0; r < 9; r++) {
+        const cell = board.children[r * 9 + c];
+        const valueSpan = cell.querySelector(".cell-value");
+        if (parseInt(valueSpan.textContent, 10) !== solution[r][c]) return;
+        indices.push(r * 9 + c);
+    }
+    glowCells(indices);
+}
+
+function checkBlockCompletion(r, c) {
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    const indices = [];
+
+    for (let rr = br; rr < br + 3; rr++) {
+        for (let cc = bc; cc < bc + 3; cc++) {
+            const cell = board.children[rr * 9 + cc];
+            const valueSpan = cell.querySelector(".cell-value");
+            if (parseInt(valueSpan.textContent, 10) !== solution[rr][cc]) return;
+            indices.push(rr * 9 + cc);
+        }
+    }
+
+    glowCells(indices);
 }
 
 /* -----------------------------
@@ -430,31 +723,26 @@ function onWin() {
 }
 
 /* -----------------------------
-   CLEAR PENCIL MARKS
+   CLEAR PENCIL MARKS BUTTON
 ------------------------------*/
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
     [...board.children].forEach(cell => {
         const r = parseInt(cell.dataset.row, 10);
         const c = parseInt(cell.dataset.col, 10);
         if (givenMask[r][c]) return;
-        if (cell.classList.contains("pencil")) {
-            cell.classList.remove("pencil");
-            cell.textContent = "";
-            cell.style.opacity = 1;
-        }
+        clearAllPencilsInCell(cell);
     });
 });
 
 /* -----------------------------
-   NEW GAME / LOAD PUZZLE
+   NEW GAME BUTTON
 ------------------------------*/
-document.getElementById("newGameBtn").addEventListener("click", buildBoard);
+document.getElementById("newGameBtn").addEventListener("click", generateNewPuzzle);
 
 /* -----------------------------
    INITIALIZE
 ------------------------------*/
-buildBoard();
-updateNumberTileStyles();
+generateNewPuzzle();
 </script>
 
 </body>
