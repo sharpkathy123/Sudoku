@@ -125,10 +125,6 @@
 
     .cell.wrong { background-color: #ffb3b3; }
 
-    .cell.highlight-completed {
-        background-color: #8cff8c !important;
-    }
-
     .cell.selected {
         outline: 3px solid #4a90e2;
         z-index: 2;
@@ -136,6 +132,17 @@
 
     .cell.highlight-number {
         background-color: #fff3b0 !important;
+    }
+
+    /* Neon Glow Animation */
+    @keyframes neonGlow {
+        0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+        50%  { box-shadow: 0 0 12px 6px rgba(0,150,255,0.7); }
+        100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+    }
+
+    .glow {
+        animation: neonGlow 1s ease-out;
     }
 
     /* Box borders */
@@ -278,8 +285,12 @@ for (let n = 1; n <= 9; n++) {
             if (!wasCorrect) correctCount++;
         }
 
+        checkRowCompletion(r);
+        checkColumnCompletion(c);
+        checkBlockCompletion(r, c);
+
         if (placements[correctValue].length === 9) {
-            highlightCompleted(correctValue);
+            glowCells(placements[correctValue]);
         }
 
         if (correctCount === 81) {
@@ -405,20 +416,53 @@ function flashWrong(cell) {
 }
 
 /* -----------------------------
-   HIGHLIGHT COMPLETED NUMBER
+   GLOW EFFECT
 ------------------------------*/
-function highlightCompleted(num) {
-    const cells = placements[num].map(i => board.children[i]);
-    const previous = cells.map(c => c.style.backgroundColor);
+function glowCells(indices) {
+    indices.forEach(i => {
+        const cell = board.children[i];
+        cell.classList.add("glow");
+        setTimeout(() => cell.classList.remove("glow"), 1000);
+    });
+}
 
-    cells.forEach(c => c.classList.add("highlight-completed"));
+/* -----------------------------
+   ROW / COLUMN / BLOCK COMPLETION
+------------------------------*/
+function checkRowCompletion(r) {
+    const indices = [];
+    for (let c = 0; c < 9; c++) {
+        const cell = board.children[r * 9 + c];
+        if (cell.textContent != solution[r][c]) return;
+        indices.push(r * 9 + c);
+    }
+    glowCells(indices);
+}
 
-    setTimeout(() => {
-        cells.forEach((c, idx) => {
-            c.classList.remove("highlight-completed");
-            c.style.backgroundColor = previous[idx];
-        });
-    }, 1000);
+function checkColumnCompletion(c) {
+    const indices = [];
+    for (let r = 0; r < 9; r++) {
+        const cell = board.children[r * 9 + c];
+        if (cell.textContent != solution[r][c]) return;
+        indices.push(r * 9 + c);
+    }
+    glowCells(indices);
+}
+
+function checkBlockCompletion(r, c) {
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    const indices = [];
+
+    for (let rr = br; rr < br + 3; rr++) {
+        for (let cc = bc; cc < bc + 3; cc++) {
+            const cell = board.children[rr * 9 + cc];
+            if (cell.textContent != solution[rr][cc]) return;
+            indices.push(rr * 9 + cc);
+        }
+    }
+
+    glowCells(indices);
 }
 
 /* -----------------------------
