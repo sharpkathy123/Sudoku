@@ -117,6 +117,7 @@
         gap: 2px;
         background: #000;
         padding: 3px;
+        position: relative;
     }
 
     .cell {
@@ -198,6 +199,18 @@
         animation: neonGlow 3s ease-out;
     }
 
+    /* Board win glow */
+    @keyframes boardWinGlow {
+        0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+        30%  { box-shadow: 0 0 20px 10px rgba(0,255,150,0.8); }
+        70%  { box-shadow: 0 0 20px 10px rgba(255,200,0,0.8); }
+        100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+    }
+
+    .board-win {
+        animation: boardWinGlow 3s ease-out;
+    }
+
     /* Box borders */
     .cell.box-right { border-right: 2px solid #000; }
     .cell.box-bottom { border-bottom: 2px solid #000; }
@@ -208,6 +221,50 @@
         font-size: 18px;
         font-weight: 700;
         color: #007700;
+        min-height: 24px;
+    }
+
+    #winOverlay {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 80px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.4s ease-out;
+    }
+
+    #winOverlay.visible {
+        opacity: 1;
+    }
+
+    .win-banner {
+        background: rgba(0,0,0,0.8);
+        color: #fff;
+        padding: 16px 28px;
+        border-radius: 999px;
+        font-size: 22px;
+        font-weight: 700;
+        box-shadow: 0 0 18px rgba(0,0,0,0.6);
+        transform: scale(0.7);
+        animation: bannerPop 0.6s ease-out forwards;
+    }
+
+    @keyframes bannerPop {
+        0%   { transform: scale(0.7) translateY(-20px); opacity: 0; }
+        60%  { transform: scale(1.1) translateY(0); opacity: 1; }
+        100% { transform: scale(1.0) translateY(0); opacity: 1; }
+    }
+
+    /* Confetti canvas */
+    #confettiCanvas {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 999;
     }
 </style>
 </head>
@@ -237,6 +294,11 @@
 
 <div class="board" id="board"></div>
 
+<canvas id="confettiCanvas"></canvas>
+<div id="winOverlay">
+    <div class="win-banner">Puzzle Complete! 🎉</div>
+</div>
+
 <div id="winMessage"></div>
 
 <script>
@@ -257,10 +319,17 @@ const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
 const winMessage = document.getElementById("winMessage");
 const difficultySelect = document.getElementById("difficulty");
+const winOverlay = document.getElementById("winOverlay");
+const confettiCanvas = document.getElementById("confettiCanvas");
+const ctx = confettiCanvas.getContext("2d");
 
 /* Glow queue for sequential highlighting */
 let glowQueue = [];
 let glowActive = false;
+
+/* Confetti state */
+let confettiPieces = [];
+let confettiRunning = false;
 
 /* -----------------------------
    UTILS
@@ -392,6 +461,10 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
 function generateNewPuzzle() {
     statusEl.textContent = "Generating puzzle...";
     winMessage.textContent = "";
+    winOverlay.classList.remove("visible");
+    board.classList.remove("board-win");
+    stopConfetti();
+
     selectedCell = null;
     selectedNumber = null;
 
@@ -404,7 +477,12 @@ function generateNewPuzzle() {
 
     buildBoard();
     updateNumberTileStyles();
-    statusEl.textContent = `Puzzle loaded (${diff}). Select a cell, then choose a number.`;
+    statusEl.textContent = `Puzzle loaded (${diff}).`;
+    setTimeout(() => {
+        if (statusEl.textContent.startsWith("Puzzle loaded")) {
+            statusEl.textContent = "";
+        }
+    }, 2000);
 }
 
 /* -----------------------------
@@ -444,6 +522,11 @@ for (let n = 1; n <= 9; n++) {
     tile.addEventListener("click", () => {
         if (!selectedCell) {
             statusEl.textContent = "Select a cell first.";
+            setTimeout(() => {
+                if (statusEl.textContent === "Select a cell first.") {
+                    statusEl.textContent = "";
+                }
+            }, 1500);
             selectedNumber = n;
             updateNumberTileStyles();
             return;
@@ -454,6 +537,11 @@ for (let n = 1; n <= 9; n++) {
 
         if (givenMask[r][c]) {
             statusEl.textContent = "You can't change a given cell.";
+            setTimeout(() => {
+                if (statusEl.textContent === "You can't change a given cell.") {
+                    statusEl.textContent = "";
+                }
+            }, 1500);
             return;
         }
 
@@ -627,8 +715,6 @@ function onCellClick(cell) {
     if (val && !isNaN(val)) {
         highlightSameNumbers(parseInt(val, 10));
     }
-
-    statusEl.textContent = "Now choose a number.";
 }
 
 /* -----------------------------
@@ -749,10 +835,84 @@ function getBlockIndicesIfComplete(r, c) {
 }
 
 /* -----------------------------
+   CONFETTI
+------------------------------*/
+function resizeConfettiCanvas() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeConfettiCanvas);
+resizeConfettiCanvas();
+
+function startConfetti() {
+    confettiPieces = [];
+    const colors = ["#ff4b5c", "#ffb400", "#3ae374", "#17c0eb", "#9b59b6"];
+
+    for (let i = 0; i < 200; i++) {
+        confettiPieces.push({
+            x: Math.random() * confettiCanvas.width,
+            y: Math.random() * -confettiCanvas.height,
+            w: 6 + Math.random() * 4,
+            h: 8 + Math.random() * 6,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            speedY: 2 + Math.random() * 4,
+            speedX: -1 + Math.random() * 2,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: -0.1 + Math.random() * 0.2
+        });
+    }
+
+    confettiRunning = true;
+    requestAnimationFrame(confettiLoop);
+
+    setTimeout(stopConfetti, 4000);
+}
+
+function confettiLoop() {
+    if (!confettiRunning) return;
+
+    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+    confettiPieces.forEach(p => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+        p.rotation += p.rotationSpeed;
+
+        if (p.y > confettiCanvas.height + 20) {
+            p.y = -20;
+            p.x = Math.random() * confettiCanvas.width;
+        }
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+    });
+
+    requestAnimationFrame(confettiLoop);
+}
+
+function stopConfetti() {
+    confettiRunning = false;
+    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+}
+
+/* -----------------------------
    WIN HANDLER
 ------------------------------*/
 function onWin() {
-    winMessage.textContent = "🎉 Puzzle complete! Great job.";
+    winMessage.textContent = "Puzzle complete! Great job.";
+    board.classList.add("board-win");
+    winOverlay.classList.add("visible");
+    startConfetti();
+
+    setTimeout(() => {
+        winOverlay.classList.remove("visible");
+        board.classList.remove("board-win");
+    }, 4500);
+
     statusEl.textContent = "";
 }
 
