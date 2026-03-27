@@ -186,15 +186,16 @@
         z-index: 2;
     }
 
-    /* Neon Glow Animation */
+    /* Neon Glow Animation (longer) */
     @keyframes neonGlow {
         0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
-        50%  { box-shadow: 0 0 12px 6px rgba(0,150,255,0.7); }
+        30%  { box-shadow: 0 0 16px 10px rgba(0,150,255,0.8); }
+        70%  { box-shadow: 0 0 16px 10px rgba(0,150,255,0.8); }
         100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
     }
 
     .glow {
-        animation: neonGlow 1s ease-out;
+        animation: neonGlow 3s ease-out;
     }
 
     /* Box borders */
@@ -256,6 +257,10 @@ const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
 const winMessage = document.getElementById("winMessage");
 const difficultySelect = document.getElementById("difficulty");
+
+/* Glow queue for sequential highlighting */
+let glowQueue = [];
+let glowActive = false;
 
 /* -----------------------------
    UTILS
@@ -403,6 +408,32 @@ function generateNewPuzzle() {
 }
 
 /* -----------------------------
+   GLOW QUEUE (SEQUENTIAL)
+------------------------------*/
+function queueGlow(indices) {
+    glowQueue.push(indices);
+    if (!glowActive) runGlowQueue();
+}
+
+function runGlowQueue() {
+    if (glowQueue.length === 0) {
+        glowActive = false;
+        return;
+    }
+
+    glowActive = true;
+    const indices = glowQueue.shift();
+
+    indices.forEach(i => {
+        const cell = board.children[i];
+        cell.classList.add("glow");
+        setTimeout(() => cell.classList.remove("glow"), 3000);
+    });
+
+    setTimeout(runGlowQueue, 3200);
+}
+
+/* -----------------------------
    BUILD NUMBER BAR
 ------------------------------*/
 for (let n = 1; n <= 9; n++) {
@@ -459,13 +490,28 @@ for (let n = 1; n <= 9; n++) {
 
         autoRemovePencilMarks(r, c, correctValue);
 
-        checkRowCompletion(r);
-        checkColumnCompletion(c);
-        checkBlockCompletion(r, c);
+        const completedUnits = [];
+
+        if (isRowComplete(r)) {
+            const rowIndices = [];
+            for (let cc = 0; cc < 9; cc++) rowIndices.push(r * 9 + cc);
+            completedUnits.push(rowIndices);
+        }
+
+        if (isColumnComplete(c)) {
+            const colIndices = [];
+            for (let rr = 0; rr < 9; rr++) colIndices.push(rr * 9 + c);
+            completedUnits.push(colIndices);
+        }
+
+        const blockInfo = getBlockIndicesIfComplete(r, c);
+        if (blockInfo) completedUnits.push(blockInfo);
 
         if (placements[correctValue].length === 9) {
-            glowCells(placements[correctValue]);
+            completedUnits.push([...placements[correctValue]]);
         }
+
+        completedUnits.forEach(indices => queueGlow(indices));
 
         if (correctCount === 81) {
             onWin();
@@ -641,7 +687,11 @@ function highlightSameNumbers(num) {
     [...board.children].forEach(cell => {
         const valueSpan = cell.querySelector(".cell-value");
         const val = valueSpan.textContent.trim();
-        if (val && parseInt(val, 10) === num) {
+
+        const pencilDigits = cell._pencilDigits;
+        const hasPencil = pencilDigits && pencilDigits[num] && pencilDigits[num].classList.contains("active");
+
+        if ((val && parseInt(val, 10) === num) || hasPencil) {
             cell.classList.add("highlight-number");
         }
     });
@@ -662,42 +712,27 @@ function flashWrong(cell) {
 }
 
 /* -----------------------------
-   GLOW EFFECT
+   COMPLETION CHECK HELPERS
 ------------------------------*/
-function glowCells(indices) {
-    indices.forEach(i => {
-        const cell = board.children[i];
-        cell.classList.add("glow");
-        setTimeout(() => cell.classList.remove("glow"), 1000);
-    });
-}
-
-/* -----------------------------
-   ROW / COLUMN / BLOCK COMPLETION
-------------------------------*/
-function checkRowCompletion(r) {
-    const indices = [];
+function isRowComplete(r) {
     for (let c = 0; c < 9; c++) {
         const cell = board.children[r * 9 + c];
         const valueSpan = cell.querySelector(".cell-value");
-        if (parseInt(valueSpan.textContent, 10) !== solution[r][c]) return;
-        indices.push(r * 9 + c);
+        if (parseInt(valueSpan.textContent, 10) !== solution[r][c]) return false;
     }
-    glowCells(indices);
+    return true;
 }
 
-function checkColumnCompletion(c) {
-    const indices = [];
+function isColumnComplete(c) {
     for (let r = 0; r < 9; r++) {
         const cell = board.children[r * 9 + c];
         const valueSpan = cell.querySelector(".cell-value");
-        if (parseInt(valueSpan.textContent, 10) !== solution[r][c]) return;
-        indices.push(r * 9 + c);
+        if (parseInt(valueSpan.textContent, 10) !== solution[r][c]) return false;
     }
-    glowCells(indices);
+    return true;
 }
 
-function checkBlockCompletion(r, c) {
+function getBlockIndicesIfComplete(r, c) {
     const br = Math.floor(r / 3) * 3;
     const bc = Math.floor(c / 3) * 3;
     const indices = [];
@@ -706,12 +741,11 @@ function checkBlockCompletion(r, c) {
         for (let cc = bc; cc < bc + 3; cc++) {
             const cell = board.children[rr * 9 + cc];
             const valueSpan = cell.querySelector(".cell-value");
-            if (parseInt(valueSpan.textContent, 10) !== solution[rr][cc]) return;
+            if (parseInt(valueSpan.textContent, 10) !== solution[rr][cc]) return null;
             indices.push(rr * 9 + cc);
         }
     }
-
-    glowCells(indices);
+    return indices;
 }
 
 /* -----------------------------
