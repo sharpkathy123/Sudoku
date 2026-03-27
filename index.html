@@ -13,9 +13,7 @@
         background: #f5f5f5;
     }
 
-    h2 {
-        margin-bottom: 5px;
-    }
+    h2 { margin-bottom: 5px; }
 
     #status {
         margin-bottom: 15px;
@@ -60,9 +58,7 @@
         background-color: #d9ecff;
     }
 
-    .number-tile:hover {
-        background-color: #ddd;
-    }
+    .number-tile:hover { background-color: #ddd; }
 
     /* Pencil Mode Toggle */
     #pencilToggle {
@@ -127,9 +123,7 @@
         cursor: default;
     }
 
-    .cell.wrong {
-        background-color: #ffb3b3;
-    }
+    .cell.wrong { background-color: #ffb3b3; }
 
     .cell.highlight-completed {
         background-color: #8cff8c !important;
@@ -140,13 +134,13 @@
         z-index: 2;
     }
 
+    .cell.highlight-number {
+        background-color: #fff3b0 !important;
+    }
+
     /* Box borders */
-    .cell.box-right {
-        border-right: 2px solid #000;
-    }
-    .cell.box-bottom {
-        border-bottom: 2px solid #000;
-    }
+    .cell.box-right { border-right: 2px solid #000; }
+    .cell.box-bottom { border-bottom: 2px solid #000; }
 
     /* Pencil marks */
     .cell.pencil {
@@ -257,17 +251,17 @@ for (let n = 1; n <= 9; n++) {
             selectedCell.classList.add("pencil");
             selectedCell.style.opacity = 0.7;
             selectedCell.textContent = n;
-            statusEl.textContent = "Pencil mark added.";
             selectedNumber = n;
             updateNumberTileStyles();
+            highlightSameNumbers(n);
             return;
         }
 
         if (n !== correctValue) {
             flashWrong(selectedCell);
-            statusEl.textContent = "Incorrect number.";
             selectedNumber = n;
             updateNumberTileStyles();
+            highlightSameNumbers(n);
             return;
         }
 
@@ -284,8 +278,6 @@ for (let n = 1; n <= 9; n++) {
             if (!wasCorrect) correctCount++;
         }
 
-        statusEl.textContent = "Correct.";
-
         if (placements[correctValue].length === 9) {
             highlightCompleted(correctValue);
         }
@@ -296,6 +288,7 @@ for (let n = 1; n <= 9; n++) {
 
         selectedNumber = n;
         updateNumberTileStyles();
+        highlightSameNumbers(n);
     });
 
     numberBar.appendChild(tile);
@@ -369,14 +362,38 @@ function onCellClick(cell) {
     const r = parseInt(cell.dataset.row, 10);
     const c = parseInt(cell.dataset.col, 10);
 
-    if (givenMask[r][c]) return;
-
     if (selectedCell) selectedCell.classList.remove("selected");
+    clearNumberHighlights();
 
     selectedCell = cell;
     cell.classList.add("selected");
 
+    const val = cell.textContent.trim();
+    if (val && !isNaN(val)) {
+        highlightSameNumbers(parseInt(val, 10));
+    }
+
     statusEl.textContent = "Now choose a number.";
+}
+
+/* -----------------------------
+   HIGHLIGHT ALL MATCHING NUMBERS
+------------------------------*/
+function highlightSameNumbers(num) {
+    clearNumberHighlights();
+
+    [...board.children].forEach(cell => {
+        const val = cell.textContent.trim();
+        if (val && parseInt(val, 10) === num) {
+            cell.classList.add("highlight-number");
+        }
+    });
+}
+
+function clearNumberHighlights() {
+    [...board.children].forEach(cell => {
+        cell.classList.remove("highlight-number");
+    });
 }
 
 /* -----------------------------
