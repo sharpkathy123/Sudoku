@@ -395,6 +395,11 @@ function runGlowQueue() {
     setTimeout(runGlowQueue, 2200);
 }
 
+function glowAllCells() {
+    const all = [...board.children].map((_, i) => i);
+    queueGlow(all);
+}
+
 /* -----------------------------------------
    NUMBER BAR
 ----------------------------------------- */
@@ -889,7 +894,7 @@ function startConfetti() {
     confettiPieces = [];
     const colors = ["#ff4b5c", "#ffb400", "#3ae374", "#17c0eb", "#9b59b6"];
 
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 300; i++) {   // increased from 200
         confettiPieces.push({
             x: Math.random() * confettiCanvas.width,
             y: Math.random() * -confettiCanvas.height,
@@ -905,7 +910,9 @@ function startConfetti() {
 
     confettiRunning = true;
     requestAnimationFrame(confettiLoop);
-    setTimeout(stopConfetti, 4000);
+
+    // Confetti lasts 10 seconds instead of 4
+    setTimeout(stopConfetti, 10000);
 }
 
 function confettiLoop() {
@@ -948,6 +955,9 @@ function lockBoard() {
 function onWin() {
     if (gameWon) return;
     gameWon = true;
+
+    // Make every cell glow
+    glowAllCells();
 
     board.classList.add("board-win");
     winOverlay.classList.add("visible");
