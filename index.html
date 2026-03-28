@@ -652,7 +652,8 @@ function autoFillAllPencils() {
 
             // Skip cells that already have an inked number
             if (currentVal !== 0) {
-                clearAllPencilsInCell(cell); // optional: keep or remove
+                // Optional: clear pencils in inked cells
+                clearAllPencilsInCell(cell);
                 continue;
             }
 
