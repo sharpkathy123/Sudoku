@@ -3,300 +3,353 @@
 <head>
 <meta charset="UTF-8" />
 <title>Sudoku Game</title>
+
 <style>
-    body {
-        font-family: sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-top: 20px;
-        background: #f5f5f5;
-    }
+/* ------------------------------
+   CLEAN MODERN THEME (Style A)
+------------------------------ */
 
-    h2 { margin-bottom: 5px; }
+:root {
+    --bg: #f2f4f7;
+    --panel: #ffffff;
+    --accent: #4a90e2;
+    --accent-soft: #d9ecff;
+    --border-strong: #222;
+    --border-light: #c9ced6;
+    --text-dark: #222;
+    --text-soft: #6b7280;
+    --highlight-cell: #fff7c2;
+    --pencil-highlight: #d17b00;
+}
 
-    #status {
-        margin-bottom: 15px;
-        min-height: 20px;
-        font-weight: 600;
-    }
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
 
-    .top-bar {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        margin-bottom: 10px;
-    }
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #ffffff 0, #eef2f7 45%, #e1e5ee 100%);
+    margin: 0;
+    padding: 32px 0 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-dark);
+}
 
-    .top-bar select,
-    .top-bar button {
-        cursor: pointer;
-        padding: 6px 10px;
-        border-radius: 6px;
-        border: 1px solid #666;
-        background: #fff;
-        font-size: 14px;
-    }
+h2 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+}
 
-    .controls {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
+#status {
+    margin-bottom: 16px;
+    min-height: 20px;
+    font-weight: 500;
+    color: var(--text-soft);
+}
 
-    .controls button {
-        cursor: pointer;
-        padding: 6px 12px;
-        border-radius: 6px;
-        border: 1px solid #666;
-        background: #fff;
-        font-size: 14px;
-    }
+/* Layout panels */
+.top-bar,
+.controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    align-items: center;
+}
 
-    #pencilToggle {
-        margin-bottom: 15px;
-        cursor: pointer;
-        padding: 6px 14px;
-        border-radius: 6px;
-        border: 2px solid #666;
-        background: #fff;
-        font-size: 14px;
-    }
+.panel-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--panel);
+    padding: 18px 20px 22px;
+    border-radius: 16px;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+}
 
-    #pencilToggle.active {
-        background: #ffe9b3;
-        border-color: #cc9900;
-    }
+/* Buttons / selects */
+.top-bar select,
+.top-bar button,
+.controls button,
+#pencilToggle {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-light);
+    background: #f9fafb;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-dark);
+    transition: background 0.18s, box-shadow 0.18s, transform 0.08s, border-color 0.18s;
+}
 
-    .number-bar {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
+.top-bar button:hover,
+.controls button:hover,
+#pencilToggle:hover {
+    background: #eef2ff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
 
-    .number-tile {
-        width: 40px;
-        height: 40px;
-        border-radius: 6px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 20px;
-        cursor: pointer;
-        transition: background-color 0.2s, border 0.2s, opacity 0.2s, transform 0.1s;
-        user-select: none;
-    }
+.top-bar button:active,
+.controls button:active,
+#pencilToggle:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+}
 
-    .number-tile.ink {
-        background-color: #eee;
-        border: 2px solid #aaa;
-    }
+#pencilToggle.active {
+    background: #fff3d1;
+    border-color: #e0b44c;
+}
 
-    .number-tile.pencil {
-        background-color: #fff;
-        border: 2px dashed #888;
-        opacity: 0.7;
-    }
+/* Number bar */
+.number-bar {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0 18px;
+}
 
-    .number-tile.selected {
-        transform: scale(1.05);
-        border-color: #0077cc;
-        background-color: #d9ecff;
-    }
+.number-tile {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.18s, border 0.18s, transform 0.08s, box-shadow 0.18s, opacity 0.18s;
+}
 
-    .number-tile:hover { background-color: #ddd; }
+.number-tile.ink {
+    background: #f3f4f6;
+    border: 2px solid #d1d5db;
+}
 
-    .board {
-        display: grid;
-        grid-template-columns: repeat(9, 46px);
-        grid-template-rows: repeat(9, 46px);
-        gap: 2px;
-        background: #000;
-        padding: 3px;
-        position: relative;
-    }
+.number-tile.pencil {
+    background: #ffffff;
+    border: 2px dashed #cbd5e1;
+    opacity: 0.8;
+}
 
-    .cell {
-        width: 46px;
-        height: 46px;
-        background: white;
-        border: 1px solid #ccc;
-        position: relative;
-        cursor: pointer;
-        user-select: none;
-    }
+.number-tile.selected {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+}
 
-    .cell.locked {
-        pointer-events: none;
-        opacity: 0.9;
-    }
+/* Board */
+.board {
+    display: grid;
+    grid-template-columns: repeat(9, 50px);
+    grid-template-rows: repeat(9, 50px);
+    gap: 1px;
+    background: var(--border-strong);
+    padding: 4px;
+    border-radius: 14px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+    margin-top: 6px;
+}
 
-    .cell-inner {
-        width: 100%;
-        height: 100%;
-        position: relative;
-    }
+.cell {
+    width: 50px;
+    height: 50px;
+    background: var(--panel);
+    border: 1px solid var(--border-light);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
 
-    .cell.given {
-        background: #e9ecf5;
-        font-weight: 700;
-        cursor: default;
-    }
+.cell.locked {
+    pointer-events: none;
+    opacity: 0.9;
+}
 
-    .cell.wrong { background-color: #ffb3b3; }
+.cell.given {
+    background: #eef2ff;
+    font-weight: 600;
+}
 
-    .cell.selected {
-        outline: 3px solid #4a90e2;
-        z-index: 2;
-    }
+.cell.selected {
+    outline: 3px solid var(--accent);
+    z-index: 2;
+}
 
-    .cell.highlight-number {
-        background-color: #fff3b0 !important;
-    }
+.cell.wrong {
+    background: #ffe0e0;
+}
 
-    .pencil-container {
-        position: absolute;
-        inset: 2px;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(3, 1fr);
-        font-size: 9px;
-        color: #666;
-        pointer-events: none;
-        z-index: 1;
-    }
+/* Stronger 3×3 borders */
+.cell.box-right {
+    border-right: 3px solid var(--border-strong);
+}
+.cell.box-bottom {
+    border-bottom: 3px solid var(--border-strong);
+}
 
-    .pencil-digit {
-        justify-self: center;
-        align-self: center;
-        visibility: hidden;
-    }
+/* Highlighting */
+.cell.highlight-number {
+    background: var(--highlight-cell) !important;
+}
 
-    .pencil-digit.active {
-        visibility: visible;
-    }
+/* Pencil digits */
+.pencil-container {
+    position: absolute;
+    inset: 3px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    font-size: 10px;
+    color: var(--text-soft);
+    pointer-events: none;
+}
 
-    .cell-value {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 22px;
-        z-index: 2;
-    }
+.pencil-digit {
+    justify-self: center;
+    align-self: center;
+    visibility: hidden;
+}
 
-    @keyframes neonGlow {
-        0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
-        25%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.8); }
-        75%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.8); }
-        100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
-    }
+.pencil-digit.active {
+    visibility: visible;
+}
 
-    .glow {
-        animation: neonGlow 2s ease-out;
-    }
+.highlight-number-pencil {
+    color: var(--pencil-highlight);
+    font-weight: 700;
+    text-shadow: 0 0 4px rgba(255, 180, 0, 0.8);
+}
 
-    @keyframes boardWinGlow {
-        0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
-        30%  { box-shadow: 0 0 20px 10px rgba(0,255,150,0.8); }
-        70%  { box-shadow: 0 0 20px 10px rgba(255,200,0,0.8); }
-        100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
-    }
+/* Main value */
+.cell-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+}
 
-    .board-win {
-        animation: boardWinGlow 3s ease-out;
-    }
+/* Glow animations */
+@keyframes neonGlow {
+    0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+}
 
-    .cell.box-right { border-right: 2px solid #000; }
-    .cell.box-bottom { border-bottom: 2px solid #000; }
+.glow {
+    animation: neonGlow 2s ease-out;
+}
 
-    #winMessage {
-        margin-top: 15px;
-        font-size: 18px;
-        font-weight: 700;
-        color: #007700;
-        min-height: 24px;
-    }
+/* Win glow */
+@keyframes boardWinGlow {
+    0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+    30%  { box-shadow: 0 0 20px 10px rgba(0,255,150,0.7); }
+    70%  { box-shadow: 0 0 20px 10px rgba(255,200,0,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+}
 
-    #winOverlay {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        padding-top: 80px;
-        z-index: 1000;
-        opacity: 0;
-        transition: opacity 0.4s ease-out;
-    }
+.board-win {
+    animation: boardWinGlow 3s ease-out;
+}
 
-    #winOverlay.visible {
-        opacity: 1;
-    }
+/* Win overlay */
+#winOverlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 80px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+}
 
-    .win-banner {
-        background: rgba(0,0,0,0.8);
-        color: #fff;
-        padding: 16px 28px;
-        border-radius: 999px;
-        font-size: 22px;
-        font-weight: 700;
-        box-shadow: 0 0 18px rgba(0,0,0,0.6);
-        transform: scale(0.7);
-        animation: bannerPop 0.6s ease-out forwards;
-    }
+#winOverlay.visible {
+    opacity: 1;
+}
 
-    @keyframes bannerPop {
-        0%   { transform: scale(0.7) translateY(-20px); opacity: 0; }
-        60%  { transform: scale(1.1) translateY(0); opacity: 1; }
-        100% { transform: scale(1.0) translateY(0); opacity: 1; }
-    }
+.win-banner {
+    background: rgba(15, 23, 42, 0.92);
+    color: #f9fafb;
+    padding: 16px 28px;
+    border-radius: 999px;
+    font-size: 22px;
+    font-weight: 700;
+    box-shadow: 0 0 18px rgba(15, 23, 42, 0.7);
+    transform: scale(0.7);
+    animation: bannerPop 0.6s ease-out forwards;
+}
 
-    #confettiCanvas {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 999;
-    }
+@keyframes bannerPop {
+    0%   { transform: scale(0.7) translateY(-20px); opacity: 0; }
+    60%  { transform: scale(1.1) translateY(0); opacity: 1; }
+    100% { transform: scale(1.0) translateY(0); opacity: 1; }
+}
+
+/* Win message text */
+#winMessage {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #15803d;
+    min-height: 24px;
+}
+
+/* Confetti canvas */
+#confettiCanvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+}
 </style>
 </head>
+
 <body>
+<div class="panel-row">
+    <h2>Sudoku Game</h2>
+    <div id="status"></div>
 
-<h2>Sudoku Game</h2>
-<div id="status"></div>
+    <div class="top-bar">
+        <label for="difficulty">Difficulty:</label>
+        <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+            <option value="expert">Expert</option>
+        </select>
+        <button id="newGameBtn">New Random Puzzle</button>
+    </div>
 
-<div class="top-bar">
-    <label for="difficulty">Difficulty:</label>
-    <select id="difficulty">
-        <option value="easy">Easy</option>
-        <option value="medium" selected>Medium</option>
-        <option value="hard">Hard</option>
-        <option value="expert">Expert</option>
-    </select>
-    <button id="newGameBtn">New Random Puzzle</button>
+    <div class="controls">
+        <button id="clearNotesBtn">Clear Pencil Marks</button>
+        <button id="pencilToggle">Pencil Mode: OFF</button>
+    </div>
+
+    <div class="number-bar" id="numberBar"></div>
+
+    <div class="board" id="board"></div>
+
+    <canvas id="confettiCanvas"></canvas>
+    <div id="winOverlay">
+        <div class="win-banner">Puzzle Complete! 🎉</div>
+    </div>
+
+    <div id="winMessage"></div>
 </div>
-
-<div class="controls">
-    <button id="clearNotesBtn">Clear Pencil Marks</button>
-</div>
-
-<button id="pencilToggle">Pencil Mode: OFF</button>
-
-<div class="number-bar" id="numberBar"></div>
-
-<div class="board" id="board"></div>
-
-<canvas id="confettiCanvas"></canvas>
-<div id="winOverlay">
-    <div class="win-banner">Puzzle Complete! 🎉</div>
-</div>
-
-<div id="winMessage"></div>
 
 <script>
-
 // GLOBAL STATE
 let puzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
 let solution = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -660,156 +713,177 @@ function isBoardSolved() {
     }
     return true;
 }
+/* -----------------------------------------
+   PART 3 — SOLVER + GENERATOR
+----------------------------------------- */
 
-// SOLVER (BACKTRACKING + COUNT)
-function findEmpty(grid) {
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            if (grid[r][c] === 0) return [r, c];
-        }
+/* Check if placing num at (row, col) is valid in grid */
+function isSafe(grid, row, col, num) {
+    for (let x = 0; x < 9; x++) {
+        if (grid[row][x] === num) return false;
+        if (grid[x][col] === num) return false;
     }
-    return null;
-}
-
-function isSafe(grid, r, c, n) {
-    for (let i = 0; i < 9; i++) {
-        if (grid[r][i] === n) return false;
-        if (grid[i][c] === n) return false;
-    }
-    const br = Math.floor(r / 3) * 3;
-    const bc = Math.floor(c / 3) * 3;
-    for (let rr = br; rr < br + 3; rr++) {
-        for (let cc = bc; cc < bc + 3; cc++) {
-            if (grid[rr][cc] === n) return false;
+    const startRow = row - (row % 3);
+    const startCol = col - (col % 3);
+    for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+            if (grid[startRow + r][startCol + c] === num) return false;
         }
     }
     return true;
 }
 
-function solveGrid(grid) {
-    const pos = findEmpty(grid);
-    if (!pos) return true;
-    const [r, c] = pos;
-
-    const nums = [1,2,3,4,5,6,7,8,9];
-    for (let i = nums.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [nums[i], nums[j]] = [nums[j], nums[i]];
-    }
-
-    for (const n of nums) {
-        if (isSafe(grid, r, c, n)) {
-            grid[r][c] = n;
-            if (solveGrid(grid)) return true;
-            grid[r][c] = 0;
+/* Backtracking solver (fills grid in-place) */
+function solveSudoku(grid) {
+    for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+            if (grid[row][col] === 0) {
+                for (let num = 1; num <= 9; num++) {
+                    if (isSafe(grid, row, col, num)) {
+                        grid[row][col] = num;
+                        if (solveSudoku(grid)) return true;
+                        grid[row][col] = 0;
+                    }
+                }
+                return false;
+            }
         }
     }
-    return false;
+    return true;
 }
 
+/* Count solutions (for uniqueness check) */
 function countSolutions(grid, limit = 2) {
     let count = 0;
 
     function backtrack() {
         if (count >= limit) return;
-        const pos = findEmpty(grid);
-        if (!pos) {
-            count++;
-            return;
-        }
-        const [r, c] = pos;
-        for (let n = 1; n <= 9; n++) {
-            if (isSafe(grid, r, c, n)) {
-                grid[r][c] = n;
-                backtrack();
-                grid[r][c] = 0;
-                if (count >= limit) return;
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                if (grid[row][col] === 0) {
+                    for (let num = 1; num <= 9; num++) {
+                        if (isSafe(grid, row, col, num)) {
+                            grid[row][col] = num;
+                            backtrack();
+                            grid[row][col] = 0;
+                            if (count >= limit) return;
+                        }
+                    }
+                    return;
+                }
             }
         }
+        count++;
     }
 
     backtrack();
     return count;
 }
 
-// GENERATOR
+/* Generate a full valid solved grid */
 function generateFullSolution() {
     const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-    solveGrid(grid);
+
+    function fillCell(row, col) {
+        if (row === 9) return true;
+        const nextRow = col === 8 ? row + 1 : row;
+        const nextCol = col === 8 ? 0 : col + 1;
+
+        const nums = [1,2,3,4,5,6,7,8,9];
+        for (let i = nums.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [nums[i], nums[j]] = [nums[j], nums[i]];
+        }
+
+        for (const num of nums) {
+            if (isSafe(grid, row, col, num)) {
+                grid[row][col] = num;
+                if (fillCell(nextRow, nextCol)) return true;
+                grid[row][col] = 0;
+            }
+        }
+        return false;
+    }
+
+    fillCell(0, 0);
     return grid;
 }
 
+/* Remove clues according to difficulty while keeping uniqueness */
 function generatePuzzleFromSolution(fullSolution, difficulty) {
-    const grid = deepCopyGrid(fullSolution);
+    const puzzleGrid = deepCopyGrid(fullSolution);
 
-    let cluesTarget;
-    if (difficulty === "easy") cluesTarget = 40;
-    else if (difficulty === "medium") cluesTarget = 32;
-    else if (difficulty === "hard") cluesTarget = 26;
-    else cluesTarget = 22;
+    let removals;
+    switch (difficulty) {
+        case "easy":
+            removals = 35; // leaves ~46 clues
+            break;
+        case "medium":
+            removals = 45; // leaves ~36 clues
+            break;
+        case "hard":
+            removals = 52; // leaves ~29 clues
+            break;
+        case "expert":
+            removals = 58; // leaves ~23 clues
+            break;
+        default:
+            removals = 45;
+    }
 
-    const positions = [];
+    const cells = [];
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            positions.push([r, c]);
+            cells.push({ r, c });
         }
     }
-    for (let i = positions.length - 1; i > 0; i--) {
+
+    for (let i = cells.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [positions[i], positions[j]] = [positions[j], positions[i]];
+        [cells[i], cells[j]] = [cells[j], cells[i]];
     }
 
-    let cluesCount = 81;
-    for (const [r, c] of positions) {
-        if (cluesCount <= cluesTarget) break;
-        const backup = grid[r][c];
-        grid[r][c] = 0;
+    let removed = 0;
+    for (const { r, c } of cells) {
+        if (removed >= removals) break;
+        const backup = puzzleGrid[r][c];
+        if (backup === 0) continue;
 
-        const testGrid = deepCopyGrid(grid);
+        puzzleGrid[r][c] = 0;
+
+        const testGrid = deepCopyGrid(puzzleGrid);
         const solCount = countSolutions(testGrid, 2);
         if (solCount !== 1) {
-            grid[r][c] = backup;
+            puzzleGrid[r][c] = backup;
         } else {
-            cluesCount--;
+            removed++;
         }
     }
 
-    return grid;
+    return puzzleGrid;
 }
 
-function generateNewPuzzle() {
-    statusEl.textContent = "Generating puzzle...";
-    winMessage.textContent = "";
-    winOverlay.classList.remove("visible");
-    board.classList.remove("board-win");
-    stopConfetti();
-
-    selectedCell = null;
-    selectedNumber = null;
-    gameWon = false;
-
+/* Create a new puzzle + solution pair */
+function createNewPuzzle(difficulty) {
     const full = generateFullSolution();
-    const diff = difficultySelect.value;
-    const puzz = generatePuzzleFromSolution(full, diff);
-
-    solution = full;
-    puzzle = puzz;
-
-    buildBoard();
-    updateNumberTileStyles();
-    statusEl.textContent = `Puzzle loaded (${diff}).`;
-    setTimeout(() => {
-        if (statusEl.textContent.startsWith("Puzzle loaded")) statusEl.textContent = "";
-    }, 2000);
+    const puzz = generatePuzzleFromSolution(full, difficulty);
+    return { puzzle: puzz, solution: full };
 }
+/* -----------------------------------------
+   PART 4 — CONFETTI + WIN LOGIC + INIT
+----------------------------------------- */
 
-// CONFETTI
+/* Resize confetti canvas */
 function resizeConfettiCanvas() {
     confettiCanvas.width = window.innerWidth;
     confettiCanvas.height = window.innerHeight;
 }
 window.addEventListener("resize", resizeConfettiCanvas);
 resizeConfettiCanvas();
+
+/* Confetti pieces */
+let confettiPieces = [];
+let confettiRunning = false;
 
 function startConfetti() {
     confettiPieces = [];
@@ -865,47 +939,80 @@ function stopConfetti() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 }
 
-// WIN HANDLER
+/* Lock board after win */
 function lockBoard() {
     [...board.children].forEach(cell => {
         cell.classList.add("locked");
     });
 }
 
+/* WIN LOGIC — fires AFTER all glow animations finish */
 function onWin() {
     if (gameWon) return;
     gameWon = true;
 
-    winMessage.textContent = "Puzzle complete! Great job.";
     board.classList.add("board-win");
     winOverlay.classList.add("visible");
+    winMessage.textContent = "Puzzle complete! Great job.";
+
     startConfetti();
     lockBoard();
 
-    statusEl.textContent = "";
-
+    /* Hide overlay after animation */
     setTimeout(() => {
         winOverlay.classList.remove("visible");
         board.classList.remove("board-win");
     }, 4500);
 }
 
-// CLEAR PENCIL MARKS BUTTON
+/* Clear all pencil marks */
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
     if (gameWon) return;
     [...board.children].forEach(cell => {
         const r = parseInt(cell.dataset.row, 10);
         const c = parseInt(cell.dataset.col, 10);
-        if (givenMask[r][c]) return;
-        clearAllPencilsInCell(cell);
+        if (!givenMask[r][c]) clearAllPencilsInCell(cell);
     });
 });
 
-// NEW GAME BUTTON
-document.getElementById("newGameBtn").addEventListener("click", generateNewPuzzle);
+/* New Game button */
+document.getElementById("newGameBtn").addEventListener("click", () => {
+    if (glowActive) glowQueue = []; // cancel pending glows
+    stopConfetti();
+    winOverlay.classList.remove("visible");
+    board.classList.remove("board-win");
+    winMessage.textContent = "";
 
-// INITIALIZE
-generateNewPuzzle();
+    const diff = difficultySelect.value;
+    statusEl.textContent = "Generating puzzle...";
+
+    setTimeout(() => {
+        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
+        puzzle = newPuzzle;
+        solution = newSolution;
+
+        buildBoard();
+        updateNumberTileStyles();
+
+        statusEl.textContent = `Puzzle loaded (${diff}).`;
+        setTimeout(() => {
+            if (statusEl.textContent.startsWith("Puzzle loaded")) statusEl.textContent = "";
+        }, 2000);
+    }, 50);
+});
+
+/* -----------------------------------------
+   INITIALIZE FIRST PUZZLE
+----------------------------------------- */
+(function init() {
+    const diff = difficultySelect.value;
+    const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
+    puzzle = newPuzzle;
+    solution = newSolution;
+
+    buildBoard();
+    updateNumberTileStyles();
+})();
 </script>
 
 </body>
