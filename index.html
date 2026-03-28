@@ -320,10 +320,12 @@ h2 {
         <button id="newGameBtn">New Random Puzzle</button>
     </div>
 
-    <div class="controls">
-        <button id="clearNotesBtn">Clear Pencil Marks</button>
-        <button id="pencilToggle">Pencil Mode: OFF</button>
-    </div>
+<div class="controls">
+    <button id="clearNotesBtn">Clear Pencil Marks</button>
+    <button id="autoPencilBtn">Auto‑Fill Notes</button>
+    <button id="pencilToggle">Pencil Mode: OFF</button>
+</div>
+
 
     <div class="number-bar" id="numberBar"></div>
 
@@ -630,6 +632,25 @@ function autoRemovePencilMarks(r, c, num) {
     }
 }
 
+function autoFillAllPencils() {
+   if (gameWon) return;
+      for (let r = 0; r < 9; r++) {
+         for (let c = 0; c < 9; c++) {
+            if (givenMask[r][c]) continue;
+            const cell = board.children[r * 9 + c];
+            const valueSpan = cell.querySelector(".cell-value");
+            const currentVal = parseInt(valueSpan.textContent || "0", 10);
+            clearAllPencilsInCell(cell);
+            if (currentVal !== 0) continue;
+            for (let n = 1; n <= 9; n++) {
+               if (isSafe(puzzle, r, c, n)) {
+                  cell._pencilDigits[n].classList.add("active");
+            }
+         }
+      }
+   }
+}
+   
 /* -----------------------------------------
    HIGHLIGHTING
 ----------------------------------------- */
@@ -976,6 +997,10 @@ document.getElementById("newGameBtn").addEventListener("click", () => {
             if (statusEl.textContent.startsWith("Puzzle loaded")) statusEl.textContent = "";
         }, 2000);
     }, 50);
+});
+
+document.getElementById("autoPencilBtn").addEventListener("click", () => {
+   autoFillAllPencils();
 });
 
 (function init() {
