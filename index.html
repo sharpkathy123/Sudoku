@@ -324,7 +324,7 @@ h2 {
        <button id="pencilToggle">Pencil Mode: OFF</button>
        <button id="autoPencilBtn">Auto‑Fill Notes</button>
        <button id="clearNotesBtn">Clear Pencil Notes</button>
-       <button id="smartHintBtn">Smart Hint</button>
+       <button id="HintBtn">Hint</button>
    </div>
 
     <div class="number-bar" id="numberBar"></div>
@@ -761,7 +761,7 @@ function getBlockIndicesIfComplete(r, c) {
 }
 
 /* -----------------------------------------
-   SMART HINT SYSTEM
+   HINT SYSTEM
 ----------------------------------------- */
 
 function getCurrentGrid() {
@@ -1161,7 +1161,7 @@ document.getElementById("autoPencilBtn").addEventListener("click", () => {
    autoFillAllPencils();
 });
 
-document.getElementById("smartHintBtn").addEventListener("click", () => {
+document.getElementById("HintBtn").addEventListener("click", () => {
     showHint();
 });
 
