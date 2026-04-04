@@ -864,21 +864,25 @@ function showHint() {
         statusEl.textContent = "No logical hints available.";
         setTimeout(() => {
             if (statusEl.textContent === "No logical hints available.") statusEl.textContent = "";
-        }, 2000);
+        }, 2500);
         return;
     }
 
     const { r, c, value, type } = hint;
     const cell = board.children[r * 9 + c];
 
-    // Highlight the hinted cell
-    cell.classList.add("glow");
-    setTimeout(() => cell.classList.remove("glow"), 2000);
+    // Actually select the cell using the game's real selection logic
+    onCellClick(cell);
 
+    // Glow the hinted cell
+    cell.classList.add("glow");
+    setTimeout(() => cell.classList.remove("glow"), 2500);
+
+    // Show hint message longer (7 seconds)
     statusEl.textContent = `Hint: Cell (${r+1}, ${c+1}) can only be ${value} — ${type}.`;
     setTimeout(() => {
         if (statusEl.textContent.startsWith("Hint:")) statusEl.textContent = "";
-    }, 4000);
+    }, 7000);
 }
 
 function isBoardSolved() {
