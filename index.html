@@ -485,7 +485,7 @@ for (let n = 1; n <= 9; n++) {
         completedUnits.forEach(indices => queueGlow(indices));
 
         if (isBoardSolved()) {
-            const wait = glowQueue.length * 2200 + 300;
+            const wait = glowQueue.length * 1000 + 300;
             setTimeout(onWin, wait);
         }
 
