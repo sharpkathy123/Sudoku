@@ -390,9 +390,9 @@ function runGlowQueue() {
     indices.forEach(i => {
         const cell = board.children[i];
         cell.classList.add("glow");
-        setTimeout(() => cell.classList.remove("glow"), 2000);
+        setTimeout(() => cell.classList.remove("glow"), 900);
     });
-    setTimeout(runGlowQueue, 2200);
+    setTimeout(runGlowQueue, 1000);
 }
 
 function glowAllCells() {
