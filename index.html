@@ -1102,8 +1102,9 @@ function confettiLoop() {
 }
 
 function stopConfetti() {
+    if (!confettiRunning) {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
     confettiRunning = false;
-    // ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 }
 
 function lockBoard() {
