@@ -1078,6 +1078,10 @@ function confettiLoop() {
         p.rotation += p.rotationSpeed;
 
         if (p.y > confettiCanvas.height + 20) {
+            if (!confettiRunning) {
+               p.pop()
+               return;
+            }
             p.y = -20;
             p.x = Math.random() * confettiCanvas.width;
         }
