@@ -1068,7 +1068,7 @@ function startConfetti() {
 }
 
 function confettiLoop() {
-    // if (!confettiRunning) return;
+    if (!confettiRunning) return;
 
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
@@ -1078,14 +1078,6 @@ function confettiLoop() {
         p.rotation += p.rotationSpeed;
 
         if (p.y > confettiCanvas.height + 20) {
-            if (!confettiRunning) {
-               p.pop();
-               if (p.count() > 1) {
-                  continue;
-               }
-               ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-               return;
-            }
             p.y = -20;
             p.x = Math.random() * confettiCanvas.width;
         }
@@ -1102,10 +1094,8 @@ function confettiLoop() {
 }
 
 function stopConfetti() {
-    if (!confettiRunning) {
-        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-    }
     confettiRunning = false;
+    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 }
 
 function lockBoard() {
