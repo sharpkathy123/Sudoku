@@ -1080,7 +1080,7 @@ function confettiLoop() {
         if (p.y > confettiCanvas.height + 20) {
             if (!confettiRunning) {
                p.pop();
-               if (p.count() > 0) {
+               if (p.count() > 1) {
                   continue;
                }
                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
