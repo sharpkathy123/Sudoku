@@ -1,0 +1,78 @@
+name: Native Website Deployment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Fetch Existing Live Site Files
+        run: |
+          git fetch origin gh-pages
+          mkdir -p existing-site
+          # Pull down existing live files so we don't accidentally erase them
+          git --work-tree=existing-site checkout origin/gh-pages -- . || true
+
+      # SCENARIO 1: You opened a Pull Request (Creates/Updates a Test Page)
+      - name: Deploy Test Page
+        if: github.event_name == 'pull_request'
+        run: |
+          # Create a test environment folder named after the PR number
+          PR_FOLDER="existing-site/test-env/pr-${{ github.event.number }}"
+          mkdir -p "$PR_FOLDER"
+          
+          # Copy your modified files into the test folder
+          cp -r ./* "$PR_FOLDER" 2>/dev/null || true
+          rm -rf "$PR_FOLDER/.git" "$PR_FOLDER/.github" "$PR_FOLDER/existing-site"
+
+      # SCENARIO 2: You merged into main (Switches the live site to the new version)
+      - name: Deploy Live Site
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Copy all new files directly into the root of the site
+          cp -r ./* existing-site/ 2>/dev/null || true
+          rm -rf existing-site/.git existing-site/.github existing-site/existing-site
+
+      # NATIVE GIT PUBLISH: Push the changes back up to the website branch
+      - name: Upload to GitHub Pages Branch
+        run: |
+          cd existing-site
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git init
+          git checkout -b gh-pages
+          git add .
+          git commit -m "Automated deployment by GitHub Actions"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git"
+          git push origin gh-pages --force
+
+      # NATIVE API COMMENT: Automatically drops a clickable preview link on your PR
+      - name: Post Preview Link to Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.issue.number;
+            const repoName = context.repo.repo;
+            const ownerName = context.repo.owner;
+            const previewUrl = `https://${ownerName}.github.io/${repoName}/test-env/pr-${prNumber}/`;
+            
+            const message = `### 🚀 Test Environment Ready!\n\nYour modifications have been built and deployed successfully. You can review and test your updated Sudoku game page here:\n\n🔗 **[View Live Test Web Page](${previewUrl})**`;
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: ownerName,
+              repo: repoName,
+              body: message
+            });
