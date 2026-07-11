@@ -19,10 +19,10 @@ jobs:
 
       - name: Fetch Existing Live Site Files
         run: |
-          git fetch origin gh-pages
           mkdir -p existing-site
-          # Pull down existing live files so we don't accidentally erase them
-          git --work-tree=existing-site checkout origin/gh-pages -- . || true
+          # If gh-pages doesn't exist yet, this will fail silently and keep going cleanly
+          git fetch origin gh-pages 2>/dev/null || true
+          git --work-tree=existing-site checkout origin/gh-pages -- . 2>/dev/null || true
 
       # SCENARIO 1: You opened a Pull Request (Creates/Updates a Test Page)
       - name: Deploy Test Page
