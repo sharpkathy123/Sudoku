@@ -302,6 +302,20 @@ h2 {
     z-index: 999;
 }
 </style>
+<style>
+        /* Forces all tiles to animate at the exact same moment */
+        .tile.glow {
+            animation: tileGlowEffect 0.6s ease-in-out;
+            animation-delay: 0s !important; 
+            transition-delay: 0s !important;
+        }
+
+        @keyframes tileGlowEffect {
+            0% { box-shadow: 0 0 0px #007bff; background-color: transparent; }
+            50% { box-shadow: 0 0 15px #007bff; background-color: rgba(0, 123, 255, 0.2); }
+            100% { box-shadow: 0 0 0px #007bff; background-color: transparent; }
+        }
+</style>
 </head>
 
 <body>
