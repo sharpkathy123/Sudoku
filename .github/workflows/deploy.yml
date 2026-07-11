@@ -16,46 +16,34 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Pulls full git history to safely handle branch matching
 
-      - name: Fetch Existing Live Site Files
+      - name: Stage Workspace Files
         run: |
-          mkdir -p existing-site
-          # If gh-pages doesn't exist yet, this will fail silently and keep going cleanly
-          git fetch origin gh-pages 2>/dev/null || true
-          git --work-tree=existing-site checkout origin/gh-pages -- . 2>/dev/null || true
-
-      # SCENARIO 1: You opened a Pull Request (Creates/Updates a Test Page)
-      - name: Deploy Test Page
-        if: github.event_name == 'pull_request'
-        run: |
-          # Create a test environment folder named after the PR number
-          PR_FOLDER="existing-site/test-env/pr-${{ github.event.number }}"
-          mkdir -p "$PR_FOLDER"
+          mkdir -p staging-deploy
           
-          # Copy your modified files into the test folder
-          cp -r ./* "$PR_FOLDER" 2>/dev/null || true
-          rm -rf "$PR_FOLDER/.git" "$PR_FOLDER/.github" "$PR_FOLDER/existing-site"
+          # IF PULL REQUEST: Package changes inside an isolated test environment folder
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_FOLDER="staging-deploy/test-env/pr-${{ github.event.number }}"
+            mkdir -p "$PR_FOLDER"
+            cp -r ./* "$PR_FOLDER" 2>/dev/null || true
+            rm -rf "$PR_FOLDER/.git" "$PR_FOLDER/.github" "$PR_FOLDER/staging-deploy"
+          
+          # IF MERGE TO MAIN: Switch the entire live site to the new version
+          else
+            cp -r ./* staging-deploy/ 2>/dev/null || true
+            rm -rf staging-deploy/.git staging-deploy/.github staging-deploy/staging-deploy
+          fi
 
-      # SCENARIO 2: You merged into main (Switches the live site to the new version)
-      - name: Deploy Live Site
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          # Copy all new files directly into the root of the site
-          cp -r ./* existing-site/ 2>/dev/null || true
-          rm -rf existing-site/.git existing-site/.github existing-site/existing-site
-
-      # NATIVE GIT PUBLISH: Push the changes back up to the website branch
-      - name: Upload to GitHub Pages Branch
-        run: |
-          cd existing-site
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git init
-          git checkout -b gh-pages
-          git add .
-          git commit -m "Automated deployment by GitHub Actions"
-          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@://github.com{{ github.repository }}.git"
-          git push origin gh-pages --force
+      # OFFICIAL NATIVE DEPLOYMENT UTILITY: Safely handles first-time branch initialization
+      - name: Deploy Workspace Upstream
+        uses: Actions-R-Us/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./staging-deploy
+          publish_branch: gh-pages
+          keep_files: true # Guarantees test preview folders aren't overwritten by main branches
 
       # NATIVE API COMMENT: Automatically drops a clickable preview link on your PR
       - name: Post Preview Link to Pull Request
