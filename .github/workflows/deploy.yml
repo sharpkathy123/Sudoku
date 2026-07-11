@@ -36,9 +36,9 @@ jobs:
             rm -rf staging-deploy/.git staging-deploy/.github staging-deploy/staging-deploy
           fi
 
-      # OFFICIAL NATIVE DEPLOYMENT UTILITY: Safely handles first-time branch initialization
+      # THE CORRECTED COMMUNITY UTILITY: Safely handles first-time branch initialization
       - name: Deploy Workspace Upstream
-        uses: Actions-R-Us/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./staging-deploy
