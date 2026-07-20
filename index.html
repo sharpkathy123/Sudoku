@@ -482,7 +482,15 @@ for (let n = 1; n <= 9; n++) {
             completedUnits.push([...placements[correctValue]]);
         }
 
-        completedUnits.forEach(indices => queueGlow(indices));
+        // Merge all completed units from this single entry into ONE glow batch
+        // so they all light up together instead of one-at-a-time.
+        if (completedUnits.length > 0) {
+            const mergedIndices = new Set();
+            completedUnits.forEach(indices => {
+                indices.forEach(i => mergedIndices.add(i));
+            });
+            queueGlow([...mergedIndices]);
+        }
 
         if (isBoardSolved()) {
             const wait = glowQueue.length * 1000 + 300;
