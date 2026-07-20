@@ -46,6 +46,12 @@ h2 {
     letter-spacing: 0.02em;
 }
 
+#versionInfo {
+    font-size: 12px;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+}
+
 #status {
     margin-bottom: 16px;
     min-height: 20px;
@@ -225,16 +231,53 @@ h2 {
     font-size: 24px;
 }
 
-/* Glow animations */
-@keyframes neonGlow {
+.cell-value.completed {
+    font-weight: 900;
+}
+
+/* Multiple glow animations with different colors */
+@keyframes neonGlow1 {
     0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
     25%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
     75%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
     100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
 }
 
+@keyframes neonGlow2 {
+    0%   { box-shadow: 0 0 0px 0px rgba(255,100,0,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(255,100,0,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(255,100,0,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(255,100,0,0.0); }
+}
+
+@keyframes neonGlow3 {
+    0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(0,255,150,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(0,255,150,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+}
+
+@keyframes neonGlow4 {
+    0%   { box-shadow: 0 0 0px 0px rgba(255,200,0,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(255,200,0,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(255,200,0,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(255,200,0,0.0); }
+}
+
 .glow {
-    animation: neonGlow 2s ease-out;
+    animation: neonGlow1 3.5s ease-out;
+}
+
+.glow.color-2 {
+    animation: neonGlow2 3.5s ease-out;
+}
+
+.glow.color-3 {
+    animation: neonGlow3 3.5s ease-out;
+}
+
+.glow.color-4 {
+    animation: neonGlow4 3.5s ease-out;
 }
 
 /* Win glow */
@@ -307,6 +350,7 @@ h2 {
 <body>
 <div class="panel-row">
     <h2>Sudoku Game</h2>
+    <div id="versionInfo"></div>
     <div id="status"></div>
 
     <div class="top-bar">
@@ -352,10 +396,12 @@ let gameWon = false;
 
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 const givenMask = [];
+const completedNumbers = new Set(); // Track which numbers are fully completed
 
 const board = document.getElementById("board");
 const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
+const versionEl = document.getElementById("versionInfo");
 const winMessage = document.getElementById("winMessage");
 const difficultySelect = document.getElementById("difficulty");
 const winOverlay = document.getElementById("winOverlay");
@@ -364,6 +410,14 @@ const ctx = confettiCanvas.getContext("2d");
 
 let glowQueue = [];
 let glowActive = false;
+let glowColorIndex = 0;
+
+// Display version timestamp on page load
+function displayVersion() {
+    const now = new Date();
+    const dateStr = now.toLocaleString();
+    versionEl.textContent = `v2.0 - Created: ${dateStr}`;
+}
 
 /* -----------------------------------------
    UTILS
@@ -373,7 +427,7 @@ function deepCopyGrid(grid) {
 }
 
 /* -----------------------------------------
-   GLOW QUEUE
+   GLOW QUEUE WITH MULTIPLE COLORS
 ----------------------------------------- */
 function queueGlow(indices) {
     glowQueue.push(indices);
@@ -387,12 +441,17 @@ function runGlowQueue() {
     }
     glowActive = true;
     const indices = glowQueue.shift();
+    const colorClass = glowColorIndex > 0 ? `color-${(glowColorIndex % 4) + 1}` : "";
+    glowColorIndex++;
+    
     indices.forEach(i => {
         const cell = board.children[i];
-        cell.classList.add("glow");
-        setTimeout(() => cell.classList.remove("glow"), 800);
+        cell.classList.add("glow", colorClass);
+        setTimeout(() => {
+            cell.classList.remove("glow", colorClass);
+        }, 3500);
     });
-    setTimeout(runGlowQueue, 1000);
+    setTimeout(runGlowQueue, 4000);
 }
 
 function glowAllCells() {
@@ -480,20 +539,19 @@ for (let n = 1; n <= 9; n++) {
 
         if (placements[correctValue].length === 9) {
             completedUnits.push([...placements[correctValue]]);
+            completedNumbers.add(correctValue);
+            updateBoldedNumbers();
         }
 
-        // Merge all completed units from this single entry into ONE glow batch
-        // so they all light up together instead of one-at-a-time.
+        // Queue each completed unit separately for different glow colors
         if (completedUnits.length > 0) {
-            const mergedIndices = new Set();
             completedUnits.forEach(indices => {
-                indices.forEach(i => mergedIndices.add(i));
+                queueGlow(indices);
             });
-            queueGlow([...mergedIndices]);
         }
 
         if (isBoardSolved()) {
-            const wait = glowQueue.length * 1000 + 300;
+            const wait = glowQueue.length * 4000 + 300;
             setTimeout(onWin, wait);
         }
 
@@ -510,6 +568,18 @@ function updateNumberTileStyles() {
         const n = parseInt(tile.textContent, 10);
         tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}`;
         if (n === selectedNumber) tile.classList.add("selected");
+    });
+}
+
+function updateBoldedNumbers() {
+    [...board.children].forEach(cell => {
+        const valueSpan = cell.querySelector(".cell-value");
+        const val = parseInt(valueSpan.textContent || "0", 10);
+        if (val > 0 && completedNumbers.has(val)) {
+            valueSpan.classList.add("completed");
+        } else {
+            valueSpan.classList.remove("completed");
+        }
     });
 }
 
@@ -532,8 +602,10 @@ function buildBoard() {
     board.innerHTML = "";
     givenMask.length = 0;
     for (let k = 1; k <= 9; k++) placements[k] = [];
+    completedNumbers.clear();
     selectedCell = null;
     gameWon = false;
+    glowColorIndex = 0;
 
     for (let r = 0; r < 9; r++) {
         givenMask[r] = [];
@@ -884,7 +956,7 @@ function showHint() {
 
     // Glow the hinted cell
     cell.classList.add("glow");
-    setTimeout(() => cell.classList.remove("glow"), 2500);
+    setTimeout(() => cell.classList.remove("glow"), 3500);
 
     // Show hint message longer (7 seconds)
     statusEl.textContent = `Hint: Cell (${r+1}, ${c+1}) can only be ${value} — ${type}.`;
@@ -1002,191 +1074,115 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
         default:       removals = 45;
     }
 
-    const cells = [];
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            cells.push({ r, c });
-        }
-    }
-    for (let i = cells.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [cells[i], cells[j]] = [cells[j], cells[i]];
-    }
-
     let removed = 0;
-    for (const { r, c } of cells) {
-        if (removed >= removals) break;
-        const backup = puzzleGrid[r][c];
-        if (backup === 0) continue;
+    while (removed < removals) {
+        const r = Math.floor(Math.random() * 9);
+        const c = Math.floor(Math.random() * 9);
+        if (puzzleGrid[r][c] !== 0) {
+            const backup = puzzleGrid[r][c];
+            puzzleGrid[r][c] = 0;
 
-        puzzleGrid[r][c] = 0;
-        const testGrid = deepCopyGrid(puzzleGrid);
-        const solCount = countSolutions(testGrid, 2);
-        if (solCount !== 1) {
-            puzzleGrid[r][c] = backup;
-        } else {
-            removed++;
+            const testGrid = deepCopyGrid(puzzleGrid);
+            const solutionCount = countSolutions(testGrid);
+
+            if (solutionCount !== 1) {
+                puzzleGrid[r][c] = backup;
+            } else {
+                removed++;
+            }
         }
     }
     return puzzleGrid;
 }
 
-function createNewPuzzle(difficulty) {
-    const full = generateFullSolution();
-    const puzz = generatePuzzleFromSolution(full, difficulty);
-    return { puzzle: puzz, solution: full };
+function startNewGame() {
+    const difficulty = difficultySelect.value;
+    solution = generateFullSolution();
+    puzzle = generatePuzzleFromSolution(solution, difficulty);
+    buildBoard();
 }
 
 /* -----------------------------------------
-   CONFETTI + WIN LOGIC
+   EVENT LISTENERS
 ----------------------------------------- */
-function resizeConfettiCanvas() {
-    confettiCanvas.width = window.innerWidth;
-    confettiCanvas.height = window.innerHeight;
-}
-window.addEventListener("resize", resizeConfettiCanvas);
-resizeConfettiCanvas();
+document.getElementById("newGameBtn").addEventListener("click", startNewGame);
+document.getElementById("autoPencilBtn").addEventListener("click", autoFillAllPencils);
+document.getElementById("HintBtn").addEventListener("click", showHint);
 
-let confettiPieces = [];
-let confettiRunning = false;
-
-function startConfetti() {
-    confettiPieces = [];
-    const colors = ["#ff4b5c", "#ffb400", "#3ae374", "#17c0eb", "#9b59b6"];
-
-    for (let i = 0; i < 300; i++) {   // increased from 200
-        confettiPieces.push({
-            x: Math.random() * confettiCanvas.width,
-            y: Math.random() * -confettiCanvas.height,
-            w: 6 + Math.random() * 4,
-            h: 8 + Math.random() * 6,
-            color: colors[Math.floor(Math.random() * colors.length)],
-            speedY: 2 + Math.random() * 4,
-            speedX: -1 + Math.random() * 2,
-            rotation: Math.random() * Math.PI * 2,
-            rotationSpeed: -0.1 + Math.random() * 0.2
-        });
-    }
-
-    confettiRunning = true;
-    requestAnimationFrame(confettiLoop);
-
-    // Confetti lasts 10 seconds instead of 4
-    setTimeout(stopConfetti, 10000);
-}
-
-function confettiLoop() {
-    if (!confettiRunning) return;
-
-    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-
-    confettiPieces.forEach(p => {
-        p.x += p.speedX;
-        p.y += p.speedY;
-        p.rotation += p.rotationSpeed;
-
-        if (p.y > confettiCanvas.height) {
-            p.y = confettiCanvas.height;
-            p.x = Math.random() * confettiCanvas.width;
-        }
-
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
-    });
-
-    requestAnimationFrame(confettiLoop);
-}
-
-function stopConfetti() {
-    confettiRunning = false;
-    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-}
-
-function lockBoard() {
-    [...board.children].forEach(cell => {
-        cell.classList.add("locked");
-    });
-}
-
-function onWin() {
-    if (gameWon) return;
-    gameWon = true;
-
-    // Make every cell glow
-    glowAllCells();
-
-    board.classList.add("board-win");
-    winOverlay.classList.add("visible");
-    winMessage.textContent = "Puzzle complete! Great job.";
-
-    startConfetti();
-    lockBoard();
-
-    setTimeout(() => {
-        winOverlay.classList.remove("visible");
-        board.classList.remove("board-win");
-    }, 4500);
-}
-
-/* -----------------------------------------
-   BUTTONS + INIT
------------------------------------------ */
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
     if (gameWon) return;
     [...board.children].forEach(cell => {
-        const r = parseInt(cell.dataset.row, 10);
-        const c = parseInt(cell.dataset.col, 10);
-        if (!givenMask[r][c]) clearAllPencilsInCell(cell);
+        if (!givenMask[parseInt(cell.dataset.row, 10)][parseInt(cell.dataset.col, 10)]) {
+            clearAllPencilsInCell(cell);
+        }
     });
 });
 
-document.getElementById("newGameBtn").addEventListener("click", () => {
-    if (glowActive) glowQueue = [];
-    stopConfetti();
-    winOverlay.classList.remove("visible");
-    board.classList.remove("board-win");
-    winMessage.textContent = "";
+/* -----------------------------------------
+   WIN STATE
+----------------------------------------- */
+function onWin() {
+    gameWon = true;
+    winOverlay.classList.add("visible");
+    board.classList.add("board-win");
+    winMessage.textContent = "🎉 Congratulations! You've completed the puzzle!";
+    glowAllCells();
+    playConfetti();
+}
 
-    const diff = difficultySelect.value;
-    statusEl.textContent = "Generating puzzle...";
+function playConfetti() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
 
-    setTimeout(() => {
-        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
-        puzzle = newPuzzle;
-        solution = newSolution;
+    const particles = [];
+    for (let i = 0; i < 150; i++) {
+        particles.push({
+            x: Math.random() * confettiCanvas.width,
+            y: -10,
+            vx: (Math.random() - 0.5) * 8,
+            vy: Math.random() * 5 + 3,
+            life: 1,
+            angle: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 4 + 2,
+            color: ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"][Math.floor(Math.random() * 5)]
+        });
+    }
 
-        buildBoard();
-        updateNumberTileStyles();
+    function animate() {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        let anyAlive = false;
 
-        statusEl.textContent = `Puzzle loaded (${diff}).`;
-        setTimeout(() => {
-            if (statusEl.textContent.startsWith("Puzzle loaded")) statusEl.textContent = "";
-        }, 2000);
-    }, 50);
-});
+        particles.forEach(p => {
+            p.y += p.vy;
+            p.x += p.vx;
+            p.vy += 0.15; // gravity
+            p.life -= 0.015;
+            p.angle += p.rotationSpeed;
 
-document.getElementById("autoPencilBtn").addEventListener("click", () => {
-   autoFillAllPencils();
-});
+            if (p.life > 0) {
+                anyAlive = true;
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle);
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+            }
+        });
 
-document.getElementById("HintBtn").addEventListener("click", () => {
-    showHint();
-});
+        if (anyAlive) requestAnimationFrame(animate);
+    }
 
-(function init() {
-    const diff = difficultySelect.value;
-    const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
-    puzzle = newPuzzle;
-    solution = newSolution;
+    animate();
+}
 
-    buildBoard();
-    updateNumberTileStyles();
-})();
+/* -----------------------------------------
+   INIT
+----------------------------------------- */
+displayVersion();
+startNewGame();
 </script>
-
 </body>
 </html>
