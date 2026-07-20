@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sudoku Game</title>
+
+<style>
+/* ------------------------------
+   CLEAN MODERN THEME (Style A)
+------------------------------ */
+
+:root {
+    --bg: #f2f4f7;
+    --panel: #ffffff;
+    --accent: #4a90e2;
+    --accent-soft: #d9ecff;
+    --border-strong: #222;
+    --border-light: #c9ced6;
+    --text-dark: #222;
+    --text-soft: #6b7280;
+    --highlight-cell: #fff7c2;
+    --pencil-highlight: #d17b00;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #ffffff 0, #eef2f7 45%, #e1e5ee 100%);
+    margin: 0;
+    padding: 32px 0 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-dark);
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+}
+
+#versionInfo {
+    font-size: 12px;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+}
+
+#status {
+    margin-bottom: 16px;
+    min-height: 20px;
+    font-weight: 500;
+    color: var(--text-soft);
+}
+
+/* Layout panels */
+.top-bar,
+.controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    align-items: center;
+}
+
+.panel-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--panel);
+    padding: 18px 20px 22px;
+    border-radius: 16px;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+}
+
+/* Buttons / selects */
+.top-bar select,
+.top-bar button,
+.controls button,
+#pencilToggle {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-light);
+    background: #f9fafb;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-dark);
+    transition: background 0.18s, box-shadow 0.18s, transform 0.08s, border-color 0.18s;
+}
+
+.top-bar button:hover,
+.controls button:hover,
+#pencilToggle:hover {
+    background: #eef2ff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+#pencilToggle.active {
+    background: #fff3d1;
+    border-color: #e0b44c;
+}
+
+/* Number bar */
+.number-bar {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0 18px;
+}
+
+.number-tile {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.18s, border 0.18s, transform 0.08s, box-shadow 0.18s, opacity 0.18s;
+}
+
+.number-tile.ink {
+    background: #f3f4f6;
+    border: 2px solid #d1d5db;
+}
+
+.number-tile.pencil {
+    background: #ffffff;
+    border: 2px dashed #cbd5e1;
+    opacity: 0.8;
+}
+
+.number-tile.selected {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+}
+
+/* Board */
+.board {
+    display: grid;
+    grid-template-columns: repeat(9, 50px);
+    grid-template-rows: repeat(9, 50px);
+    gap: 1px;
+    background: var(--border-strong);
+    padding: 4px;
+    border-radius: 14px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+    margin-top: 6px;
+}
+
+.cell {
+    width: 50px;
+    height: 50px;
+    background: var(--panel);
+    border: 1px solid var(--border-light);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.cell.given {
+    background: #eef2ff;
+    font-weight: 600;
+}
+
+.cell.selected {
+    outline: 3px solid var(--accent);
+    z-index: 2;
+}
+
+.cell.wrong {
+    background: #ffe0e0;
+}
+
+/* Stronger 3×3 borders */
+.cell.box-right {
+    border-right: 3px solid var(--border-strong);
+}
+.cell.box-bottom {
+    border-bottom: 3px solid var(--border-strong);
+}
+
+/* Highlighting */
+.cell.highlight-number {
+    background: var(--highlight-cell) !important;
+}
+
+/* Pencil digits */
+.pencil-container {
+    position: absolute;
+    inset: 3px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    font-size: 10px;
+    color: var(--text-soft);
+    pointer-events: none;
+}
+
+.pencil-digit {
+    justify-self: center;
+    align-self: center;
+    visibility: hidden;
+}
+
+.pencil-digit.active {
+    visibility: visible;
+}
+
+.highlight-number-pencil {
+    color: var(--pencil-highlight);
+    font-weight: 700;
+    text-shadow: 0 0 4px rgba(255, 180, 0, 0.8);
+}
+
+/* Main value */
+.cell-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+}
+
+.cell-value.completed {
+    font-weight: 900;
+}
+
+/* Multiple glow animations with different colors */
+@keyframes neonGlow1 {
+    0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+}
+
+@keyframes neonGlow2 {
+    0%   { box-shadow: 0 0 0px 0px rgba(255,100,0,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(255,100,0,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(255,100,0,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(255,100,0,0.0); }
+}
+
+@keyframes neonGlow3 {
+    0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(0,255,150,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(0,255,150,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+}
+
+@keyframes neonGlow4 {
+    0%   { box-shadow: 0 0 0px 0px rgba(255,200,0,0.0); }
+    25%  { box-shadow: 0 0 14px 8px rgba(255,200,0,0.7); }
+    75%  { box-shadow: 0 0 14px 8px rgba(255,200,0,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(255,200,0,0.0); }
+}
+
+.glow {
+    animation: neonGlow1 3.5s ease-out;
+}
+
+.glow.color-2 {
+    animation: neonGlow2 3.5s ease-out;
+}
+
+.glow.color-3 {
+    animation: neonGlow3 3.5s ease-out;
+}
+
+.glow.color-4 {
+    animation: neonGlow4 3.5s ease-out;
+}
+
+/* Win glow */
+@keyframes boardWinGlow {
+    0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+    30%  { box-shadow: 0 0 20px 10px rgba(0,255,150,0.7); }
+    70%  { box-shadow: 0 0 20px 10px rgba(255,200,0,0.7); }
+    100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
+}
+
+.board-win {
+    animation: boardWinGlow 3s ease-out;
+}
+
+/* Win overlay */
+#winOverlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 80px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+}
+
+#winOverlay.visible {
+    opacity: 1;
+}
+
+.win-banner {
+    background: rgba(15, 23, 42, 0.92);
+    color: #f9fafb;
+    padding: 16px 28px;
+    border-radius: 999px;
+    font-size: 22px;
+    font-weight: 700;
+    box-shadow: 0 0 18px rgba(15, 23, 42, 0.7);
+    transform: scale(0.7);
+    animation: bannerPop 0.6s ease-out forwards;
+}
+
+@keyframes bannerPop {
+    0%   { transform: scale(0.7) translateY(-20px); opacity: 0; }
+    60%  { transform: scale(1.1) translateY(0); opacity: 1; }
+    100% { transform: scale(1.0) translateY(0); opacity: 1; }
+}
+
+/* Win message text */
+#winMessage {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #15803d;
+    min-height: 24px;
+}
+
+/* Confetti canvas */
+#confettiCanvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+}
+</style>
+</head>
+
+<body>
+<div class="panel-row">
+    <h2>Sudoku Game</h2>
+    <div id="versionInfo"></div>
+    <div id="status"></div>
+
+    <div class="top-bar">
+        <label for="difficulty">Difficulty:</label>
+        <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+            <option value="expert">Expert</option>
+        </select>
+        <button id="newGameBtn">New Random Puzzle</button>
+    </div>
+
+   <div class="controls">
+       <button id="pencilToggle">Pencil Mode: OFF</button>
+       <button id="autoPencilBtn">Auto‑Fill Notes</button>
+       <button id="clearNotesBtn">Clear Pencil Notes</button>
+       <button id="HintBtn">Hint</button>
+   </div>
+
+    <div class="number-bar" id="numberBar"></div>
+
+    <div class="board" id="board"></div>
+
+    <canvas id="confettiCanvas"></canvas>
+    <div id="winOverlay">
+        <div class="win-banner">Puzzle Complete! 🎉</div>
+    </div>
+
+    <div id="winMessage"></div>
+</div>
+
+<script>
+/* -----------------------------------------
+   GLOBAL STATE
+----------------------------------------- */
+let puzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
+let solution = Array.from({ length: 9 }, () => Array(9).fill(0));
+let pencilMode = false;
+let selectedCell = null;
+let selectedNumber = null;
+let gameWon = false;
+
+const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
+const givenMask = [];
+const completedNumbers = new Set(); // Track which numbers are fully completed
+
+const board = document.getElementById("board");
+const numberBar = document.getElementById("numberBar");
+const statusEl = document.getElementById("status");
+const versionEl = document.getElementById("versionInfo");
+const winMessage = document.getElementById("winMessage");
+const difficultySelect = document.getElementById("difficulty");
+const winOverlay = document.getElementById("winOverlay");
+const confettiCanvas = document.getElementById("confettiCanvas");
+const ctx = confettiCanvas.getContext("2d");
+
+let glowQueue = [];
+let glowActive = false;
+let glowColorIndex = 0;
+
+// Display version timestamp on page load
+function displayVersion() {
+    const now = new Date();
+    const dateStr = now.toLocaleString();
+    versionEl.textContent = `v2.0 - Created: ${dateStr}`;
+}
+
+/* -----------------------------------------
+   UTILS
+----------------------------------------- */
+function deepCopyGrid(grid) {
+    return grid.map(row => row.slice());
+}
+
+/* -----------------------------------------
+   GLOW QUEUE WITH MULTIPLE COLORS
+----------------------------------------- */
+function queueGlow(indices) {
+    glowQueue.push(indices);
+    if (!glowActive) runGlowQueue();
+}
+
+function runGlowQueue() {
+    if (glowQueue.length === 0) {
+        glowActive = false;
+        return;
+    }
+    glowActive = true;
+    const indices = glowQueue.shift();
+    const colorClass = glowColorIndex > 0 ? `color-${(glowColorIndex % 4) + 1}` : "";
+    glowColorIndex++;
+    
+    indices.forEach(i => {
+        const cell = board.children[i];
+        cell.classList.add("glow", colorClass);
+        setTimeout(() => {
+            cell.classList.remove("glow", colorClass);
+        }, 3500);
+    });
+    setTimeout(runGlowQueue, 4000);
+}
+
+function glowAllCells() {
+    const all = [...board.children].map((_, i) => i);
+    queueGlow(all);
+}
+
+/* -----------------------------------------
+   NUMBER BAR
+----------------------------------------- */
+for (let n = 1; n <= 9; n++) {
+    const tile = document.createElement("div");
+    tile.className = "number-tile ink";
+    tile.textContent = n;
+
+    tile.addEventListener("click", () => {
+        if (gameWon) return;
+
+        if (!selectedCell) {
+            statusEl.textContent = "Select a cell first.";
+            setTimeout(() => {
+                if (statusEl.textContent === "Select a cell first.") statusEl.textContent = "";
+            }, 1500);
+            selectedNumber = n;
+            updateNumberTileStyles();
+            return;
+        }
+
+        const r = parseInt(selectedCell.dataset.row, 10);
+        const c = parseInt(selectedCell.dataset.col, 10);
+
+        if (givenMask[r][c]) {
+            statusEl.textContent = "You can't change a given cell.";
+            setTimeout(() => {
+                if (statusEl.textContent === "You can't change a given cell.") statusEl.textContent = "";
+            }, 1500);
+            return;
+        }
+
+        const correctValue = solution[r][c];
+
+        if (pencilMode) {
+            togglePencilMark(selectedCell, n);
+            selectedNumber = n;
+            updateNumberTileStyles();
+            highlightSameNumbers(n);
+            return;
+        }
+
+        if (n !== correctValue) {
+            flashWrong(selectedCell);
+            selectedNumber = n;
+            updateNumberTileStyles();
+            highlightSameNumbers(n);
+            return;
+        }
+
+        const valueSpan = selectedCell.querySelector(".cell-value");
+        clearAllPencilsInCell(selectedCell);
+        valueSpan.textContent = correctValue;
+
+        const index = r * 9 + c;
+        if (!placements[correctValue].includes(index)) {
+            placements[correctValue].push(index);
+        }
+
+        autoRemovePencilMarks(r, c, correctValue);
+
+        const completedUnits = [];
+
+        if (isRowComplete(r)) {
+            const rowIndices = [];
+            for (let cc = 0; cc < 9; cc++) rowIndices.push(r * 9 + cc);
+            completedUnits.push(rowIndices);
+        }
+
+        if (isColumnComplete(c)) {
+            const colIndices = [];
+            for (let rr = 0; rr < 9; rr++) colIndices.push(rr * 9 + c);
+            completedUnits.push(colIndices);
+        }
+
+        const blockInfo = getBlockIndicesIfComplete(r, c);
+        if (blockInfo) completedUnits.push(blockInfo);
+
+        if (placements[correctValue].length === 9) {
+            completedUnits.push([...placements[correctValue]]);
+            completedNumbers.add(correctValue);
+            updateBoldedNumbers();
+        }
+
+        // Queue each completed unit separately for different glow colors
+        if (completedUnits.length > 0) {
+            completedUnits.forEach(indices => {
+                queueGlow(indices);
+            });
+        }
+
+        if (isBoardSolved()) {
+            const wait = glowQueue.length * 4000 + 300;
+            setTimeout(onWin, wait);
+        }
+
+        selectedNumber = n;
+        updateNumberTileStyles();
+        highlightSameNumbers(n);
+    });
+
+    numberBar.appendChild(tile);
+}
+
+function updateNumberTileStyles() {
+    [...numberBar.children].forEach(tile => {
+        const n = parseInt(tile.textContent, 10);
+        tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}`;
+        if (n === selectedNumber) tile.classList.add("selected");
+    });
+}
+
+function updateBoldedNumbers() {
+    [...board.children].forEach(cell => {
+        const valueSpan = cell.querySelector(".cell-value");
+        const val = parseInt(valueSpan.textContent || "0", 10);
+        if (val > 0 && completedNumbers.has(val)) {
+            valueSpan.classList.add("completed");
+        } else {
+            valueSpan.classList.remove("completed");
+        }
+    });
+}
+
+/* -----------------------------------------
+   PENCIL MODE TOGGLE
+----------------------------------------- */
+const pencilToggle = document.getElementById("pencilToggle");
+pencilToggle.addEventListener("click", () => {
+    if (gameWon) return;
+    pencilMode = !pencilMode;
+    pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
+    pencilToggle.classList.toggle("active", pencilMode);
+    updateNumberTileStyles();
+});
+
+/* -----------------------------------------
+   BUILD BOARD
+----------------------------------------- */
+function buildBoard() {
+    board.innerHTML = "";
+    givenMask.length = 0;
+    for (let k = 1; k <= 9; k++) placements[k] = [];
+    completedNumbers.clear();
+    selectedCell = null;
+    gameWon = false;
+    glowColorIndex = 0;
+
+    for (let r = 0; r < 9; r++) {
+        givenMask[r] = [];
+        for (let c = 0; c < 9; c++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+
+            if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add("box-right");
+            if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add("box-bottom");
+
+            const inner = document.createElement("div");
+            inner.className = "cell-inner";
+
+            const pencilContainer = document.createElement("div");
+            pencilContainer.className = "pencil-container";
+
+            const pencilDigits = {};
+            for (let n = 1; n <= 9; n++) {
+                const span = document.createElement("div");
+                span.className = "pencil-digit";
+                span.textContent = n;
+                pencilContainer.appendChild(span);
+                pencilDigits[n] = span;
+            }
+
+            const valueSpan = document.createElement("div");
+            valueSpan.className = "cell-value";
+
+            inner.appendChild(pencilContainer);
+            inner.appendChild(valueSpan);
+            cell.appendChild(inner);
+
+            const val = puzzle[r][c];
+            if (val !== 0) {
+                valueSpan.textContent = val;
+                cell.classList.add("given");
+                givenMask[r][c] = true;
+                placements[val].push(r * 9 + c);
+            } else {
+                givenMask[r][c] = false;
+            }
+
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell._pencilDigits = pencilDigits;
+
+            cell.addEventListener("click", () => onCellClick(cell));
+
+            board.appendChild(cell);
+        }
+    }
+
+    winMessage.textContent = "";
+}
+
+/* -----------------------------------------
+   CELL CLICK
+----------------------------------------- */
+function onCellClick(cell) {
+    if (gameWon) return;
+
+    if (selectedCell) selectedCell.classList.remove("selected");
+    clearNumberHighlights();
+
+    selectedCell = cell;
+    cell.classList.add("selected");
+
+    const valueSpan = cell.querySelector(".cell-value");
+    const val = valueSpan.textContent.trim();
+    if (val && !isNaN(val)) {
+        highlightSameNumbers(parseInt(val, 10));
+    }
+}
+
+/* -----------------------------------------
+   PENCIL MARKS
+----------------------------------------- */
+function togglePencilMark(cell, num) {
+    const digits = cell._pencilDigits;
+    const span = digits[num];
+    if (!span) return;
+    span.classList.toggle("active");
+}
+
+function clearAllPencilsInCell(cell) {
+    const digits = cell._pencilDigits;
+    for (let n = 1; n <= 9; n++) digits[n].classList.remove("active");
+}
+
+function autoRemovePencilMarks(r, c, num) {
+    for (let cc = 0; cc < 9; cc++) {
+        if (cc === c) continue;
+        const cell = board.children[r * 9 + cc];
+        cell._pencilDigits[num].classList.remove("active");
+    }
+    for (let rr = 0; rr < 9; rr++) {
+        if (rr === r) continue;
+        const cell = board.children[rr * 9 + c];
+        cell._pencilDigits[num].classList.remove("active");
+    }
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    for (let rr = br; rr < br + 3; rr++) {
+        for (let cc = bc; cc < bc + 3; cc++) {
+            if (rr === r && cc === c) continue;
+            const cell = board.children[rr * 9 + cc];
+            cell._pencilDigits[num].classList.remove("active");
+        }
+    }
+}
+
+function autoFillAllPencils() {
+    if (gameWon) return;
+
+    // Build a temporary grid representing the CURRENT board state
+    const currentGrid = Array.from({ length: 9 }, () => Array(9).fill(0));
+
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = board.children[r * 9 + c];
+            const valueSpan = cell.querySelector(".cell-value");
+            const val = parseInt(valueSpan.textContent || "0", 10);
+            currentGrid[r][c] = val; // includes givens AND inked numbers
+        }
+    }
+
+    // Now fill pencils based on the CURRENT state
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+
+            const cell = board.children[r * 9 + c];
+
+            // Skip given cells
+            if (givenMask[r][c]) continue;
+
+            const valueSpan = cell.querySelector(".cell-value");
+            const currentVal = parseInt(valueSpan.textContent || "0", 10);
+
+            // Skip cells that already have an inked number
+            if (currentVal !== 0) {
+                clearAllPencilsInCell(cell);
+                continue;
+            }
+
+            // Clear old pencil marks
+            clearAllPencilsInCell(cell);
+
+            // Add only valid candidates based on CURRENT board state
+            for (let n = 1; n <= 9; n++) {
+                if (isSafe(currentGrid, r, c, n)) {
+                    cell._pencilDigits[n].classList.add("active");
+                }
+            }
+        }
+    }
+}
+   
+/* -----------------------------------------
+   HIGHLIGHTING
+----------------------------------------- */
+function highlightSameNumbers(num) {
+    clearNumberHighlights();
+
+    [...board.children].forEach(cell => {
+        const valueSpan = cell.querySelector(".cell-value");
+        const val = valueSpan.textContent.trim();
+
+        const pencilDigits = cell._pencilDigits;
+        const pencilSpan = pencilDigits[num];
+
+        if (val && parseInt(val, 10) === num) {
+            cell.classList.add("highlight-number");
+        }
+
+        if (pencilSpan && pencilSpan.classList.contains("active")) {
+            pencilSpan.classList.add("highlight-number-pencil");
+        }
+    });
+}
+
+function clearNumberHighlights() {
+    [...board.children].forEach(cell => {
+        cell.classList.remove("highlight-number");
+        const digits = cell._pencilDigits;
+        for (let n = 1; n <= 9; n++) {
+            digits[n].classList.remove("highlight-number-pencil");
+        }
+    });
+}
+
+/* -----------------------------------------
+   WRONG FLASH
+----------------------------------------- */
+function flashWrong(cell) {
+    cell.classList.add("wrong");
+    setTimeout(() => cell.classList.remove("wrong"), 400);
+}
+
+/* -----------------------------------------
+   COMPLETION CHECK HELPERS
+----------------------------------------- */
+function isRowComplete(r) {
+    for (let c = 0; c < 9; c++) {
+        const cell = board.children[r * 9 + c];
+        const value = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+        if (value !== solution[r][c]) return false;
+    }
+    return true;
+}
+
+function isColumnComplete(c) {
+    for (let r = 0; r < 9; r++) {
+        const cell = board.children[r * 9 + c];
+        const value = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+        if (value !== solution[r][c]) return false;
+    }
+    return true;
+}
+
+function getBlockIndicesIfComplete(r, c) {
+    const br = Math.floor(r / 3) * 3;
+    const bc = Math.floor(c / 3) * 3;
+    const indices = [];
+    for (let rr = br; rr < br + 3; rr++) {
+        for (let cc = bc; cc < bc + 3; cc++) {
+            const cell = board.children[rr * 9 + cc];
+            const value = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+            if (value !== solution[rr][cc]) return null;
+            indices.push(rr * 9 + cc);
+        }
+    }
+    return indices;
+}
+
+/* -----------------------------------------
+   HINT SYSTEM
+----------------------------------------- */
+
+function getCurrentGrid() {
+    const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = board.children[r * 9 + c];
+            const val = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+            grid[r][c] = val;
+        }
+    }
+    return grid;
+}
+
+// Find a cell with exactly ONE valid candidate
+function findSingleCandidate(grid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (grid[r][c] !== 0) continue;
+
+            let candidates = [];
+            for (let n = 1; n <= 9; n++) {
+                if (isSafe(grid, r, c, n)) candidates.push(n);
+            }
+
+            if (candidates.length === 1) {
+                return { r, c, value: candidates[0], type: "single" };
+            }
+        }
+    }
+    return null;
+}
+
+// Find a hidden single in a row, column, or block
+function findHiddenSingle(grid) {
+    // Check rows
+    for (let r = 0; r < 9; r++) {
+        for (let n = 1; n <= 9; n++) {
+            let spots = [];
+            for (let c = 0; c < 9; c++) {
+                if (grid[r][c] === 0 && isSafe(grid, r, c, n)) {
+                    spots.push({ r, c });
+                }
+            }
+            if (spots.length === 1) {
+                return { r: spots[0].r, c: spots[0].c, value: n, type: "hidden single (row)" };
+            }
+        }
+    }
+
+    // Check columns
+    for (let c = 0; c < 9; c++) {
+        for (let n = 1; n <= 9; n++) {
+            let spots = [];
+            for (let r = 0; r < 9; r++) {
+                if (grid[r][c] === 0 && isSafe(grid, r, c, n)) {
+                    spots.push({ r, c });
+                }
+            }
+            if (spots.length === 1) {
+                return { r: spots[0].r, c: spots[0].c, value: n, type: "hidden single (column)" };
+            }
+        }
+    }
+
+    // Check blocks
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            for (let n = 1; n <= 9; n++) {
+                let spots = [];
+                for (let r = br * 3; r < br * 3 + 3; r++) {
+                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                        if (grid[r][c] === 0 && isSafe(grid, r, c, n)) {
+                            spots.push({ r, c });
+                        }
+                    }
+                }
+                if (spots.length === 1) {
+                    return { r: spots[0].r, c: spots[0].c, value: n, type: "hidden single (block)" };
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function showHint() {
+    if (gameWon) return;
+
+    const grid = getCurrentGrid();
+
+    // Try simple single-candidate first
+    let hint = findSingleCandidate(grid);
+
+    // If none, try hidden singles
+    if (!hint) hint = findHiddenSingle(grid);
+
+    if (!hint) {
+        statusEl.textContent = "No logical hints available.";
+        setTimeout(() => {
+            if (statusEl.textContent === "No logical hints available.") statusEl.textContent = "";
+        }, 2500);
+        return;
+    }
+
+    const { r, c, value, type } = hint;
+    const cell = board.children[r * 9 + c];
+
+    // Actually select the cell using the game's real selection logic
+    onCellClick(cell);
+
+    // Glow the hinted cell
+    cell.classList.add("glow");
+    setTimeout(() => cell.classList.remove("glow"), 3500);
+
+    // Show hint message longer (7 seconds)
+    statusEl.textContent = `Hint: Cell (${r+1}, ${c+1}) can only be ${value} — ${type}.`;
+    setTimeout(() => {
+        if (statusEl.textContent.startsWith("Hint:")) statusEl.textContent = "";
+    }, 7000);
+}
+
+function isBoardSolved() {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = board.children[r * 9 + c];
+            const value = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+            if (value !== solution[r][c]) return false;
+        }
+    }
+    return true;
+}
+
+/* -----------------------------------------
+   SOLVER + GENERATOR
+----------------------------------------- */
+function isSafe(grid, row, col, num) {
+    for (let x = 0; x < 9; x++) {
+        if (grid[row][x] === num) return false;
+        if (grid[x][col] === num) return false;
+    }
+    const startRow = row - (row % 3);
+    const startCol = col - (col % 3);
+    for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+            if (grid[startRow + r][startCol + c] === num) return false;
+        }
+    }
+    return true;
+}
+
+function solveSudoku(grid) {
+    for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+            if (grid[row][col] === 0) {
+                for (let num = 1; num <= 9; num++) {
+                    if (isSafe(grid, row, col, num)) {
+                        grid[row][col] = num;
+                        if (solveSudoku(grid)) return true;
+                        grid[row][col] = 0;
+                    }
+                }
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+function countSolutions(grid, limit = 2) {
+    let count = 0;
+    function backtrack() {
+        if (count >= limit) return;
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                if (grid[row][col] === 0) {
+                    for (let num = 1; num <= 9; num++) {
+                        if (isSafe(grid, row, col, num)) {
+                            grid[row][col] = num;
+                            backtrack();
+                            grid[row][col] = 0;
+                            if (count >= limit) return;
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+        count++;
+    }
+    backtrack();
+    return count;
+}
+
+function generateFullSolution() {
+    const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    function fillCell(row, col) {
+        if (row === 9) return true;
+        const nextRow = col === 8 ? row + 1 : row;
+        const nextCol = col === 8 ? 0 : col + 1;
+
+        const nums = [1,2,3,4,5,6,7,8,9];
+        for (let i = nums.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [nums[i], nums[j]] = [nums[j], nums[i]];
+        }
+
+        for (const num of nums) {
+            if (isSafe(grid, row, col, num)) {
+                grid[row][col] = num;
+                if (fillCell(nextRow, nextCol)) return true;
+                grid[row][col] = 0;
+            }
+        }
+        return false;
+    }
+    fillCell(0, 0);
+    return grid;
+}
+
+function generatePuzzleFromSolution(fullSolution, difficulty) {
+    const puzzleGrid = deepCopyGrid(fullSolution);
+    let removals;
+    switch (difficulty) {
+        case "easy":   removals = 35; break;
+        case "medium": removals = 45; break;
+        case "hard":   removals = 52; break;
+        case "expert": removals = 58; break;
+        default:       removals = 45;
+    }
+
+    let removed = 0;
+    while (removed < removals) {
+        const r = Math.floor(Math.random() * 9);
+        const c = Math.floor(Math.random() * 9);
+        if (puzzleGrid[r][c] !== 0) {
+            const backup = puzzleGrid[r][c];
+            puzzleGrid[r][c] = 0;
+
+            const testGrid = deepCopyGrid(puzzleGrid);
+            const solutionCount = countSolutions(testGrid);
+
+            if (solutionCount !== 1) {
+                puzzleGrid[r][c] = backup;
+            } else {
+                removed++;
+            }
+        }
+    }
+    return puzzleGrid;
+}
+
+function startNewGame() {
+    const difficulty = difficultySelect.value;
+    solution = generateFullSolution();
+    puzzle = generatePuzzleFromSolution(solution, difficulty);
+    buildBoard();
+}
+
+/* -----------------------------------------
+   EVENT LISTENERS
+----------------------------------------- */
+document.getElementById("newGameBtn").addEventListener("click", startNewGame);
+document.getElementById("autoPencilBtn").addEventListener("click", autoFillAllPencils);
+document.getElementById("HintBtn").addEventListener("click", showHint);
+
+document.getElementById("clearNotesBtn").addEventListener("click", () => {
+    if (gameWon) return;
+    [...board.children].forEach(cell => {
+        if (!givenMask[parseInt(cell.dataset.row, 10)][parseInt(cell.dataset.col, 10)]) {
+            clearAllPencilsInCell(cell);
+        }
+    });
+});
+
+/* -----------------------------------------
+   WIN STATE
+----------------------------------------- */
+function onWin() {
+    gameWon = true;
+    winOverlay.classList.add("visible");
+    board.classList.add("board-win");
+    winMessage.textContent = "🎉 Congratulations! You've completed the puzzle!";
+    glowAllCells();
+    playConfetti();
+}
+
+function playConfetti() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+
+    const particles = [];
+    for (let i = 0; i < 150; i++) {
+        particles.push({
+            x: Math.random() * confettiCanvas.width,
+            y: -10,
+            vx: (Math.random() - 0.5) * 8,
+            vy: Math.random() * 5 + 3,
+            life: 1,
+            angle: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 4 + 2,
+            color: ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"][Math.floor(Math.random() * 5)]
+        });
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        let anyAlive = false;
+
+        particles.forEach(p => {
+            p.y += p.vy;
+            p.x += p.vx;
+            p.vy += 0.15; // gravity
+            p.life -= 0.015;
+            p.angle += p.rotationSpeed;
+
+            if (p.life > 0) {
+                anyAlive = true;
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle);
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+            }
+        });
+
+        if (anyAlive) requestAnimationFrame(animate);
+    }
+
+    animate();
+}
+
+/* -----------------------------------------
+   INIT
+----------------------------------------- */
+displayVersion();
+startNewGame();
+</script>
+</body>
+</html>
