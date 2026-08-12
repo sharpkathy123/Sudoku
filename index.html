@@ -47,52 +47,62 @@
 <!-- Embedded Web App Manifest -->
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":".","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"115\" fill=\"%23ffffff\"/><rect x=\"64\" y=\"64\" width=\"384\" height=\"384\" rx=\"40\" fill=\"%23f9fafb\" stroke=\"%23222222\" stroke-width=\"24\"/><rect x=\"320\" y=\"64\" width=\"128\" height=\"128\" fill=\"%23d9ecff\"/><line x1=\"192\" y1=\"64\" x2=\"192\" y2=\"448\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"320\" y1=\"64\" x2=\"320\" y2=\"448\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"64\" y1=\"192\" x2=\"448\" y2=\"192\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"64\" y1=\"320\" x2=\"448\" y2=\"320\" stroke=\"%23222222\" stroke-width=\"16\"/></svg>","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}' />
 
-<!-- Service Worker for Offline Support -->
+<!-- Complete Offline Service Worker & Offline Canvas QR Generator -->
 <script>
+// 1. Service Worker for 100% Offline Safari Play
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swCode = `
-            const CACHE_NAME = 'sudoku-v1';
+            const CACHE_NAME = 'sudoku-v2';
+            
             self.addEventListener('install', (e) => {
                 e.waitUntil(
                     caches.open(CACHE_NAME).then((cache) => {
-                        return cache.add(self.location.href);
+                        return cache.add(new Request(self.location.href, { cache: 'reload' }));
                     })
                 );
                 self.skipWaiting();
             });
 
             self.addEventListener('activate', (e) => {
-                e.waitUntil(caches.keys().then((keys) => {
-                    return Promise.all(
-                        keys.map((key) => {
-                            if (key !== CACHE_NAME) return caches.delete(key);
-                        })
-                    );
-                }));
+                e.waitUntil(
+                    caches.keys().then((keys) => {
+                        return Promise.all(
+                            keys.map((key) => {
+                                if (key !== CACHE_NAME) return caches.delete(key);
+                            })
+                        );
+                    })
+                );
                 self.clients.claim();
             });
 
             self.addEventListener('fetch', (e) => {
-                e.respondWith(
-                    caches.match(e.request).then((cachedResponse) => {
-                        if (cachedResponse) return cachedResponse;
-                        return fetch(e.request).then((networkResponse) => {
-                            if (networkResponse && networkResponse.status === 200) {
-                                const cacheCopy = networkResponse.clone();
-                                caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
-                            }
-                            return networkResponse;
-                        }).catch(() => caches.match('.'));
-                    })
-                );
+                // Only intercept navigation / same-origin requests
+                if (e.request.mode === 'navigate' || e.request.url.startsWith(self.location.origin)) {
+                    e.respondWith(
+                        caches.match(e.request).then((cachedResponse) => {
+                            if (cachedResponse) return cachedResponse;
+                            return fetch(e.request).then((networkResponse) => {
+                                if (networkResponse && networkResponse.status === 200) {
+                                    const cacheCopy = networkResponse.clone();
+                                    caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+                                }
+                                return networkResponse;
+                            });
+                        }).catch(() => {
+                            // If completely offline and fetch fails, fall back to root cached page
+                            return caches.match(self.location.href);
+                        })
+                    );
+                }
             });
         `;
 
         const blob = new Blob([swCode], { type: 'application/javascript' });
         const swUrl = URL.createObjectURL(blob);
 
-        navigator.serviceWorker.register(swUrl).catch((err) => console.log('SW registration skipped:', err));
+        navigator.serviceWorker.register(swUrl).catch((err) => console.log('SW Registration:', err));
     });
 }
 </script>
