@@ -1,51 +1,48 @@
-# Modern Web Sudoku Game
+# 🧩 Mobile-Friendly Sudoku PWA
 
-A clean, responsive, single-page Sudoku application built with pure HTML, CSS, and vanilla JavaScript. It features dynamic puzzle generation, auto-solving logic, pencil note tracking, simple logical hints, and celebration animations upon completion.
-
-## Features
-
-- 🎯 **4 Difficulty Levels:** Easy, Medium, Hard, and Expert with unique, single-solution puzzle generation.
-- ✏️ **Pencil Notes Mode:** Toggle manual candidate marking or use the **Auto-Fill Notes** tool to automatically compute valid numbers for every empty cell based on current board state.
-- 💡 **Smart Hint System:** Highlights cells and provides step-by-step logical prompts (Single Candidates and Hidden Singles) when you get stuck.
-- 🎨 **Modern Interface:** Includes completion glow effects, number highlighting, and celebratory confetti upon solving a puzzle.
-- 📱 **Mobile & Desktop Friendly:** Interactive layout that works seamless in mobile browsers or saved as an app.
-- ⚡ **Zero Dependencies:** Pure HTML, CSS, and JS—no build tools, frameworks, or npm packages required.
+A clean, responsive, single-file Sudoku web application optimized for mobile devices (iOS/Android) and desktop web browsers. Built with pure HTML, CSS, and vanilla JavaScript—no external dependencies, frameworks, or build steps required.
 
 ---
 
-## How to Play
+## ✨ Features
 
-1. **Select a Cell:** Click or tap any empty cell on the board.
-2. **Enter a Number:** Tap a number tile (1–9) from the number bar to place your entry into the selected cell.
-3. **Pencil Mode:** Click **Pencil Mode:** to toggle to or from taking notes. Numbers entered will appear as smaller candidate digits within the cell.
-4. **Auto-Fill Notes:** Click **Auto-Fill Notes** to automatically generate all valid remaining possibilities for every empty cell.
-5. **Get a Hint:** If stuck, click **Hint** to highlight a cell with a definite logical move.
-
----
-
-## Installing to Home Screen (Mobile App)
-
-You can save this game directly to your phone's Home Screen to use it like a native app:
-
-### On iPhone (Safari)
-1. Open the page in **Safari**.
-2. Tap the **Share** button (the square icon with an arrow pointing up at the bottom of the screen).
-3. Scroll down and tap **Add to Home Screen**.
-4. Name the application (e.g., *Sudoku*) and tap **Add** in the top-right corner.
-
-### On Android (Chrome)
-1. Open the page in **Chrome**.
-2. Tap the **Three Dots** menu icon in the top-right corner.
-3. Tap **Add to Home screen** (or **Install app**).
-4. Follow the prompt to finish installing.
+* **📱 iPhone & Mobile Optimized:** Uses fluid CSS (`clamp()`, `vw`) and dynamic viewport scaling to ensure the board fits perfectly on any screen size without scrolling.
+* **🌐 100% Offline Support:** Embedded Service Worker automatically caches the app locally for uninterrupted offline play (even in Airplane Mode).
+* **📲 iOS Home Screen Ready:** Includes native web app configuration, black translucent status bar styling, and a dynamic canvas-generated Apple Touch Icon so it installs like a native app.
+* **💡 Smart Gameplay Helpers:**
+  * **Pencil Mode & Auto-Notes:** Toggle pencil marks or auto-fill candidate numbers for empty cells.
+  * **Highlight Least Unfilled:** Quickly highlight rows, columns, or 3x3 boxes with the fewest empty cells remaining.
+  * **Logical Hint System:** Get targeted hints based on single candidates and hidden singles.
+  * **Visual Feedback:** Line/box completion animations, error flashing, and a confetti celebratory banner upon solving.
+* **📊 Multiple Difficulties:** Supports Easy, Medium, Hard, and Expert puzzle generation with guaranteed unique solutions.
 
 ---
 
-## Local Setup
+## 🛠️ Installation & Deployment
 
-To run this application locally:
+Because this app is entirely self-contained in a single `index.html` file, deployment takes seconds:
 
-1. Clone or download this repository.
-2. Open `index.html` in any web browser.
+### Cloudflare Pages / GitHub Pages
+1. Push `index.html` to your GitHub repository.
+2. Connect your repository to **Cloudflare Pages** or enable **GitHub Pages** under repository settings.
+3. Your app is live!
 
-No server setup or build process needed!
+### Running Locally
+Simply open `index.html` directly in any web browser.
+
+---
+
+## 📱 Adding to iPhone Home Screen
+
+1. Open your deployed URL in Safari on iOS.
+2. Tap the **Share** button (the square with an up arrow).
+3. Tap **Add to Home Screen**.
+4. Launch the app directly from your Home Screen to enjoy full-screen standalone mode without browser navigation bars.
+
+---
+
+## 🧰 Built With
+
+* **HTML5** (Embedded Web App Manifest & Inline Service Worker)
+* **CSS3** (CSS Grid, Custom Variables, Fluid Typography/Scaling)
+* **Vanilla JavaScript** (ES6+, Backtracking Puzzle Generator & Solver, HTML5 Canvas Confetti)
