@@ -1,4 +1,4 @@
-# 🧩 Mobile-Friendly Sudoku PWA
+# 🧩 Mobile-Friendly Sudoku
 
 A clean, responsive, single-file Sudoku web application optimized for mobile devices (iOS/Android) and desktop web browsers. Built with pure HTML, CSS, and vanilla JavaScript—no external dependencies, frameworks, or build steps required.
 
@@ -20,12 +20,7 @@ A clean, responsive, single-file Sudoku web application optimized for mobile dev
 
 ## 🛠️ Installation & Deployment
 
-Because this app is entirely self-contained in a single `index.html` file, deployment takes seconds:
-
-### Cloudflare Pages / GitHub Pages
-1. Push `index.html` to your GitHub repository.
-2. Connect your repository to **Cloudflare Pages** or enable **GitHub Pages** under repository settings.
-3. Your app is live!
+Because this app is entirely self-contained in a single `index.html` file, deployment takes seconds.
 
 ### Running Locally
 Simply open `index.html` directly in any web browser.
