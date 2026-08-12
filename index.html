@@ -4,6 +4,104 @@
 <meta charset="UTF-8" />
 <title>Sudoku Game</title>
 
+<!-- Mobile Viewport Setup -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+<!-- iOS Web App Capabilities (Fullscreen Mode) -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Sudoku" />
+
+<script>
+(function generateAppleTouchIcon() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 180;
+    canvas.height = 180;
+    const ctx = canvas.getContext('2d');
+
+    // Solid base tile background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 180, 180);
+
+    // Blue accent cell (Top Right)
+    ctx.fillStyle = '#d9ecff';
+    ctx.fillRect(115, 22, 43, 43);
+
+    // Outer grid border
+    ctx.strokeStyle = '#222222';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(22, 22, 136, 136);
+
+    // Inner grid lines
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(67, 22); ctx.lineTo(67, 158);
+    ctx.moveTo(115, 22); ctx.lineTo(115, 158);
+    ctx.moveTo(22, 67); ctx.lineTo(158, 67);
+    ctx.moveTo(22, 115); ctx.lineTo(158, 115);
+    ctx.stroke();
+
+    // Attach generated icon to head for iOS Safari
+    const appleIcon = document.createElement('link');
+    appleIcon.rel = 'apple-touch-icon';
+    appleIcon.href = canvas.toDataURL('image/png');
+    document.head.appendChild(appleIcon);
+})();
+</script>
+
+<!-- Service Worker for 100% Offline Support -->
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        const swCode = `
+            const CACHE_NAME = 'sudoku-v1';
+            self.addEventListener('install', (e) => {
+                e.waitUntil(
+                    caches.open(CACHE_NAME).then((cache) => {
+                        return cache.add(self.location.href);
+                    })
+                );
+                self.skipWaiting();
+            });
+
+            self.addEventListener('activate', (e) => {
+                e.waitUntil(caches.keys().then((keys) => {
+                    return Promise.all(
+                        keys.map((key) => {
+                            if (key !== CACHE_NAME) return caches.delete(key);
+                        })
+                    );
+                }));
+                self.clients.claim();
+            });
+
+            self.addEventListener('fetch', (e) => {
+                e.respondWith(
+                    caches.match(e.request).then((cachedResponse) => {
+                        if (cachedResponse) return cachedResponse;
+                        return fetch(e.request).then((networkResponse) => {
+                            if (networkResponse && networkResponse.status === 200) {
+                                const cacheCopy = networkResponse.clone();
+                                caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+                            }
+                            return networkResponse;
+                        }).catch(() => caches.match('.'));
+                    })
+                );
+            });
+        `;
+
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+
+        navigator.serviceWorker.register(swUrl).catch((err) => console.log('SW registration skipped:', err));
+    });
+}
+</script>
+
+<!-- Embedded Web App Manifest -->
+<link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":".","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"115\" fill=\"%23ffffff\"/><rect x=\"64\" y=\"64\" width=\"384\" height=\"384\" rx=\"40\" fill=\"%23f9fafb\" stroke=\"%23222222\" stroke-width=\"24\"/><rect x=\"320\" y=\"64\" width=\"128\" height=\"128\" fill=\"%23d9ecff\"/><line x1=\"192\" y1=\"64\" x2=\"192\" y2=\"448\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"320\" y1=\"64\" x2=\"320\" y2=\"448\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"64\" y1=\"192\" x2=\"448\" y2=\"192\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"64\" y1=\"320\" x2=\"448\" y2=\"320\" stroke=\"%23222222\" stroke-width=\"16\"/></svg>","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}' />
+
 <style>
 /* ------------------------------
    CLEAN MODERN THEME (Style A)
@@ -32,7 +130,8 @@ body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: radial-gradient(circle at top, #ffffff 0, #eef2f7 45%, #e1e5ee 100%);
     margin: 0;
-    padding: 32px 0 40px;
+    /* Adapts to iPhone notch and bottom Home bar */
+    padding: max(32px, env(safe-area-inset-top)) 12px max(40px, env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -60,6 +159,8 @@ h2 {
     gap: 12px;
     margin-bottom: 14px;
     align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .panel-row {
@@ -116,7 +217,7 @@ h2 {
     font-size: 20px;
     cursor: pointer;
     user-select: none;
-    transition: background 0.18s, border 0.18s, transform 0.08s, box-shadow 0.18s, opacity 0.18s;
+    transition: background 0.18s, border 0.18s, transform 0.08s, box-shadow 0.18s, opacity 0.18s, font-weight 0.18s;
 }
 
 .number-tile.ink {
@@ -135,6 +236,11 @@ h2 {
     border-color: var(--accent);
     transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+}
+
+.number-tile.completed-number {
+    font-weight: 700;
+    border-color: #4b5563;
 }
 
 /* Board */
@@ -157,12 +263,16 @@ h2 {
     border: 1px solid var(--border-light);
     position: relative;
     cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s, font-weight 0.2s;
+}
+
+.cell.given,
+.cell.completed-number {
+    font-weight: 600;
 }
 
 .cell.given {
     background: #eef2ff;
-    font-weight: 600;
 }
 
 .cell.selected {
@@ -185,6 +295,12 @@ h2 {
 /* Highlighting */
 .cell.highlight-number {
     background: var(--highlight-cell) !important;
+}
+
+.cell.highlight-least {
+    background: #fef3c7 !important;
+    outline: 2px solid #d97706;
+    z-index: 1;
 }
 
 /* Pencil digits */
@@ -225,28 +341,28 @@ h2 {
     font-size: 24px;
 }
 
-/* Glow animations */
+/* Glow animations - 2.0s */
 @keyframes neonGlow {
-    0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
-    25%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
-    75%  { box-shadow: 0 0 14px 8px rgba(0,150,255,0.7); }
-    100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); }
+    0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); background-color: var(--panel); }
+    20%  { box-shadow: 0 0 16px 8px rgba(0,150,255,0.85); background-color: #dbeafe; }
+    80%  { box-shadow: 0 0 16px 8px rgba(0,150,255,0.85); background-color: #dbeafe; }
+    100% { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); background-color: var(--panel); }
 }
 
 .glow {
-    animation: neonGlow 2s ease-out;
+    animation: neonGlow 2.0s ease-out;
 }
 
 /* Win glow */
 @keyframes boardWinGlow {
     0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
-    30%  { box-shadow: 0 0 20px 10px rgba(0,255,150,0.7); }
-    70%  { box-shadow: 0 0 20px 10px rgba(255,200,0,0.7); }
+    30%  { box-shadow: 0 0 24px 12px rgba(0,255,150,0.8); }
+    70%  { box-shadow: 0 0 24px 12px rgba(255,200,0,0.8); }
     100% { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
 }
 
 .board-win {
-    animation: boardWinGlow 3s ease-out;
+    animation: boardWinGlow 3.5s ease-out;
 }
 
 /* Win overlay */
@@ -324,6 +440,7 @@ h2 {
        <button id="pencilToggle">Pencil Mode: OFF</button>
        <button id="autoPencilBtn">Auto‑Fill Notes</button>
        <button id="clearNotesBtn">Clear Pencil Notes</button>
+       <button id="highlightLeastBtn">Highlight Least Empty</button>
        <button id="HintBtn">Hint</button>
    </div>
 
@@ -390,14 +507,33 @@ function runGlowQueue() {
     indices.forEach(i => {
         const cell = board.children[i];
         cell.classList.add("glow");
-        setTimeout(() => cell.classList.remove("glow"), 800);
+        setTimeout(() => cell.classList.remove("glow"), 2000);
     });
-    setTimeout(runGlowQueue, 1000);
+    setTimeout(runGlowQueue, 2100);
 }
 
 function glowAllCells() {
     const all = [...board.children].map((_, i) => i);
     queueGlow(all);
+}
+
+/* -----------------------------------------
+   NUMBER BOLDING CHECK
+----------------------------------------- */
+function checkAndBoldCompletedNumbers() {
+    for (let num = 1; num <= 9; num++) {
+        if (placements[num].length === 9) {
+            // Bold on the board
+            placements[num].forEach(index => {
+                const cell = board.children[index];
+                cell.classList.add("completed-number");
+            });
+            // Bold in the number bar
+            if (numberBar.children[num - 1]) {
+                numberBar.children[num - 1].classList.add("completed-number");
+            }
+        }
+    }
 }
 
 /* -----------------------------------------
@@ -460,6 +596,7 @@ for (let n = 1; n <= 9; n++) {
         }
 
         autoRemovePencilMarks(r, c, correctValue);
+        checkAndBoldCompletedNumbers();
 
         const completedUnits = [];
 
@@ -482,8 +619,6 @@ for (let n = 1; n <= 9; n++) {
             completedUnits.push([...placements[correctValue]]);
         }
 
-        // Merge all completed units from this single entry into ONE glow batch
-        // so they all light up together instead of one-at-a-time.
         if (completedUnits.length > 0) {
             const mergedIndices = new Set();
             completedUnits.forEach(indices => {
@@ -493,7 +628,7 @@ for (let n = 1; n <= 9; n++) {
         }
 
         if (isBoardSolved()) {
-            const wait = glowQueue.length * 1000 + 300;
+            const wait = glowQueue.length * 2100 + 300;
             setTimeout(onWin, wait);
         }
 
@@ -508,7 +643,9 @@ for (let n = 1; n <= 9; n++) {
 function updateNumberTileStyles() {
     [...numberBar.children].forEach(tile => {
         const n = parseInt(tile.textContent, 10);
-        tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}`;
+        const isCompleted = placements[n] && placements[n].length === 9;
+        
+        tile.className = `number-tile ${pencilMode ? "pencil" : "ink"}${isCompleted ? " completed-number" : ""}`;
         if (n === selectedNumber) tile.classList.add("selected");
     });
 }
@@ -586,6 +723,7 @@ function buildBoard() {
         }
     }
 
+    checkAndBoldCompletedNumbers();
     winMessage.textContent = "";
 }
 
@@ -648,7 +786,6 @@ function autoRemovePencilMarks(r, c, num) {
 function autoFillAllPencils() {
     if (gameWon) return;
 
-    // Build a temporary grid representing the CURRENT board state
     const currentGrid = Array.from({ length: 9 }, () => Array(9).fill(0));
 
     for (let r = 0; r < 9; r++) {
@@ -656,32 +793,26 @@ function autoFillAllPencils() {
             const cell = board.children[r * 9 + c];
             const valueSpan = cell.querySelector(".cell-value");
             const val = parseInt(valueSpan.textContent || "0", 10);
-            currentGrid[r][c] = val; // includes givens AND inked numbers
+            currentGrid[r][c] = val;
         }
     }
 
-    // Now fill pencils based on the CURRENT state
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-
             const cell = board.children[r * 9 + c];
 
-            // Skip given cells
             if (givenMask[r][c]) continue;
 
             const valueSpan = cell.querySelector(".cell-value");
             const currentVal = parseInt(valueSpan.textContent || "0", 10);
 
-            // Skip cells that already have an inked number
             if (currentVal !== 0) {
                 clearAllPencilsInCell(cell);
                 continue;
             }
 
-            // Clear old pencil marks
             clearAllPencilsInCell(cell);
 
-            // Add only valid candidates based on CURRENT board state
             for (let n = 1; n <= 9; n++) {
                 if (isSafe(currentGrid, r, c, n)) {
                     cell._pencilDigits[n].classList.add("active");
@@ -690,9 +821,9 @@ function autoFillAllPencils() {
         }
     }
 }
-   
+
 /* -----------------------------------------
-   HIGHLIGHTING
+   HIGHLIGHTING & LEAST UNFILLED FEATURE
 ----------------------------------------- */
 function highlightSameNumbers(num) {
     clearNumberHighlights();
@@ -717,11 +848,97 @@ function highlightSameNumbers(num) {
 function clearNumberHighlights() {
     [...board.children].forEach(cell => {
         cell.classList.remove("highlight-number");
+        cell.classList.remove("highlight-least");
         const digits = cell._pencilDigits;
         for (let n = 1; n <= 9; n++) {
             digits[n].classList.remove("highlight-number-pencil");
         }
     });
+}
+
+function highlightLeastUnfilled() {
+    if (gameWon) return;
+    clearNumberHighlights();
+
+    const grid = getCurrentGrid();
+    let minEmpty = 10;
+    const targets = [];
+
+    // Check Rows
+    for (let r = 0; r < 9; r++) {
+        let empty = 0;
+        for (let c = 0; c < 9; c++) if (grid[r][c] === 0) empty++;
+        if (empty > 0) {
+            if (empty < minEmpty) {
+                minEmpty = empty;
+                targets.length = 0;
+                targets.push({ type: 'row', index: r });
+            } else if (empty === minEmpty) {
+                targets.push({ type: 'row', index: r });
+            }
+        }
+    }
+
+    // Check Columns
+    for (let c = 0; c < 9; c++) {
+        let empty = 0;
+        for (let r = 0; r < 9; r++) if (grid[r][c] === 0) empty++;
+        if (empty > 0) {
+            if (empty < minEmpty) {
+                minEmpty = empty;
+                targets.length = 0;
+                targets.push({ type: 'col', index: c });
+            } else if (empty === minEmpty) {
+                targets.push({ type: 'col', index: c });
+            }
+        }
+    }
+
+    // Check Blocks
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            let empty = 0;
+            for (let r = br * 3; r < br * 3 + 3; r++) {
+                for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                    if (grid[r][c] === 0) empty++;
+                }
+            }
+            if (empty > 0) {
+                if (empty < minEmpty) {
+                    minEmpty = empty;
+                    targets.length = 0;
+                    targets.push({ type: 'block', br, bc });
+                } else if (empty === minEmpty) {
+                    targets.push({ type: 'block', br, bc });
+                }
+            }
+        }
+    }
+
+    if (targets.length === 0) {
+        statusEl.textContent = "Board is complete!";
+        return;
+    }
+
+    // Highlight target cells in Amber
+    targets.forEach(t => {
+        if (t.type === 'row') {
+            for (let c = 0; c < 9; c++) board.children[t.index * 9 + c].classList.add("highlight-least");
+        } else if (t.type === 'col') {
+            for (let r = 0; r < 9; r++) board.children[r * 9 + t.index].classList.add("highlight-least");
+        } else if (t.type === 'block') {
+            for (let r = t.br * 3; r < t.br * 3 + 3; r++) {
+                for (let c = t.bc * 3; c < t.bc * 3 + 3; c++) {
+                    board.children[r * 9 + c].classList.add("highlight-least");
+                }
+            }
+        }
+    });
+
+    statusEl.textContent = `Highlighted group(s) with lowest unfilled count (${minEmpty} remaining).`;
+    setTimeout(() => {
+        if (statusEl.textContent.startsWith("Highlighted group")) statusEl.textContent = "";
+    }, 4000);
 }
 
 /* -----------------------------------------
@@ -771,7 +988,6 @@ function getBlockIndicesIfComplete(r, c) {
 /* -----------------------------------------
    HINT SYSTEM
 ----------------------------------------- */
-
 function getCurrentGrid() {
     const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
     for (let r = 0; r < 9; r++) {
@@ -784,7 +1000,6 @@ function getCurrentGrid() {
     return grid;
 }
 
-// Find a cell with exactly ONE valid candidate
 function findSingleCandidate(grid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -803,9 +1018,7 @@ function findSingleCandidate(grid) {
     return null;
 }
 
-// Find a hidden single in a row, column, or block
 function findHiddenSingle(grid) {
-    // Check rows
     for (let r = 0; r < 9; r++) {
         for (let n = 1; n <= 9; n++) {
             let spots = [];
@@ -820,7 +1033,6 @@ function findHiddenSingle(grid) {
         }
     }
 
-    // Check columns
     for (let c = 0; c < 9; c++) {
         for (let n = 1; n <= 9; n++) {
             let spots = [];
@@ -835,7 +1047,6 @@ function findHiddenSingle(grid) {
         }
     }
 
-    // Check blocks
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             for (let n = 1; n <= 9; n++) {
@@ -861,11 +1072,7 @@ function showHint() {
     if (gameWon) return;
 
     const grid = getCurrentGrid();
-
-    // Try simple single-candidate first
     let hint = findSingleCandidate(grid);
-
-    // If none, try hidden singles
     if (!hint) hint = findHiddenSingle(grid);
 
     if (!hint) {
@@ -879,14 +1086,10 @@ function showHint() {
     const { r, c, value, type } = hint;
     const cell = board.children[r * 9 + c];
 
-    // Actually select the cell using the game's real selection logic
     onCellClick(cell);
-
-    // Glow the hinted cell
     cell.classList.add("glow");
-    setTimeout(() => cell.classList.remove("glow"), 2500);
+    setTimeout(() => cell.classList.remove("glow"), 2000);
 
-    // Show hint message longer (7 seconds)
     statusEl.textContent = `Hint: Cell (${r+1}, ${c+1}) can only be ${value} — ${type}.`;
     setTimeout(() => {
         if (statusEl.textContent.startsWith("Hint:")) statusEl.textContent = "";
@@ -1054,7 +1257,7 @@ function startConfetti() {
     confettiPieces = [];
     const colors = ["#ff4b5c", "#ffb400", "#3ae374", "#17c0eb", "#9b59b6"];
 
-    for (let i = 0; i < 300; i++) {   // increased from 200
+    for (let i = 0; i < 300; i++) {
         confettiPieces.push({
             x: Math.random() * confettiCanvas.width,
             y: Math.random() * -confettiCanvas.height,
@@ -1071,7 +1274,6 @@ function startConfetti() {
     confettiRunning = true;
     requestAnimationFrame(confettiLoop);
 
-    // Confetti lasts 10 seconds instead of 4
     setTimeout(stopConfetti, 10000);
 }
 
@@ -1116,7 +1318,6 @@ function onWin() {
     if (gameWon) return;
     gameWon = true;
 
-    // Make every cell glow
     glowAllCells();
 
     board.classList.add("board-win");
@@ -1142,6 +1343,10 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
         const c = parseInt(cell.dataset.col, 10);
         if (!givenMask[r][c]) clearAllPencilsInCell(cell);
     });
+});
+
+document.getElementById("highlightLeastBtn").addEventListener("click", () => {
+    highlightLeastUnfilled();
 });
 
 document.getElementById("newGameBtn").addEventListener("click", () => {
