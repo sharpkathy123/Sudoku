@@ -47,15 +47,21 @@
 <!-- Fully Local Embedded Manifest (Prevents iOS Network Checks) -->
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":"./","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff"}' />
 
-<!-- Discreet Version / Timestamp Indicator -->
+<!-- Discreet Dynamic Version / Timestamp Indicator -->
 <script>
 window.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     if (statusDiv) {
         const buildTag = document.createElement('div');
         buildTag.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; font-family: monospace;';
-        // Live build timestamp for verification
-        buildTag.textContent = 'v3.1 • Updated: Aug 12, 2026, 5:19 PM';
+        
+        // Dynamically formats the current date & time on load
+        const now = new Date();
+        const timeString = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
+                           ', ' + 
+                           now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                           
+        buildTag.textContent = `v3.2 • Loaded: ${timeString}`;
         statusDiv.appendChild(buildTag);
     }
 });
