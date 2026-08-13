@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v8.0';
+            const CACHE_NAME = 'sudoku-v9.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1121,7 +1121,7 @@ function getBlockIndicesIfComplete(r, c) {
 }
 
 /* -----------------------------------------
-   SIMPLIFIED HINT SYSTEM & DIFFICULTY RATING
+   ADVANCED HINT ENGINE & SOLVER TECHS
 ----------------------------------------- */
 function getCurrentGrid() {
     const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -1148,7 +1148,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// SIMPLICITY TIER 1: Naked Single
+// 1. Naked Single
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1157,7 +1157,7 @@ function findNakedSingle(candGrid) {
                 return {
                     r, c, val,
                     cells: [{ r, c }],
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only number that fits here.`
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only candidate that fits here.`
                 };
             }
         }
@@ -1165,7 +1165,7 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// SIMPLICITY TIER 2: Hidden Single
+// 2. Hidden Single
 function findHiddenSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let n = 1; n <= 9; n++) {
@@ -1221,7 +1221,7 @@ function findHiddenSingle(candGrid) {
     return null;
 }
 
-// SIMPLICITY TIER 3: Naked Pairs (Strictly verifies actionable eliminations remain!)
+// 3. Naked Pairs
 function findNakedPair(candGrid) {
     const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
@@ -1230,7 +1230,6 @@ function findNakedPair(candGrid) {
             if (candGrid[r][c].length === 2) {
                 const cands = candGrid[r][c];
 
-                // 1. Check Row Pairs
                 for (let cc = c + 1; cc < 9; cc++) {
                     if (sameCandidates(cands, candGrid[r][cc])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(r / 3) && Math.floor(c / 3) === Math.floor(cc / 3);
@@ -1277,7 +1276,6 @@ function findNakedPair(candGrid) {
                     }
                 }
 
-                // 2. Check Column Pairs
                 for (let rr = r + 1; rr < 9; rr++) {
                     if (sameCandidates(cands, candGrid[rr][c])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(rr / 3);
@@ -1321,6 +1319,219 @@ function findNakedPair(candGrid) {
                             cells: [{ r, c }, { r: rr, c }],
                             explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
                         };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 4. Pointing Pairs / Triples (Locked Candidates 1)
+function findPointingPairs(candGrid) {
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            const boxNum = br * 3 + bc + 1;
+            for (let num = 1; num <= 9; num++) {
+                const spots = [];
+                for (let r = br * 3; r < br * 3 + 3; r++) {
+                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                        if (candGrid[r][c].includes(num)) spots.push({ r, c });
+                    }
+                }
+
+                if (spots.length >= 2 && spots.length <= 3) {
+                    const sameRow = spots.every(s => s.r === spots[0].r);
+                    if (sameRow) {
+                        const targetRow = spots[0].r;
+                        let hasElims = false;
+                        for (let c = 0; c < 9; c++) {
+                            if (c >= bc * 3 && c < bc * 3 + 3) continue;
+                            if (candGrid[targetRow][c].includes(num)) {
+                                hasElims = true;
+                                break;
+                            }
+                        }
+                        if (hasElims) {
+                            return {
+                                cells: spots,
+                                explanation: `In Box ${boxNum}, ${num} is locked in Row ${targetRow + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Row ${targetRow + 1}.`
+                            };
+                        }
+                    }
+
+                    const sameCol = spots.every(s => s.c === spots[0].c);
+                    if (sameCol) {
+                        const targetCol = spots[0].c;
+                        let hasElims = false;
+                        for (let r = 0; r < 9; r++) {
+                            if (r >= br * 3 && r < br * 3 + 3) continue;
+                            if (candGrid[r][targetCol].includes(num)) {
+                                hasElims = true;
+                                break;
+                            }
+                        }
+                        if (hasElims) {
+                            return {
+                                cells: spots,
+                                explanation: `In Box ${boxNum}, ${num} is locked in Column ${targetCol + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Column ${targetCol + 1}.`
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 5. Claiming Lines (Locked Candidates 2)
+function findClaimingLines(candGrid) {
+    // Check Rows
+    for (let r = 0; r < 9; r++) {
+        for (let num = 1; num <= 9; num++) {
+            const spots = [];
+            for (let c = 0; c < 9; c++) {
+                if (candGrid[r][c].includes(num)) spots.push({ r, c });
+            }
+            if (spots.length >= 2 && spots.length <= 3) {
+                const firstBox = Math.floor(spots[0].c / 3);
+                const sameBox = spots.every(s => Math.floor(s.c / 3) === firstBox);
+                if (sameBox) {
+                    const br = Math.floor(r / 3);
+                    const bc = firstBox;
+                    const boxNum = br * 3 + bc + 1;
+                    let hasElims = false;
+                    for (let rr = br * 3; rr < br * 3 + 3; rr++) {
+                        if (rr === r) continue;
+                        for (let cc = bc * 3; cc < bc * 3 + 3; cc++) {
+                            if (candGrid[rr][cc].includes(num)) {
+                                hasElims = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasElims) {
+                        return {
+                            cells: spots,
+                            explanation: `In Row ${r + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    // Check Columns
+    for (let c = 0; c < 9; c++) {
+        for (let num = 1; num <= 9; num++) {
+            const spots = [];
+            for (let r = 0; r < 9; r++) {
+                if (candGrid[r][c].includes(num)) spots.push({ r, c });
+            }
+            if (spots.length >= 2 && spots.length <= 3) {
+                const firstBox = Math.floor(spots[0].r / 3);
+                const sameBox = spots.every(s => Math.floor(s.r / 3) === firstBox);
+                if (sameBox) {
+                    const br = firstBox;
+                    const bc = Math.floor(c / 3);
+                    const boxNum = br * 3 + bc + 1;
+                    let hasElims = false;
+                    for (let rr = br * 3; rr < br * 3 + 3; rr++) {
+                        for (let cc = bc * 3; cc < bc * 3 + 3; cc++) {
+                            if (cc === c) continue;
+                            if (candGrid[rr][cc].includes(num)) {
+                                hasElims = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasElims) {
+                        return {
+                            cells: spots,
+                            explanation: `In Column ${c + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 6. Naked Triples
+function findNakedTriples(candGrid) {
+    const isSubset = (cellCands, tripleCands) => cellCands.every(n => tripleCands.includes(n));
+
+    for (let r = 0; r < 9; r++) {
+        const emptyCols = [];
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length >= 2 && candGrid[r][c].length <= 3) emptyCols.push(c);
+        }
+        if (emptyCols.length >= 3) {
+            for (let i = 0; i < emptyCols.length; i++) {
+                for (let j = i + 1; j < emptyCols.length; j++) {
+                    for (let k = j + 1; k < emptyCols.length; k++) {
+                        const c1 = emptyCols[i], c2 = emptyCols[j], c3 = emptyCols[k];
+                        const union = Array.from(new Set([...candGrid[r][c1], ...candGrid[r][c2], ...candGrid[r][c3]]));
+                        if (union.length === 3) {
+                            let hasElims = false;
+                            for (let col = 0; col < 9; col++) {
+                                if (col === c1 || col === c2 || col === c3) continue;
+                                if (candGrid[r][col].some(n => union.includes(n))) {
+                                    hasElims = true;
+                                    break;
+                                }
+                            }
+                            if (hasElims) {
+                                return {
+                                    cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
+                                    explanation: `Cells (${r+1},${c1+1}), (${r+1},${c2+1}), (${r+1},${c3+1}) form a Naked Triple for {${union.join(",")}}. Eliminate ${union.join(",")} from the rest of Row ${r+1}.`
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 7. X-Wing
+function findXWing(candGrid) {
+    for (let num = 1; num <= 9; num++) {
+        const rowSpots = [];
+        for (let r = 0; r < 9; r++) {
+            const cols = [];
+            for (let c = 0; c < 9; c++) {
+                if (candGrid[r][c].includes(num)) cols.push(c);
+            }
+            if (cols.length === 2) {
+                rowSpots.push({ r, cols });
+            }
+        }
+
+        if (rowSpots.length >= 2) {
+            for (let i = 0; i < rowSpots.length; i++) {
+                for (let j = i + 1; j < rowSpots.length; j++) {
+                    const r1 = rowSpots[i].r, r2 = rowSpots[j].r;
+                    const c1 = rowSpots[i].cols[0], c2 = rowSpots[i].cols[1];
+                    if (rowSpots[j].cols[0] === c1 && rowSpots[j].cols[1] === c2) {
+                        let hasElims = false;
+                        for (let row = 0; row < 9; row++) {
+                            if (row === r1 || row === r2) continue;
+                            if (candGrid[row][c1].includes(num) || candGrid[row][c2].includes(num)) {
+                                hasElims = true;
+                                break;
+                            }
+                        }
+                        if (hasElims) {
+                            return {
+                                cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
+                                explanation: `X-Wing found for ${num} on Rows ${r1+1} & ${r2+1} (Columns ${c1+1} & ${c2+1}). Eliminate ${num} from the rest of Columns ${c1+1} & ${c2+1}.`
+                            };
+                        }
                     }
                 }
             }
@@ -1385,19 +1596,23 @@ function showHint() {
 
     clearNumberHighlights();
 
-    // Evaluates directly against current grid state
     const grid = getCurrentGrid();
     const candGrid = getCandidatesGrid(grid);
     
+    // Evaluate moves in order of increasing difficulty
     let hint = findNakedSingle(candGrid) || 
                findHiddenSingle(candGrid) || 
-               findNakedPair(candGrid);
+               findNakedPair(candGrid) ||
+               findPointingPairs(candGrid) ||
+               findClaimingLines(candGrid) ||
+               findNakedTriples(candGrid) ||
+               findXWing(candGrid);
 
     if (!hint) {
-        statusEl.textContent = "No simple hints found. Try Auto-Notes to look for advanced eliminations.";
+        statusEl.textContent = "No standard hints found. Advanced techniques like XY-Wing or Swordfish required!";
         setTimeout(() => {
-            if (statusEl.textContent.startsWith("No simple")) statusEl.textContent = "";
-        }, 3500);
+            if (statusEl.textContent.startsWith("No standard")) statusEl.textContent = "";
+        }, 4000);
         return;
     }
 
