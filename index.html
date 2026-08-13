@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v4.1';
+            const CACHE_NAME = 'sudoku-v4.2';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -213,7 +213,6 @@ h2 {
 
 /* Buttons / selects */
 .top-bar select,
-.top-bar button,
 .controls button,
 #pencilToggle {
     padding: 6px 12px;
@@ -226,7 +225,6 @@ h2 {
     transition: background 0.18s, box-shadow 0.18s, transform 0.08s, border-color 0.18s;
 }
 
-.top-bar button:hover,
 .controls button:hover,
 #pencilToggle:hover {
     background: #eef2ff;
@@ -465,14 +463,14 @@ h2 {
     <div id="status"></div>
 
     <div class="top-bar">
-        <label for="difficulty">Difficulty:</label>
+        <label for="difficulty">New Game:</label>
         <select id="difficulty">
+            <option value="" disabled selected>Select Difficulty...</option>
             <option value="easy">Easy</option>
-            <option value="medium" selected>Medium</option>
+            <option value="medium">Medium</option>
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
         </select>
-        <button id="newGameBtn">New Puzzle</button>
     </div>
 
    <div class="controls">
@@ -1473,14 +1471,17 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     highlightLeastUnfilled();
 });
 
-document.getElementById("newGameBtn").addEventListener("click", () => {
+// Automatic puzzle generation upon difficulty selection
+difficultySelect.addEventListener("change", () => {
+    const diff = difficultySelect.value;
+    if (!diff) return;
+
     if (glowActive) glowQueue = [];
     stopConfetti();
     winOverlay.classList.remove("visible");
     board.classList.remove("board-win");
     winMessage.textContent = "";
 
-    const diff = difficultySelect.value;
     statusEl.textContent = "Generating puzzle...";
 
     setTimeout(() => {
@@ -1507,8 +1508,11 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 });
 
 (function init() {
-    const diff = difficultySelect.value;
-    const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
+    // Default initial load set to Medium
+    const defaultDiff = "medium";
+    difficultySelect.value = defaultDiff;
+    
+    const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(defaultDiff);
     puzzle = newPuzzle;
     solution = newSolution;
 
