@@ -55,7 +55,6 @@ window.addEventListener('DOMContentLoaded', () => {
         const buildTag = document.createElement('div');
         buildTag.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; font-family: monospace;';
         
-        // Displays exact server HTTP modification date of the code file
         const modDate = new Date(document.lastModified);
         const dateStr = modDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const timeStr = modDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -71,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v6.0';
+            const CACHE_NAME = 'sudoku-v7.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -146,7 +145,6 @@ if ('serviceWorker' in navigator) {
     --highlight-cell: #fff7c2;
     --pencil-highlight: #d17b00;
     
-    /* Dynamic cell size scaled to viewport width */
     --cell-size: clamp(32px, 9.2vw, 50px);
 }
 
@@ -280,6 +278,7 @@ h2 {
     font-weight: 700;
     border-color: #4b5563;
 }
+
 /* Responsive Board */
 .board {
     display: grid;
@@ -321,7 +320,6 @@ h2 {
     background: #ffe0e0;
 }
 
-/* Stronger 3×3 borders */
 .cell.box-right {
     border-right: 2px solid var(--border-strong);
 }
@@ -329,7 +327,6 @@ h2 {
     border-bottom: 2px solid var(--border-strong);
 }
 
-/* Highlighting */
 .cell.highlight-number {
     background: var(--highlight-cell) !important;
 }
@@ -368,7 +365,6 @@ h2 {
     text-shadow: 0 0 4px rgba(255, 180, 0, 0.8);
 }
 
-/* Main value */
 .cell-value {
     position: absolute;
     inset: 0;
@@ -378,7 +374,6 @@ h2 {
     font-size: clamp(16px, 4.8vw, 24px);
 }
 
-/* Glow animations - 2.0s */
 @keyframes neonGlow {
     0%   { box-shadow: 0 0 0px 0px rgba(0,150,255,0.0); background-color: var(--panel); }
     20%  { box-shadow: 0 0 12px 6px rgba(0,150,255,0.85); background-color: #dbeafe; }
@@ -390,7 +385,6 @@ h2 {
     animation: neonGlow 2.0s ease-out;
 }
 
-/* Win glow */
 @keyframes boardWinGlow {
     0%   { box-shadow: 0 0 0px 0px rgba(0,255,150,0.0); }
     30%  { box-shadow: 0 0 20px 10px rgba(0,255,150,0.8); }
@@ -402,7 +396,6 @@ h2 {
     animation: boardWinGlow 3.5s ease-out;
 }
 
-/* Win overlay */
 #winOverlay {
     position: fixed;
     inset: 0;
@@ -438,7 +431,6 @@ h2 {
     100% { transform: scale(1.0) translateY(0); opacity: 1; }
 }
 
-/* Win message text */
 #winMessage {
     margin-top: 12px;
     font-size: 16px;
@@ -447,7 +439,6 @@ h2 {
     min-height: 20px;
 }
 
-/* Confetti canvas */
 #confettiCanvas {
     position: fixed;
     inset: 0;
@@ -493,7 +484,6 @@ h2 {
 
     <div id="winMessage"></div>
     
-    <!-- Subtle Footer Link for Tech-Savvy Users -->
     <footer style="margin-top: 16px; font-size: 11px; color: var(--text-soft); text-align: center;">
         <a href="https://github.com/sharpkathy123/Sudoku" target="_blank" rel="noopener" style="color: var(--text-soft); text-decoration: underline;">
             View Documentation on GitHub
@@ -632,7 +622,6 @@ function clearSelectionAndHighlights() {
     updateNumberTileStyles();
 }
 
-// Global click listener to clear highlights when tapping outside game elements
 document.addEventListener("click", (e) => {
     const isClickInsideGame = e.target.closest("#board") || 
                               e.target.closest("#numberBar") || 
@@ -1019,7 +1008,6 @@ function highlightLeastUnfilled() {
     let minEmpty = 10;
     const targets = [];
 
-    // Check Rows
     for (let r = 0; r < 9; r++) {
         let empty = 0;
         for (let c = 0; c < 9; c++) if (grid[r][c] === 0) empty++;
@@ -1034,7 +1022,6 @@ function highlightLeastUnfilled() {
         }
     }
 
-    // Check Columns
     for (let c = 0; c < 9; c++) {
         let empty = 0;
         for (let r = 0; r < 9; r++) if (grid[r][c] === 0) empty++;
@@ -1049,7 +1036,6 @@ function highlightLeastUnfilled() {
         }
     }
 
-    // Check Blocks
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             let empty = 0;
@@ -1154,6 +1140,28 @@ function getCurrentGrid() {
     return grid;
 }
 
+// Reads actual pencil marks active on the UI board
+function getBoardPencilGrid() {
+    const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = board.children[r * 9 + c];
+            const val = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+            if (val !== 0) continue;
+
+            const digits = cell._pencilDigits;
+            if (digits) {
+                for (let n = 1; n <= 9; n++) {
+                    if (digits[n].classList.contains("active")) {
+                        cand[r][c].push(n);
+                    }
+                }
+            }
+        }
+    }
+    return cand;
+}
+
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
     for (let r = 0; r < 9; r++) {
@@ -1240,8 +1248,7 @@ function findHiddenSingle(candGrid) {
     return null;
 }
 
-// SIMPLICITY TIER 3: Naked Pairs
-// FIXED: Dynamic Naked Pair check for Rows, Columns, AND Boxes
+// SIMPLICITY TIER 3: Naked Pairs (Strictly verifies actionable eliminations remain!)
 function findNakedPair(candGrid) {
     const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
@@ -1254,8 +1261,18 @@ function findNakedPair(candGrid) {
                 for (let cc = c + 1; cc < 9; cc++) {
                     if (sameCandidates(cands, candGrid[r][cc])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(r / 3) && Math.floor(c / 3) === Math.floor(cc / 3);
-                        
-                        // Check if there are candidate eliminations in the Box vs the Row
+
+                        // Check if candidates actually exist to eliminate in the Row
+                        let hasRowElims = false;
+                        for (let col = 0; col < 9; col++) {
+                            if (col === c || col === cc) continue;
+                            if (candGrid[r][col].some(n => cands.includes(n))) {
+                                hasRowElims = true;
+                                break;
+                            }
+                        }
+
+                        // Check if candidates exist to eliminate in the Box
                         let hasBoxElims = false;
                         if (inSameBox) {
                             const br = Math.floor(r / 3) * 3;
@@ -1271,15 +1288,21 @@ function findNakedPair(candGrid) {
                             }
                         }
 
-                        let targetUnit = "Row " + (r + 1);
+                        // If no candidates remain to eliminate in row OR box, skip this pair
+                        if (!hasRowElims && !hasBoxElims) continue;
+
+                        let targetUnits = [];
                         if (hasBoxElims && inSameBox) {
                             const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
-                            targetUnit = `Box ${boxNum} (and Row ${r + 1})`;
+                            targetUnits.push(`Box ${boxNum}`);
+                        }
+                        if (hasRowElims) {
+                            targetUnits.push(`Row ${r + 1}`);
                         }
 
                         return {
                             cells: [{ r, c }, { r, c: cc }],
-                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnit}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
                         };
                     }
                 }
@@ -1288,7 +1311,16 @@ function findNakedPair(candGrid) {
                 for (let rr = r + 1; rr < 9; rr++) {
                     if (sameCandidates(cands, candGrid[rr][c])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(rr / 3);
-                        
+
+                        let hasColElims = false;
+                        for (let row = 0; row < 9; row++) {
+                            if (row === r || row === rr) continue;
+                            if (candGrid[row][c].some(n => cands.includes(n))) {
+                                hasColElims = true;
+                                break;
+                            }
+                        }
+
                         let hasBoxElims = false;
                         if (inSameBox) {
                             const br = Math.floor(r / 3) * 3;
@@ -1304,15 +1336,20 @@ function findNakedPair(candGrid) {
                             }
                         }
 
-                        let targetUnit = "Column " + (c + 1);
+                        if (!hasColElims && !hasBoxElims) continue;
+
+                        let targetUnits = [];
                         if (hasBoxElims && inSameBox) {
                             const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
-                            targetUnit = `Box ${boxNum} (and Column ${c + 1})`;
+                            targetUnits.push(`Box ${boxNum}`);
+                        }
+                        if (hasColElims) {
+                            targetUnits.push(`Column ${c + 1}`);
                         }
 
                         return {
                             cells: [{ r, c }, { r: rr, c }],
-                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnit}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
                         };
                     }
                 }
@@ -1322,11 +1359,6 @@ function findNakedPair(candGrid) {
     return null;
 }
 
-/**
- * LOGICAL SOLVER RATING ENGINE
- * Simulates solving the puzzle to measure required difficulty.
- * Returns: "easy", "medium", "hard", or "expert"
- */
 function ratePuzzleDifficulty(initialGrid) {
     const grid = deepCopyGrid(initialGrid);
     let maxTechniqueNeeded = "easy";
@@ -1383,12 +1415,20 @@ function showHint() {
 
     clearNumberHighlights();
 
-    const grid = getCurrentGrid();
-    const candGrid = getCandidatesGrid(grid);
+    // 1. First evaluation against actual user pencil notes on the board
+    const boardPencils = getBoardPencilGrid();
+    let hint = findNakedSingle(boardPencils) || 
+               findHiddenSingle(boardPencils) || 
+               findNakedPair(boardPencils);
 
-    let hint = findNakedSingle(candGrid) || 
+    // 2. Fallback evaluation against fully computed mathematical candidate grid
+    if (!hint) {
+        const grid = getCurrentGrid();
+        const candGrid = getCandidatesGrid(grid);
+        hint = findNakedSingle(candGrid) || 
                findHiddenSingle(candGrid) || 
                findNakedPair(candGrid);
+    }
 
     if (!hint) {
         statusEl.textContent = "No simple hints found. Try Auto-Notes to look for advanced eliminations.";
@@ -1701,7 +1741,6 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     highlightLeastUnfilled();
 });
 
-// Automatic puzzle generation upon difficulty selection
 difficultySelect.addEventListener("change", () => {
     const diff = difficultySelect.value;
     if (!diff) return;
@@ -1739,10 +1778,8 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 });
 
 (function init() {
-    // Attempt to resume saved game from localStorage
     const resumed = loadSavedGameState();
 
-    // If no active save exists, create a new Medium puzzle by default
     if (!resumed) {
         const defaultDiff = "medium";
         difficultySelect.value = defaultDiff;
