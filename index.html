@@ -47,7 +47,7 @@
 <!-- Fully Local Embedded Manifest (Prevents iOS Network Checks) -->
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":"./","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff"}' />
 
-<!-- Discreet Dynamic Version / Timestamp Indicator -->
+<!-- Discreet Server Code Last Modified Timestamp Indicator -->
 <script>
 window.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
@@ -55,13 +55,12 @@ window.addEventListener('DOMContentLoaded', () => {
         const buildTag = document.createElement('div');
         buildTag.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; font-family: monospace;';
         
-        // Dynamically formats the current date & time on load
-        const now = new Date();
-        const timeString = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
-                           ', ' + 
-                           now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                           
-        buildTag.textContent = `v3.2 • Loaded: ${timeString}`;
+        // Displays exact server HTTP modification date of the code file
+        const modDate = new Date(document.lastModified);
+        const dateStr = modDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = modDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        
+        buildTag.textContent = `Updated: ${dateStr} ${timeStr}`;
         statusDiv.appendChild(buildTag);
     }
 });
@@ -72,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v3.1';
+            const CACHE_NAME = 'sudoku-v3.2';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -121,7 +120,6 @@ if ('serviceWorker' in navigator) {
             });
         `;
 
-        // Using data: URI instead of Blob URL so iOS Safari retains SW registration across launches
         const swDataUrl = 'data:application/javascript;base64,' + btoa(swScript);
 
         navigator.serviceWorker.register(swDataUrl, { scope: './' })
