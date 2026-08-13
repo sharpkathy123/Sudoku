@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v9.0';
+            const CACHE_NAME = 'sudoku-v10.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1327,7 +1327,7 @@ function findNakedPair(candGrid) {
     return null;
 }
 
-// 4. Pointing Pairs / Triples (Locked Candidates 1)
+// 4. Pointing Pairs / Triples
 function findPointingPairs(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1385,9 +1385,8 @@ function findPointingPairs(candGrid) {
     return null;
 }
 
-// 5. Claiming Lines (Locked Candidates 2)
+// 5. Claiming Lines
 function findClaimingLines(candGrid) {
-    // Check Rows
     for (let r = 0; r < 9; r++) {
         for (let num = 1; num <= 9; num++) {
             const spots = [];
@@ -1422,7 +1421,6 @@ function findClaimingLines(candGrid) {
         }
     }
 
-    // Check Columns
     for (let c = 0; c < 9; c++) {
         for (let num = 1; num <= 9; num++) {
             const spots = [];
@@ -1461,8 +1459,6 @@ function findClaimingLines(candGrid) {
 
 // 6. Naked Triples
 function findNakedTriples(candGrid) {
-    const isSubset = (cellCands, tripleCands) => cellCands.every(n => tripleCands.includes(n));
-
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
         for (let c = 0; c < 9; c++) {
@@ -1540,6 +1536,142 @@ function findXWing(candGrid) {
     return null;
 }
 
+// 8. XY-Wing
+function findXYWing(candGrid) {
+    const biValueCells = [];
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length === 2) {
+                biValueCells.push({ r, c, cands: candGrid[r][c] });
+            }
+        }
+    }
+
+    const canSee = (c1, c2) => {
+        if (c1.r === c2.r && c1.c === c2.c) return false;
+        if (c1.r === c2.r || c1.c === c2.c) return true;
+        return Math.floor(c1.r / 3) === Math.floor(c2.r / 3) && Math.floor(c1.c / 3) === Math.floor(c2.c / 3);
+    };
+
+    for (let i = 0; i < biValueCells.length; i++) {
+        const pivot = biValueCells[i];
+        const [a, b] = pivot.cands;
+
+        const wingsA = biValueCells.filter(w => canSee(pivot, w) && w.cands.includes(a) && !w.cands.includes(b));
+        const wingsB = biValueCells.filter(w => canSee(pivot, w) && w.cands.includes(b) && !w.cands.includes(a));
+
+        for (const wA of wingsA) {
+            for (const wB of wingsB) {
+                const zA = wA.cands.find(n => n !== a);
+                const zB = wB.cands.find(n => n !== b);
+
+                if (zA === zB && zA !== undefined) {
+                    const z = zA;
+                    let hasElims = false;
+                    const elimCells = [];
+
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) {
+                            const target = { r, c };
+                            if ((r === wA.r && c === wA.c) || (r === wB.r && c === wB.c) || (r === pivot.r && c === pivot.c)) continue;
+                            if (canSee(wA, target) && canSee(wB, target) && candGrid[r][c].includes(z)) {
+                                hasElims = true;
+                                elimCells.push(target);
+                            }
+                        }
+                    }
+
+                    if (hasElims) {
+                        return {
+                            cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
+                            explanation: `XY-Wing with Pivot at Cell (${pivot.r+1}, ${pivot.c+1}) and Wings at (${wA.r+1}, ${wA.c+1}) & (${wB.r+1}, ${wB.c+1}). Eliminate candidate ${z} where both wings intersect.`
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 9. Swordfish
+function findSwordfish(candGrid) {
+    for (let num = 1; num <= 9; num++) {
+        const rowData = [];
+        for (let r = 0; r < 9; r++) {
+            const cols = [];
+            for (let c = 0; c < 9; c++) {
+                if (candGrid[r][c].includes(num)) cols.push(c);
+            }
+            if (cols.length >= 2 && cols.length <= 3) {
+                rowData.push({ r, cols });
+            }
+        }
+
+        if (rowData.length >= 3) {
+            for (let i = 0; i < rowData.length; i++) {
+                for (let j = i + 1; j < rowData.length; j++) {
+                    for (let k = j + 1; k < rowData.length; k++) {
+                        const r1 = rowData[i], r2 = rowData[j], r3 = rowData[k];
+                        const colSet = Array.from(new Set([...r1.cols, ...r2.cols, ...r3.cols]));
+                        if (colSet.length === 3) {
+                            let hasElims = false;
+                            for (let r = 0; r < 9; r++) {
+                                if (r === r1.r || r === r2.r || r === r3.r) continue;
+                                for (const c of colSet) {
+                                    if (candGrid[r][c].includes(num)) {
+                                        hasElims = true;
+                                        break;
+                                    }
+                                }
+                                if (hasElims) break;
+                            }
+
+                            if (hasElims) {
+                                const activeCells = [];
+                                [r1, r2, r3].forEach(rd => {
+                                    rd.cols.forEach(c => activeCells.push({ r: rd.r, c }));
+                                });
+                                return {
+                                    cells: activeCells,
+                                    explanation: `Swordfish detected for ${num} across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1} in Columns ${colSet.map(c=>c+1).join(", ")}. Eliminate ${num} from other cells in these columns.`
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 10. Direct Reveal Fallback
+function findDirectRevealFallback(candGrid) {
+    let minCandidates = 10;
+    let target = null;
+
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length > 0) {
+                if (candGrid[r][c].length < minCandidates) {
+                    minCandidates = candGrid[r][c].length;
+                    target = { r, c };
+                }
+            }
+        }
+    }
+
+    if (target) {
+        const correctVal = solution[target.r][target.c];
+        return {
+            cells: [{ r: target.r, c: target.c }],
+            explanation: `Advanced pattern needed. Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
+        };
+    }
+    return null;
+}
+
 function ratePuzzleDifficulty(initialGrid) {
     const grid = deepCopyGrid(initialGrid);
     let maxTechniqueNeeded = "easy";
@@ -1606,13 +1738,13 @@ function showHint() {
                findPointingPairs(candGrid) ||
                findClaimingLines(candGrid) ||
                findNakedTriples(candGrid) ||
-               findXWing(candGrid);
+               findXWing(candGrid) ||
+               findXYWing(candGrid) ||
+               findSwordfish(candGrid) ||
+               findDirectRevealFallback(candGrid);
 
     if (!hint) {
-        statusEl.textContent = "No standard hints found. Advanced techniques like XY-Wing or Swordfish required!";
-        setTimeout(() => {
-            if (statusEl.textContent.startsWith("No standard")) statusEl.textContent = "";
-        }, 4000);
+        statusEl.textContent = "Board is complete!";
         return;
     }
 
