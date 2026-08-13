@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v7.0';
+            const CACHE_NAME = 'sudoku-v8.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -184,7 +184,6 @@ h2 {
     padding: 0 8px;
 }
 
-/* Layout panels */
 .top-bar,
 .controls {
     display: flex;
@@ -209,7 +208,6 @@ h2 {
     max-width: 480px;
 }
 
-/* Buttons / selects */
 .top-bar select,
 .controls button,
 #pencilToggle {
@@ -234,7 +232,6 @@ h2 {
     border-color: #e0b44c;
 }
 
-/* Number bar */
 .number-bar {
     display: flex;
     gap: 6px;
@@ -279,7 +276,6 @@ h2 {
     border-color: #4b5563;
 }
 
-/* Responsive Board */
 .board {
     display: grid;
     grid-template-columns: repeat(9, var(--cell-size));
@@ -337,7 +333,6 @@ h2 {
     z-index: 1;
 }
 
-/* Pencil digits */
 .pencil-container {
     position: absolute;
     inset: 2px;
@@ -1140,28 +1135,6 @@ function getCurrentGrid() {
     return grid;
 }
 
-// Reads actual pencil marks active on the UI board
-function getBoardPencilGrid() {
-    const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            const cell = board.children[r * 9 + c];
-            const val = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
-            if (val !== 0) continue;
-
-            const digits = cell._pencilDigits;
-            if (digits) {
-                for (let n = 1; n <= 9; n++) {
-                    if (digits[n].classList.contains("active")) {
-                        cand[r][c].push(n);
-                    }
-                }
-            }
-        }
-    }
-    return cand;
-}
-
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
     for (let r = 0; r < 9; r++) {
@@ -1262,7 +1235,6 @@ function findNakedPair(candGrid) {
                     if (sameCandidates(cands, candGrid[r][cc])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(r / 3) && Math.floor(c / 3) === Math.floor(cc / 3);
 
-                        // Check if candidates actually exist to eliminate in the Row
                         let hasRowElims = false;
                         for (let col = 0; col < 9; col++) {
                             if (col === c || col === cc) continue;
@@ -1272,7 +1244,6 @@ function findNakedPair(candGrid) {
                             }
                         }
 
-                        // Check if candidates exist to eliminate in the Box
                         let hasBoxElims = false;
                         if (inSameBox) {
                             const br = Math.floor(r / 3) * 3;
@@ -1288,7 +1259,6 @@ function findNakedPair(candGrid) {
                             }
                         }
 
-                        // If no candidates remain to eliminate in row OR box, skip this pair
                         if (!hasRowElims && !hasBoxElims) continue;
 
                         let targetUnits = [];
@@ -1415,20 +1385,13 @@ function showHint() {
 
     clearNumberHighlights();
 
-    // 1. First evaluation against actual user pencil notes on the board
-    const boardPencils = getBoardPencilGrid();
-    let hint = findNakedSingle(boardPencils) || 
-               findHiddenSingle(boardPencils) || 
-               findNakedPair(boardPencils);
-
-    // 2. Fallback evaluation against fully computed mathematical candidate grid
-    if (!hint) {
-        const grid = getCurrentGrid();
-        const candGrid = getCandidatesGrid(grid);
-        hint = findNakedSingle(candGrid) || 
+    // Evaluates directly against current grid state
+    const grid = getCurrentGrid();
+    const candGrid = getCandidatesGrid(grid);
+    
+    let hint = findNakedSingle(candGrid) || 
                findHiddenSingle(candGrid) || 
                findNakedPair(candGrid);
-    }
 
     if (!hint) {
         statusEl.textContent = "No simple hints found. Try Auto-Notes to look for advanced eliminations.";
