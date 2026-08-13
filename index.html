@@ -1241,6 +1241,7 @@ function findHiddenSingle(candGrid) {
 }
 
 // SIMPLICITY TIER 3: Naked Pairs
+// FIXED: Dynamic Naked Pair check for Rows, Columns, AND Boxes
 function findNakedPair(candGrid) {
     const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
@@ -1249,20 +1250,69 @@ function findNakedPair(candGrid) {
             if (candGrid[r][c].length === 2) {
                 const cands = candGrid[r][c];
 
+                // 1. Check Row Pairs
                 for (let cc = c + 1; cc < 9; cc++) {
                     if (sameCandidates(cands, candGrid[r][cc])) {
+                        const inSameBox = Math.floor(r / 3) === Math.floor(r / 3) && Math.floor(c / 3) === Math.floor(cc / 3);
+                        
+                        // Check if there are candidate eliminations in the Box vs the Row
+                        let hasBoxElims = false;
+                        if (inSameBox) {
+                            const br = Math.floor(r / 3) * 3;
+                            const bc = Math.floor(c / 3) * 3;
+                            for (let rr = br; rr < br + 3; rr++) {
+                                for (let ccc = bc; ccc < bc + 3; ccc++) {
+                                    if ((rr === r && ccc === c) || (rr === r && ccc === cc)) continue;
+                                    if (candGrid[rr][ccc].some(n => cands.includes(n))) {
+                                        hasBoxElims = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        let targetUnit = "Row " + (r + 1);
+                        if (hasBoxElims && inSameBox) {
+                            const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
+                            targetUnit = `Box ${boxNum} (and Row ${r + 1})`;
+                        }
+
                         return {
                             cells: [{ r, c }, { r, c: cc }],
-                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of Row ${r+1}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnit}.`
                         };
                     }
                 }
 
+                // 2. Check Column Pairs
                 for (let rr = r + 1; rr < 9; rr++) {
                     if (sameCandidates(cands, candGrid[rr][c])) {
+                        const inSameBox = Math.floor(r / 3) === Math.floor(rr / 3);
+                        
+                        let hasBoxElims = false;
+                        if (inSameBox) {
+                            const br = Math.floor(r / 3) * 3;
+                            const bc = Math.floor(c / 3) * 3;
+                            for (let rrr = br; rrr < br + 3; rrr++) {
+                                for (let cc = bc; cc < bc + 3; cc++) {
+                                    if ((rrr === r && cc === c) || (rrr === rr && cc === c)) continue;
+                                    if (candGrid[rrr][cc].some(n => cands.includes(n))) {
+                                        hasBoxElims = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        let targetUnit = "Column " + (c + 1);
+                        if (hasBoxElims && inSameBox) {
+                            const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
+                            targetUnit = `Box ${boxNum} (and Column ${c + 1})`;
+                        }
+
                         return {
                             cells: [{ r, c }, { r: rr, c }],
-                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of Column ${c+1}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnit}.`
                         };
                     }
                 }
