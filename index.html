@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v4.0';
+            const CACHE_NAME = 'sudoku-v4.1';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1052,7 +1052,7 @@ function getBlockIndicesIfComplete(r, c) {
 }
 
 /* -----------------------------------------
-   EXPERT HINT SYSTEM
+   SIMPLIFIED HINT SYSTEM
 ----------------------------------------- */
 function getCurrentGrid() {
     const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -1079,17 +1079,15 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// 1. Naked Single: Cell has only 1 candidate
+// SIMPLICITY TIER 1: Naked Single (Only 1 possible number for this cell)
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (candGrid[r][c].length === 1) {
                 const val = candGrid[r][c][0];
                 return {
-                    type: "Naked Single",
                     cells: [{ r, c }],
-                    value: val,
-                    explanation: `Cell (${r+1}, ${c+1}) can only be ${val} because all other numbers are blocked in its row, column, or 3×3 box.`
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only number that fits here.`
                 };
             }
         }
@@ -1097,9 +1095,9 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// 2. Hidden Single: Candidate appears in only 1 cell in a row, col, or box
-function findHiddenSingleExpert(candGrid) {
-    // Check Rows
+// SIMPLICITY TIER 2: Hidden Single (Only 1 possible spot for this number in a unit)
+function findHiddenSingle(candGrid) {
+    // Rows
     for (let r = 0; r < 9; r++) {
         for (let n = 1; n <= 9; n++) {
             const spots = [];
@@ -1108,16 +1106,14 @@ function findHiddenSingleExpert(candGrid) {
             }
             if (spots.length === 1) {
                 return {
-                    type: "Hidden Single (Row)",
                     cells: [spots[0]],
-                    value: n,
-                    explanation: `In Row ${r+1}, the number ${n} can only go in Cell (${spots[0].r+1}, ${spots[0].c+1}).`
+                    explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Row ${r+1} can hold it.`
                 };
             }
         }
     }
 
-    // Check Columns
+    // Columns
     for (let c = 0; c < 9; c++) {
         for (let n = 1; n <= 9; n++) {
             const spots = [];
@@ -1126,16 +1122,14 @@ function findHiddenSingleExpert(candGrid) {
             }
             if (spots.length === 1) {
                 return {
-                    type: "Hidden Single (Column)",
                     cells: [spots[0]],
-                    value: n,
-                    explanation: `In Column ${c+1}, the number ${n} can only go in Cell (${spots[0].r+1}, ${spots[0].c+1}).`
+                    explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Column ${c+1} can hold it.`
                 };
             }
         }
     }
 
-    // Check 3x3 Boxes
+    // Boxes
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             for (let n = 1; n <= 9; n++) {
@@ -1147,10 +1141,8 @@ function findHiddenSingleExpert(candGrid) {
                 }
                 if (spots.length === 1) {
                     return {
-                        type: "Hidden Single (Box)",
                         cells: [spots[0]],
-                        value: n,
-                        explanation: `In Box ${br*3 + bc + 1}, the number ${n} can only fit in Cell (${spots[0].r+1}, ${spots[0].c+1}).`
+                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${br*3 + bc + 1} can hold it.`
                     };
                 }
             }
@@ -1159,75 +1151,29 @@ function findHiddenSingleExpert(candGrid) {
     return null;
 }
 
-// 3. Naked Pairs: Two cells in a unit sharing the exact same 2 candidates
+// SIMPLICITY TIER 3: Naked Pairs (Simplest structural elimination)
 function findNakedPair(candGrid) {
-    // Helper to compare arrays
-    const sameCandidates = (arr1, arr2) => arr1.length === 2 && arr2.length === 2 && arr1[0] === arr2[0] && arr1[1] === arr2[1];
+    const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (candGrid[r][c].length === 2) {
                 const cands = candGrid[r][c];
 
-                // Check Row
                 for (let cc = c + 1; cc < 9; cc++) {
                     if (sameCandidates(cands, candGrid[r][cc])) {
                         return {
-                            type: "Naked Pair",
                             cells: [{ r, c }, { r, c: cc }],
-                            value: null,
-                            explanation: `Naked Pair {${cands.join(", ")}} in Row ${r+1} at cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}). Eliminate ${cands.join(" & ")} from other cells in Row ${r+1}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of Row ${r+1}.`
                         };
                     }
                 }
 
-                // Check Column
                 for (let rr = r + 1; rr < 9; rr++) {
                     if (sameCandidates(cands, candGrid[rr][c])) {
                         return {
-                            type: "Naked Pair",
                             cells: [{ r, c }, { r: rr, c }],
-                            value: null,
-                            explanation: `Naked Pair {${cands.join(", ")}} in Column ${c+1} at cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}). Eliminate ${cands.join(" & ")} from other cells in Column ${c+1}.`
-                        };
-                    }
-                }
-            }
-        }
-    }
-    return null;
-}
-
-// 4. Pointing Pairs / Triples: Candidates in a 3x3 box restricted to a single row/col
-function findPointingPair(candGrid) {
-    for (let br = 0; br < 3; br++) {
-        for (let bc = 0; bc < 3; bc++) {
-            for (let n = 1; n <= 9; n++) {
-                const spots = [];
-                for (let r = br * 3; r < br * 3 + 3; r++) {
-                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
-                        if (candGrid[r][c].includes(n)) spots.push({ r, c });
-                    }
-                }
-
-                if (spots.length >= 2 && spots.length <= 3) {
-                    const sameRow = spots.every(s => s.r === spots[0].r);
-                    if (sameRow) {
-                        return {
-                            type: "Pointing Pair/Triple",
-                            cells: spots,
-                            value: n,
-                            explanation: `In Box ${br*3 + bc + 1}, candidates for ${n} are restricted to Row ${spots[0].r+1}. Eliminate ${n} from the rest of Row ${spots[0].r+1}.`
-                        };
-                    }
-
-                    const sameCol = spots.every(s => s.c === spots[0].c);
-                    if (sameCol) {
-                        return {
-                            type: "Pointing Pair/Triple",
-                            cells: spots,
-                            value: n,
-                            explanation: `In Box ${br*3 + bc + 1}, candidates for ${n} are restricted to Column ${spots[0].c+1}. Eliminate ${n} from the rest of Column ${spots[0].c+1}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of Column ${c+1}.`
                         };
                     }
                 }
@@ -1245,23 +1191,21 @@ function showHint() {
     const grid = getCurrentGrid();
     const candGrid = getCandidatesGrid(grid);
 
-    // Cascading logical analysis
+    // Always searches from simplest move to most complex
     let hint = findNakedSingle(candGrid) || 
-               findHiddenSingleExpert(candGrid) || 
-               findNakedPair(candGrid) || 
-               findPointingPair(candGrid);
+               findHiddenSingle(candGrid) || 
+               findNakedPair(candGrid);
 
     if (!hint) {
-        statusEl.textContent = "No standard logical hints available. Consider using Auto-Notes or checking for errors.";
+        statusEl.textContent = "No simple hints found. Try Auto-Notes to look for advanced eliminations.";
         setTimeout(() => {
-            if (statusEl.textContent.startsWith("No standard")) statusEl.textContent = "";
+            if (statusEl.textContent.startsWith("No simple")) statusEl.textContent = "";
         }, 3500);
         return;
     }
 
-    const { type, cells, value, explanation } = hint;
+    const { cells, explanation } = hint;
 
-    // Highlight involved cells
     cells.forEach(({ r, c }) => {
         const cell = board.children[r * 9 + c];
         cell.classList.add("highlight-least");
@@ -1269,12 +1213,11 @@ function showHint() {
         setTimeout(() => cell.classList.remove("glow"), 2000);
     });
 
-    // Select primary cell if applicable
     if (cells.length === 1) {
         onCellClick(board.children[cells[0].r * 9 + cells[0].c]);
     }
 
-    statusEl.textContent = `💡 Expert Hint [${type}]: ${explanation}`;
+    statusEl.textContent = `💡 ${explanation}`;
 }
 
 function isBoardSolved() {
