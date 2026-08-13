@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v3.2';
+            const CACHE_NAME = 'sudoku-v3.3';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -532,6 +532,30 @@ let glowActive = false;
 function deepCopyGrid(grid) {
     return grid.map(row => row.slice());
 }
+
+/* -----------------------------------------
+   DESELECT / CLEAR HIGHLIGHTS
+----------------------------------------- */
+function clearSelectionAndHighlights() {
+    if (selectedCell) {
+        selectedCell.classList.remove("selected");
+        selectedCell = null;
+    }
+    selectedNumber = null;
+    clearNumberHighlights();
+    updateNumberTileStyles();
+}
+
+// Global click listener to clear highlights when tapping outside game elements
+document.addEventListener("click", (e) => {
+    const isClickInsideGame = e.target.closest("#board") || 
+                              e.target.closest("#numberBar") || 
+                              e.target.closest(".controls") || 
+                              e.target.closest(".top-bar");
+    if (!isClickInsideGame) {
+        clearSelectionAndHighlights();
+    }
+});
 
 /* -----------------------------------------
    GLOW QUEUE
