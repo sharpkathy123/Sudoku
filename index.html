@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v10.0';
+            const CACHE_NAME = 'sudoku-v11.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -449,9 +449,8 @@ h2 {
     <div id="status"></div>
 
     <div class="top-bar">
-        <label for="difficulty">New Game:</label>
+        <label for="difficulty">Difficulty:</label>
         <select id="difficulty">
-            <option value="" disabled selected>Select Difficulty...</option>
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
@@ -460,6 +459,7 @@ h2 {
     </div>
 
    <div class="controls">
+       <button id="newGameBtn">New Game</button>
        <button id="restartBtn">Restart Game</button>
        <button id="pencilToggle">Pencil Mode: OFF</button>
        <button id="autoPencilBtn">Auto‑Notes</button>
@@ -2020,6 +2020,33 @@ function onWin() {
 /* -----------------------------------------
    BUTTONS + INIT
 ----------------------------------------- */
+document.getElementById("newGameBtn").addEventListener("click", () => {
+    const currentDiff = difficultySelect.value || "medium";
+    
+    if (glowActive) glowQueue = [];
+    stopConfetti();
+    winOverlay.classList.remove("visible");
+    board.classList.remove("board-win");
+    winMessage.textContent = "";
+
+    statusEl.textContent = "Generating new puzzle...";
+
+    setTimeout(() => {
+        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(currentDiff);
+        puzzle = newPuzzle;
+        solution = newSolution;
+
+        buildBoard();
+        updateNumberTileStyles();
+        saveGameState();
+
+        statusEl.textContent = `New puzzle loaded (${currentDiff}).`;
+        setTimeout(() => {
+            if (statusEl.textContent.startsWith("New puzzle loaded")) statusEl.textContent = "";
+        }, 2000);
+    }, 50);
+});
+
 document.getElementById("restartBtn").addEventListener("click", () => {
     if (glowActive) glowQueue = [];
     stopConfetti();
