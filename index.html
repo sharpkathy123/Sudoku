@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v4.3';
+            const CACHE_NAME = 'sudoku-v5.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1051,7 +1051,7 @@ function getBlockIndicesIfComplete(r, c) {
 }
 
 /* -----------------------------------------
-   SIMPLIFIED HINT SYSTEM
+   SIMPLIFIED HINT SYSTEM & DIFFICULTY RATING
 ----------------------------------------- */
 function getCurrentGrid() {
     const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -1078,13 +1078,14 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// SIMPLICITY TIER 1: Naked Single (Only 1 possible number for this cell)
+// SIMPLICITY TIER 1: Naked Single
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (candGrid[r][c].length === 1) {
                 const val = candGrid[r][c][0];
                 return {
+                    r, c, val,
                     cells: [{ r, c }],
                     explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only number that fits here.`
                 };
@@ -1094,9 +1095,8 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// SIMPLICITY TIER 2: Hidden Single (Only 1 possible spot for this number in a unit)
+// SIMPLICITY TIER 2: Hidden Single
 function findHiddenSingle(candGrid) {
-    // Rows
     for (let r = 0; r < 9; r++) {
         for (let n = 1; n <= 9; n++) {
             const spots = [];
@@ -1105,6 +1105,7 @@ function findHiddenSingle(candGrid) {
             }
             if (spots.length === 1) {
                 return {
+                    r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Row ${r+1} can hold it.`
                 };
@@ -1112,7 +1113,6 @@ function findHiddenSingle(candGrid) {
         }
     }
 
-    // Columns
     for (let c = 0; c < 9; c++) {
         for (let n = 1; n <= 9; n++) {
             const spots = [];
@@ -1121,6 +1121,7 @@ function findHiddenSingle(candGrid) {
             }
             if (spots.length === 1) {
                 return {
+                    r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Column ${c+1} can hold it.`
                 };
@@ -1128,7 +1129,6 @@ function findHiddenSingle(candGrid) {
         }
     }
 
-    // Boxes
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             for (let n = 1; n <= 9; n++) {
@@ -1140,6 +1140,7 @@ function findHiddenSingle(candGrid) {
                 }
                 if (spots.length === 1) {
                     return {
+                        r: spots[0].r, c: spots[0].c, val: n,
                         cells: [spots[0]],
                         explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${br*3 + bc + 1} can hold it.`
                     };
@@ -1150,7 +1151,7 @@ function findHiddenSingle(candGrid) {
     return null;
 }
 
-// SIMPLICITY TIER 3: Naked Pairs (Simplest structural elimination)
+// SIMPLICITY TIER 3: Naked Pairs
 function findNakedPair(candGrid) {
     const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
@@ -1182,6 +1183,68 @@ function findNakedPair(candGrid) {
     return null;
 }
 
+/**
+ * LOGICAL SOLVER RATING ENGINE
+ * Simulates solving the puzzle to measure required difficulty.
+ * Returns: "easy", "medium", "hard", or "expert"
+ */
+function ratePuzzleDifficulty(initialGrid) {
+    const grid = deepCopyGrid(initialGrid);
+    let maxTechniqueNeeded = "easy";
+    let progress = true;
+
+    while (progress) {
+        progress = false;
+        
+        // Count filled cells
+        let filledCount = 0;
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (grid[r][c] !== 0) filledCount++;
+            }
+        }
+        if (filledCount === 81) break;
+
+        const candGrid = getCandidatesGrid(grid);
+
+        // Try Naked Single
+        const ns = findNakedSingle(candGrid);
+        if (ns) {
+            grid[ns.r][ns.c] = ns.val;
+            progress = true;
+            continue;
+        }
+
+        // Try Hidden Single
+        const hs = findHiddenSingle(candGrid);
+        if (hs) {
+            grid[hs.r][hs.c] = hs.val;
+            if (maxTechniqueNeeded === "easy") maxTechniqueNeeded = "medium";
+            progress = true;
+            continue;
+        }
+
+        // Try Naked Pair
+        const np = findNakedPair(candGrid);
+        if (np) {
+            if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") {
+                maxTechniqueNeeded = "hard";
+            }
+            // Give a boost to allow logic to proceed
+            progress = true;
+            break; 
+        }
+
+        // If simple logic gets stuck, it requires Expert level techniques
+        if (!progress && filledCount < 81) {
+            maxTechniqueNeeded = "expert";
+            break;
+        }
+    }
+
+    return maxTechniqueNeeded;
+}
+
 function showHint() {
     if (gameWon) return;
 
@@ -1190,7 +1253,7 @@ function showHint() {
     const grid = getCurrentGrid();
     const candGrid = getCandidatesGrid(grid);
 
-    // Always searches from simplest move to most complex
+    // Searches from simplest move to most complex
     let hint = findNakedSingle(candGrid) || 
                findHiddenSingle(candGrid) || 
                findNakedPair(candGrid);
@@ -1318,7 +1381,10 @@ function generateFullSolution() {
 }
 
 function generatePuzzleFromSolution(fullSolution, difficulty) {
-    const puzzleGrid = deepCopyGrid(fullSolution);
+    let puzzleGrid;
+    let attempts = 0;
+    const maxAttempts = 25; // Ensures fast generation without UI freeze
+
     let removals;
     switch (difficulty) {
         case "easy":   removals = 35; break;
@@ -1328,32 +1394,44 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
         default:       removals = 45;
     }
 
-    const cells = [];
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            cells.push({ r, c });
+    do {
+        puzzleGrid = deepCopyGrid(fullSolution);
+        const cells = [];
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                cells.push({ r, c });
+            }
         }
-    }
-    for (let i = cells.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [cells[i], cells[j]] = [cells[j], cells[i]];
-    }
-
-    let removed = 0;
-    for (const { r, c } of cells) {
-        if (removed >= removals) break;
-        const backup = puzzleGrid[r][c];
-        if (backup === 0) continue;
-
-        puzzleGrid[r][c] = 0;
-        const testGrid = deepCopyGrid(puzzleGrid);
-        const solCount = countSolutions(testGrid, 2);
-        if (solCount !== 1) {
-            puzzleGrid[r][c] = backup;
-        } else {
-            removed++;
+        for (let i = cells.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cells[i], cells[j]] = [cells[j], cells[i]];
         }
-    }
+
+        let removed = 0;
+        for (const { r, c } of cells) {
+            if (removed >= removals) break;
+            const backup = puzzleGrid[r][c];
+            if (backup === 0) continue;
+
+            puzzleGrid[r][c] = 0;
+            const testGrid = deepCopyGrid(puzzleGrid);
+            const solCount = countSolutions(testGrid, 2);
+            if (solCount !== 1) {
+                puzzleGrid[r][c] = backup;
+            } else {
+                removed++;
+            }
+        }
+
+        attempts++;
+        const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
+
+        // Accept the puzzle if its rating matches target difficulty, or if max attempts reached
+        if (ratedDiff === difficulty || attempts >= maxAttempts) {
+            break;
+        }
+    } while (attempts < maxAttempts);
+
     return puzzleGrid;
 }
 
