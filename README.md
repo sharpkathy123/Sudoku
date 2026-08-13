@@ -2,12 +2,14 @@
 
 A clean, responsive, single-file Sudoku web application optimized for mobile devices (iOS/Android) and desktop web browsers. Built with pure HTML, CSS, and vanilla JavaScript—no external dependencies, frameworks, or build steps required.
 
+👉 **[Play Sudoku Live Here](https://sharpkathy123.github.io/Sudoku/)**
+
 ---
 
 ## ✨ Features
 
 * **📱 iPhone & Mobile Optimized:** Uses fluid CSS (`clamp()`, `vw`) and dynamic viewport scaling to ensure the board fits perfectly on any screen size without scrolling.
-* **🌐 100% Offline Support:** Embedded Service Worker automatically caches the app locally for uninterrupted offline play (even in Airplane Mode).
+* **🌐 100% Offline Support:** Embedded Service Worker automatically caches the app locally for uninterrupted offline play (even in Airplane Mode). *Note: Launch once while connected to Wi-Fi to establish the local cache.*
 * **📲 iOS Home Screen Ready:** Includes native web app configuration, black translucent status bar styling, and a dynamic canvas-generated Apple Touch Icon so it installs like a native app.
 * **💡 Smart Gameplay Helpers:**
   * **Pencil Mode & Auto-Notes:** Toggle pencil marks or auto-fill candidate numbers for empty cells.
@@ -29,7 +31,7 @@ Simply open `index.html` directly in any web browser.
 
 ## 📱 Adding to iPhone Home Screen
 
-1. Open your deployed URL in Safari on iOS.
+1. Open [your deployed URL](https://sharpkathy123.github.io/Sudoku/) in Safari on iOS.
 2. Tap the **Share** button (the square with an up arrow).
 3. Tap **Add to Home Screen**.
 4. Launch the app directly from your Home Screen to enjoy full-screen standalone mode without browser navigation bars.
