@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v5.0';
+            const CACHE_NAME = 'sudoku-v6.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -515,6 +515,8 @@ let gameWon = false;
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 const givenMask = [];
 
+const STORAGE_KEY = 'sudoku_active_game_v1';
+
 const board = document.getElementById("board");
 const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
@@ -532,6 +534,89 @@ let glowActive = false;
 ----------------------------------------- */
 function deepCopyGrid(grid) {
     return grid.map(row => row.slice());
+}
+
+/* -----------------------------------------
+   LOCAL STORAGE STATE PERSISTENCE
+----------------------------------------- */
+function saveGameState() {
+    if (gameWon) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+    }
+
+    const currentCells = [];
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = board.children[r * 9 + c];
+            if (!cell) continue;
+
+            const val = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+            
+            const pencils = [];
+            const digits = cell._pencilDigits;
+            if (digits) {
+                for (let n = 1; n <= 9; n++) {
+                    if (digits[n].classList.contains("active")) pencils.push(n);
+                }
+            }
+
+            currentCells.push({ r, c, val, pencils });
+        }
+    }
+
+    const state = {
+        puzzle,
+        solution,
+        difficulty: difficultySelect.value,
+        givenMask,
+        cells: currentCells
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadSavedGameState() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return false;
+
+    try {
+        const state = JSON.parse(saved);
+        puzzle = state.puzzle;
+        solution = state.solution;
+        if (state.difficulty) difficultySelect.value = state.difficulty;
+
+        buildBoard();
+
+        state.cells.forEach(item => {
+            const cell = board.children[item.r * 9 + item.c];
+            if (cell && !givenMask[item.r][item.c]) {
+                const valueSpan = cell.querySelector(".cell-value");
+                if (item.val !== 0) {
+                    valueSpan.textContent = item.val;
+                    if (!placements[item.val].includes(item.r * 9 + item.c)) {
+                        placements[item.val].push(item.r * 9 + item.c);
+                    }
+                }
+                item.pencils.forEach(num => {
+                    if (cell._pencilDigits[num]) {
+                        cell._pencilDigits[num].classList.add("active");
+                    }
+                });
+            }
+        });
+
+        checkAndBoldCompletedNumbers();
+        updateNumberTileStyles();
+        statusEl.textContent = "Resumed saved game.";
+        setTimeout(() => {
+            if (statusEl.textContent === "Resumed saved game.") statusEl.textContent = "";
+        }, 2000);
+        return true;
+    } catch (e) {
+        console.error("Failed to restore game state", e);
+        return false;
+    }
 }
 
 /* -----------------------------------------
@@ -641,6 +726,7 @@ for (let n = 1; n <= 9; n++) {
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
+            saveGameState();
             return;
         }
 
@@ -696,6 +782,8 @@ for (let n = 1; n <= 9; n++) {
         if (isBoardSolved()) {
             const wait = glowQueue.length * 2100 + 300;
             setTimeout(onWin, wait);
+        } else {
+            saveGameState();
         }
 
         selectedNumber = n;
@@ -886,6 +974,7 @@ function autoFillAllPencils() {
             }
         }
     }
+    saveGameState();
 }
 
 /* -----------------------------------------
@@ -1196,7 +1285,6 @@ function ratePuzzleDifficulty(initialGrid) {
     while (progress) {
         progress = false;
         
-        // Count filled cells
         let filledCount = 0;
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
@@ -1207,7 +1295,6 @@ function ratePuzzleDifficulty(initialGrid) {
 
         const candGrid = getCandidatesGrid(grid);
 
-        // Try Naked Single
         const ns = findNakedSingle(candGrid);
         if (ns) {
             grid[ns.r][ns.c] = ns.val;
@@ -1215,7 +1302,6 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // Try Hidden Single
         const hs = findHiddenSingle(candGrid);
         if (hs) {
             grid[hs.r][hs.c] = hs.val;
@@ -1224,18 +1310,15 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // Try Naked Pair
         const np = findNakedPair(candGrid);
         if (np) {
             if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") {
                 maxTechniqueNeeded = "hard";
             }
-            // Give a boost to allow logic to proceed
             progress = true;
             break; 
         }
 
-        // If simple logic gets stuck, it requires Expert level techniques
         if (!progress && filledCount < 81) {
             maxTechniqueNeeded = "expert";
             break;
@@ -1253,7 +1336,6 @@ function showHint() {
     const grid = getCurrentGrid();
     const candGrid = getCandidatesGrid(grid);
 
-    // Searches from simplest move to most complex
     let hint = findNakedSingle(candGrid) || 
                findHiddenSingle(candGrid) || 
                findNakedPair(candGrid);
@@ -1383,7 +1465,7 @@ function generateFullSolution() {
 function generatePuzzleFromSolution(fullSolution, difficulty) {
     let puzzleGrid;
     let attempts = 0;
-    const maxAttempts = 25; // Ensures fast generation without UI freeze
+    const maxAttempts = 25;
 
     let removals;
     switch (difficulty) {
@@ -1426,7 +1508,6 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
         attempts++;
         const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
 
-        // Accept the puzzle if its rating matches target difficulty, or if max attempts reached
         if (ratedDiff === difficulty || attempts >= maxAttempts) {
             break;
         }
@@ -1525,6 +1606,8 @@ function onWin() {
     winOverlay.classList.add("visible");
     winMessage.textContent = "Puzzle complete! Great job.";
 
+    localStorage.removeItem(STORAGE_KEY);
+
     startConfetti();
     lockBoard();
 
@@ -1546,6 +1629,7 @@ document.getElementById("restartBtn").addEventListener("click", () => {
 
     buildBoard();
     updateNumberTileStyles();
+    saveGameState();
 
     statusEl.textContent = "Game restarted.";
     setTimeout(() => {
@@ -1560,6 +1644,7 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
         const c = parseInt(cell.dataset.col, 10);
         if (!givenMask[r][c]) clearAllPencilsInCell(cell);
     });
+    saveGameState();
 });
 
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
@@ -1586,6 +1671,7 @@ difficultySelect.addEventListener("change", () => {
 
         buildBoard();
         updateNumberTileStyles();
+        saveGameState();
 
         statusEl.textContent = `Puzzle loaded (${diff}).`;
         setTimeout(() => {
@@ -1603,16 +1689,22 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 });
 
 (function init() {
-    // Default initial load set to Medium
-    const defaultDiff = "medium";
-    difficultySelect.value = defaultDiff;
-    
-    const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(defaultDiff);
-    puzzle = newPuzzle;
-    solution = newSolution;
+    // Attempt to resume saved game from localStorage
+    const resumed = loadSavedGameState();
 
-    buildBoard();
-    updateNumberTileStyles();
+    // If no active save exists, create a new Medium puzzle by default
+    if (!resumed) {
+        const defaultDiff = "medium";
+        difficultySelect.value = defaultDiff;
+        
+        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(defaultDiff);
+        puzzle = newPuzzle;
+        solution = newSolution;
+
+        buildBoard();
+        updateNumberTileStyles();
+        saveGameState();
+    }
 })();
 </script>
 
