@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v4.2';
+            const CACHE_NAME = 'sudoku-v4.3';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -474,6 +474,7 @@ h2 {
     </div>
 
    <div class="controls">
+       <button id="restartBtn">Restart Game</button>
        <button id="pencilToggle">Pencil Mode: OFF</button>
        <button id="autoPencilBtn">Auto‑Notes</button>
        <button id="clearNotesBtn">Clear Notes</button>
@@ -1458,6 +1459,22 @@ function onWin() {
 /* -----------------------------------------
    BUTTONS + INIT
 ----------------------------------------- */
+document.getElementById("restartBtn").addEventListener("click", () => {
+    if (glowActive) glowQueue = [];
+    stopConfetti();
+    winOverlay.classList.remove("visible");
+    board.classList.remove("board-win");
+    winMessage.textContent = "";
+
+    buildBoard();
+    updateNumberTileStyles();
+
+    statusEl.textContent = "Game restarted.";
+    setTimeout(() => {
+        if (statusEl.textContent === "Game restarted.") statusEl.textContent = "";
+    }, 2000);
+});
+
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
     if (gameWon) return;
     [...board.children].forEach(cell => {
