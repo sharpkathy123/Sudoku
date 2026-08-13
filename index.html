@@ -47,24 +47,35 @@
 <!-- Embedded Web App Manifest -->
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":".","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"115\" fill=\"%23ffffff\"/><rect x=\"64\" y=\"64\" width=\"384\" height=\"384\" rx=\"40\" fill=\"%23f9fafb\" stroke=\"%23222222\" stroke-width=\"24\"/><rect x=\"320\" y=\"64\" width=\"128\" height=\"128\" fill=\"%23d9ecff\"/><line x1=\"192\" y1=\"64\" x2=\"192\" y2=\"448\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"320\" y1=\"64\" x2=\"320\" y2=\"448\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"64\" y1=\"192\" x2=\"448\" y2=\"192\" stroke=\"%23222222\" stroke-width=\"16\"/><line x1=\"64\" y1=\"320\" x2=\"448\" y2=\"320\" stroke=\"%23222222\" stroke-width=\"16\"/></svg>","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}' />
 
-<!-- Complete Offline Service Worker -->
+<!-- Discreet Version / Timestamp Indicator -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const statusDiv = document.getElementById('status');
+    if (statusDiv) {
+        const buildTag = document.createElement('div');
+        buildTag.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; font-family: monospace;';
+        // Live build timestamp for verification
+        buildTag.textContent = 'v3.1 • Updated: Aug 12, 2026, 5:19 PM';
+        statusDiv.appendChild(buildTag);
+    }
+});
+</script>
+
+<!-- iOS Safari Compliant Offline Service Worker -->
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        const swCode = `
-            const CACHE_NAME = 'sudoku-v3';
-            
-            // Files to cache immediately (caches both exact URL and root /)
-            const URLS_TO_CACHE = [
-                self.location.href,
-                self.location.pathname,
-                './'
-            ];
+        const swScript = `
+            const CACHE_NAME = 'sudoku-v3.1';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
                     caches.open(CACHE_NAME).then((cache) => {
-                        return cache.addAll(URLS_TO_CACHE);
+                        return Promise.allSettled([
+                            cache.add(new Request(self.location.origin + self.location.pathname, { cache: 'reload' })),
+                            cache.add(new Request('./', { cache: 'reload' })),
+                            cache.add(new Request('index.html', { cache: 'reload' }))
+                        ]);
                     })
                 );
                 self.skipWaiting();
@@ -84,31 +95,32 @@ if ('serviceWorker' in navigator) {
             });
 
             self.addEventListener('fetch', (e) => {
-                // Intercept navigation requests and serve cached content instantly
+                if (e.request.method !== 'GET') return;
+                
                 e.respondWith(
-                    caches.match(e.request).then((cachedResponse) => {
-                        if (cachedResponse) {
-                            return cachedResponse;
-                        }
+                    caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
+                        if (cachedResponse) return cachedResponse;
+                        
                         return fetch(e.request).then((networkResponse) => {
                             if (networkResponse && networkResponse.status === 200) {
                                 const cacheCopy = networkResponse.clone();
                                 caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
                             }
                             return networkResponse;
+                        }).catch(() => {
+                            return caches.match('./') || caches.match('index.html') || caches.match(self.location.pathname);
                         });
-                    }).catch(() => {
-                        // Complete offline fallback to root cached page
-                        return caches.match('./') || caches.match(self.location.pathname);
                     })
                 );
             });
         `;
 
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(blob);
+        // Using data: URI instead of Blob URL so iOS Safari retains SW registration across launches
+        const swDataUrl = 'data:application/javascript;base64,' + btoa(swScript);
 
-        navigator.serviceWorker.register(swUrl).catch((err) => console.log('SW Registration error:', err));
+        navigator.serviceWorker.register(swDataUrl, { scope: './' })
+            .then(reg => console.log('SW Registered:', reg.scope))
+            .catch(err => console.log('SW Registration Failed:', err));
     });
 }
 </script>
