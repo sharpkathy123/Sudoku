@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.5';
+            const CACHE_NAME = 'sudoku-v19.6';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1000,8 +1000,10 @@ function clearNumberHighlights() {
         cell.classList.remove("highlight-number");
         cell.classList.remove("highlight-least");
         const digits = cell._pencilDigits;
-        for (let n = 1; n <= 9; n++) {
-            digits[n].classList.remove("highlight-number-pencil");
+        if (digits) {
+            for (let n = 1; n <= 9; n++) {
+                digits[n].classList.remove("highlight-number-pencil");
+            }
         }
     });
 }
@@ -1401,7 +1403,7 @@ function findPointingPairs(candGrid) {
                         const elimTargets = [];
                         for (let r = 0; r < 9; r++) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
-                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r: targetCol, c: num });
+                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r, c: targetCol, val: num });
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
@@ -1931,7 +1933,14 @@ function ratePuzzleDifficulty(initialGrid) {
 function showHint() {
     if (gameWon) return;
 
+    // Clear board selections and stray digit highlights
+    if (selectedCell) {
+        selectedCell.classList.remove("selected");
+        selectedCell = null;
+    }
+    selectedNumber = null;
     clearNumberHighlights();
+    updateNumberTileStyles();
 
     // Check board pencil marks first
     const boardPencils = getBoardPencilGrid();
@@ -1978,7 +1987,7 @@ function showHint() {
 
     const { cells, nudge, explanation, type, elimTargets } = hint;
 
-    // Highlight involved cells
+    // Highlight pattern source cells (amber glow)
     cells.forEach(({ r, c }) => {
         const cell = board.children[r * 9 + c];
         cell.classList.add("highlight-least");
@@ -1986,7 +1995,7 @@ function showHint() {
         setTimeout(() => cell.classList.remove("glow"), 2000);
     });
 
-    // If elimination hint, also highlight target elimination cells
+    // Highlight target elimination cells if applicable
     if (type === 'elim' && elimTargets) {
         elimTargets.forEach(({ r, c }) => {
             const cell = board.children[r * 9 + c];
@@ -1994,7 +2003,7 @@ function showHint() {
         });
     }
 
-    if (cells.length === 1) {
+    if (cells.length === 1 && !type) {
         onCellClick(board.children[cells[0].r * 9 + cells[0].c]);
     }
 
