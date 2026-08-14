@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v18.0';
+            const CACHE_NAME = 'sudoku-v19.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1313,6 +1313,8 @@ function findNakedPair(candGrid) {
                         if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets)) continue;
 
                         return {
+                            type: 'elim',
+                            elimTargets,
                             cells: [{ r, c }, { r, c: cc }],
                             nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared row/box.`
@@ -1348,6 +1350,8 @@ function findNakedPair(candGrid) {
                         if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets)) continue;
 
                         return {
+                            type: 'elim',
+                            elimTargets,
                             cells: [{ r, c }, { r: rr, c }],
                             nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared column/box.`
@@ -1384,6 +1388,8 @@ function findPointingPairs(candGrid) {
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
+                                type: 'elim',
+                                elimTargets,
                                 cells: spots,
                                 nudge: `Look at Box ${boxNum} — a candidate is locked along Row ${targetRow + 1} (Pointing Pair/Triple)!`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Row ${targetRow + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Row ${targetRow + 1}.`
@@ -1401,6 +1407,8 @@ function findPointingPairs(candGrid) {
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
+                                type: 'elim',
+                                elimTargets,
                                 cells: spots,
                                 nudge: `Look at Box ${boxNum} — a candidate is locked along Column ${targetCol + 1} (Pointing Pair/Triple)!`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Column ${targetCol + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Column ${targetCol + 1}.`
@@ -1438,6 +1446,8 @@ function findClaimingLines(candGrid) {
                     }
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
+                            type: 'elim',
+                            elimTargets,
                             cells: spots,
                             nudge: `Look at Row ${r + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
                             explanation: `In Row ${r + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
@@ -1470,6 +1480,8 @@ function findClaimingLines(candGrid) {
                     }
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
+                            type: 'elim',
+                            elimTargets,
                             cells: spots,
                             nudge: `Look at Column ${c + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
                             explanation: `In Column ${c + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
@@ -1505,6 +1517,8 @@ function findNakedTriples(candGrid) {
                             }
                             if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                                 return {
+                                    type: 'elim',
+                                    elimTargets,
                                     cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
                                     nudge: `Check Row ${r+1} — three cells form a Naked Triple!`,
                                     explanation: `Cells (${r+1},${c1+1}), (${r+1},${c2+1}), (${r+1},${c3+1}) form a Naked Triple for {${union.join(",")}}. Eliminate ${union.join(",")} from the rest of Row ${r+1}.`
@@ -1547,6 +1561,8 @@ function findXWing(candGrid) {
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
+                                type: 'elim',
+                                elimTargets,
                                 cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
                                 nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1} (X-Wing)!`,
                                 explanation: `X-Wing found for ${num} on Rows ${r1+1} & ${r2+1} (Columns ${c1+1} & ${c2+1}). Eliminate ${num} from the rest of Columns ${c1+1} & ${c2+1}.`
@@ -1605,6 +1621,8 @@ function findXYWing(candGrid) {
 
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
+                            type: 'elim',
+                            elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
                             nudge: `Look for a Y-shaped candidate relationship (XY-Wing) centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
                             explanation: `XY-Wing with Pivot at Cell (${pivot.r+1}, ${pivot.c+1}) and Wings at (${wA.r+1}, ${wA.c+1}) & (${wB.r+1}, ${wB.c+1}). Eliminate candidate ${z} where both wings intersect.`
@@ -1665,6 +1683,8 @@ function findXYZWing(candGrid) {
 
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
+                            type: 'elim',
+                            elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: w1.r, c: w1.c }, { r: w2.r, c: w2.c }],
                             nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1}) — an XYZ-Wing pattern is present!`,
                             explanation: `XYZ-Wing centered at (${pivot.r+1}, ${pivot.c+1}). Candidate ${sharedZ} can be eliminated from cells seeing all 3 wing corners.`
@@ -1705,6 +1725,8 @@ function findUniqueRectangleType1(candGrid) {
                                 const elimTargets = basePair.map(num => ({ r: targetCorner.r, c: targetCorner.c, val: num }));
                                 if (hasEliminationsOnBoard(elimTargets)) {
                                     return {
+                                        type: 'elim',
+                                        elimTargets,
                                         cells: corners.map(k => ({ r: k.r, c: k.c })),
                                         nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1} (Unique Rectangle)!`,
                                         explanation: `Unique Rectangle Type 1: To prevent a non-unique solution, eliminate {${basePair.join(", ")}} from Cell (${targetCorner.r+1}, ${targetCorner.c+1}).`
@@ -1755,6 +1777,8 @@ function findSwordfish(candGrid) {
                                     rd.cols.forEach(c => activeCells.push({ r: rd.r, c }));
                                 });
                                 return {
+                                    type: 'elim',
+                                    elimTargets,
                                     cells: activeCells,
                                     nudge: `Look for a 3-row grid pattern (Swordfish) across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1}!`,
                                     explanation: `Swordfish detected for ${num} across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1} in Columns ${colSet.map(c=>c+1).join(", ")}. Eliminate ${num} from other cells in these columns.`
@@ -1811,66 +1835,75 @@ function evaluateHintStack(candGrid) {
            findSwordfish(candGrid);
 }
 
-// FULL DIFFICULTY GRADER (Ensures Expert puzzles only use 12 known patterns)
+// FULL SIMULATION GRADER (Verifies full solve without fallbacks)
 function ratePuzzleDifficulty(initialGrid) {
-    const grid = deepCopyGrid(initialGrid);
+    const simGrid = deepCopyGrid(initialGrid);
+    let simCands = getCandidatesGrid(simGrid);
     let maxTechniqueNeeded = "easy";
     let progress = true;
 
     while (progress) {
         progress = false;
-        
-        let filledCount = 0;
+
+        let emptyCount = 0;
         for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                if (grid[r][c] !== 0) filledCount++;
-            }
+            for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
         }
-        if (filledCount === 81) break;
+        if (emptyCount === 0) break;
 
-        const candGrid = getCandidatesGrid(grid);
-
-        const hsBox = findHiddenSingleInBox(candGrid);
+        const hsBox = findHiddenSingleInBox(simCands);
         if (hsBox) {
-            grid[hsBox.r][hsBox.c] = hsBox.val;
+            simGrid[hsBox.r][hsBox.c] = hsBox.val;
+            simCands = getCandidatesGrid(simGrid);
             progress = true;
             continue;
         }
 
-        const hsLine = findHiddenSingleInLine(candGrid);
+        const hsLine = findHiddenSingleInLine(simCands);
         if (hsLine) {
-            grid[hsLine.r][hsLine.c] = hsLine.val;
+            simGrid[hsLine.r][hsLine.c] = hsLine.val;
+            simCands = getCandidatesGrid(simGrid);
             if (maxTechniqueNeeded === "easy") maxTechniqueNeeded = "medium";
             progress = true;
             continue;
         }
 
-        const ns = findNakedSingle(candGrid);
+        const ns = findNakedSingle(simCands);
         if (ns) {
-            grid[ns.r][ns.c] = ns.val;
+            simGrid[ns.r][ns.c] = ns.val;
+            simCands = getCandidatesGrid(simGrid);
             progress = true;
             continue;
         }
 
-        const basicElim = findNakedPair(candGrid) || findPointingPairs(candGrid) || findClaimingLines(candGrid) || findNakedTriples(candGrid);
+        const basicElim = findNakedPair(simCands) || findPointingPairs(simCands) || findClaimingLines(simCands) || findNakedTriples(simCands);
         if (basicElim) {
+            if (basicElim.elimTargets) {
+                basicElim.elimTargets.forEach(e => {
+                    simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
+                });
+            }
             if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") {
                 maxTechniqueNeeded = "hard";
             }
             progress = true;
-            break; 
+            continue;
         }
 
-        const advElim = findXWing(candGrid) || findXYWing(candGrid) || findXYZWing(candGrid) || findUniqueRectangleType1(candGrid) || findSwordfish(candGrid);
+        const advElim = findXWing(simCands) || findXYWing(simCands) || findXYZWing(simCands) || findUniqueRectangleType1(simCands) || findSwordfish(simCands);
         if (advElim) {
+            if (advElim.elimTargets) {
+                advElim.elimTargets.forEach(e => {
+                    simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
+                });
+            }
             maxTechniqueNeeded = "expert";
             progress = true;
-            break;
+            continue;
         }
 
-        if (!progress && filledCount < 81) {
-            maxTechniqueNeeded = "master";
-            break;
+        if (!progress && emptyCount > 0) {
+            return "master"; // Guaranteed fallback territory
         }
     }
 
@@ -2042,8 +2075,7 @@ function generateFullSolution() {
 
 function generatePuzzleFromSolution(fullSolution, difficulty) {
     let puzzleGrid;
-    let attempts = 0;
-    const maxAttempts = 30;
+    let verified = false;
 
     let removals;
     switch (difficulty) {
@@ -2055,7 +2087,7 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
         default:       removals = 45;
     }
 
-    do {
+    while (!verified) {
         puzzleGrid = deepCopyGrid(fullSolution);
         const cells = [];
         for (let r = 0; r < 9; r++) {
@@ -2084,13 +2116,14 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
             }
         }
 
-        attempts++;
         const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
 
-        if (ratedDiff === difficulty || attempts >= maxAttempts) {
-            break;
+        if (difficulty === "master") {
+            verified = true;
+        } else if (ratedDiff === difficulty) {
+            verified = true;
         }
-    } while (attempts < maxAttempts);
+    }
 
     return puzzleGrid;
 }
