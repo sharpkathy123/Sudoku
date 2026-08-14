@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.7';
+            const CACHE_NAME = 'sudoku-v19.8';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1181,13 +1181,15 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-function hasEliminationsOnBoard(eliminations) {
-    // Returns true if any elimination targets remain as open, unfilled cells
+function hasEliminationsOnBoard(eliminations, candGrid) {
+    // Returns true ONLY if at least one candidate digit actually remains to be eliminated in an open cell
     for (const e of eliminations) {
         const cell = board.children[e.r * 9 + e.c];
         const valSpan = cell.querySelector(".cell-value");
         if (valSpan.textContent.trim() === "") {
-            return true;
+            if (candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
+                return true;
+            }
         }
     }
     return false;
@@ -1309,7 +1311,7 @@ function findNakedPair(candGrid) {
                             }
                         }
 
-                        if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets)) continue;
+                        if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets, candGrid)) continue;
 
                         return {
                             type: 'elim',
@@ -1346,7 +1348,7 @@ function findNakedPair(candGrid) {
                             }
                         }
 
-                        if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets)) continue;
+                        if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets, candGrid)) continue;
 
                         return {
                             type: 'elim',
@@ -1385,7 +1387,7 @@ function findPointingPairs(candGrid) {
                             if (c >= bc * 3 && c < bc * 3 + 3) continue;
                             if (candGrid[targetRow][c].includes(num)) elimTargets.push({ r: targetRow, c, val: num });
                         }
-                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
                                 elimTargets,
@@ -1404,7 +1406,7 @@ function findPointingPairs(candGrid) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
                             if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r, c: targetCol, val: num });
                         }
-                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
                                 elimTargets,
@@ -1443,7 +1445,7 @@ function findClaimingLines(candGrid) {
                             if (candGrid[rr][cc].includes(num)) elimTargets.push({ r: rr, c: cc, val: num });
                         }
                     }
-                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
                             elimTargets,
@@ -1477,7 +1479,7 @@ function findClaimingLines(candGrid) {
                             if (candGrid[rr][cc].includes(num)) elimTargets.push({ r: rr, c: cc, val: num });
                         }
                     }
-                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
                             elimTargets,
@@ -1514,7 +1516,7 @@ function findNakedTriples(candGrid) {
                                     if (candGrid[r][col].includes(n)) elimTargets.push({ r, c: col, val: n });
                                 });
                             }
-                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                                 return {
                                     type: 'elim',
                                     elimTargets,
@@ -1558,7 +1560,7 @@ function findXWing(candGrid) {
                             if (candGrid[row][c1].includes(num)) elimTargets.push({ r: row, c: c1, val: num });
                             if (candGrid[row][c2].includes(num)) elimTargets.push({ r: row, c: c2, val: num });
                         }
-                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
                                 elimTargets,
@@ -1618,7 +1620,7 @@ function findXYWing(candGrid) {
                         }
                     }
 
-                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
                             elimTargets,
@@ -1680,7 +1682,7 @@ function findXYZWing(candGrid) {
                         }
                     }
 
-                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
                             elimTargets,
@@ -1722,7 +1724,7 @@ function findUniqueRectangleType1(candGrid) {
                             const targetCorner = corners.find(k => k.cands.length > 2);
                             if (targetCorner && basePair.every(num => targetCorner.cands.includes(num))) {
                                 const elimTargets = basePair.map(num => ({ r: targetCorner.r, c: targetCorner.c, val: num }));
-                                if (hasEliminationsOnBoard(elimTargets)) {
+                                if (hasEliminationsOnBoard(elimTargets, candGrid)) {
                                     return {
                                         type: 'elim',
                                         elimTargets,
@@ -1770,7 +1772,7 @@ function findSwordfish(candGrid) {
                                 }
                             }
 
-                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
+                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                                 const activeCells = [];
                                 [r1, r2, r3].forEach(rd => {
                                     rd.cols.forEach(c => activeCells.push({ r: rd.r, c }));
