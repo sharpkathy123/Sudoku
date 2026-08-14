@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v11.0';
+            const CACHE_NAME = 'sudoku-v12.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1135,6 +1135,28 @@ function getCurrentGrid() {
     return grid;
 }
 
+// Reads actual pencil marks currently active on the board UI
+function getBoardPencilGrid() {
+    const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = board.children[r * 9 + c];
+            const val = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
+            if (val !== 0) continue;
+
+            const digits = cell._pencilDigits;
+            if (digits) {
+                for (let n = 1; n <= 9; n++) {
+                    if (digits[n].classList.contains("active")) {
+                        cand[r][c].push(n);
+                    }
+                }
+            }
+        }
+    }
+    return cand;
+}
+
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
     for (let r = 0; r < 9; r++) {
@@ -1728,8 +1750,20 @@ function showHint() {
 
     clearNumberHighlights();
 
-    const grid = getCurrentGrid();
-    const candGrid = getCandidatesGrid(grid);
+    // Check actual board pencil notes first if any exist
+    const boardPencils = getBoardPencilGrid();
+    let hasPencils = false;
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (boardPencils[r][c].length > 0) {
+                hasPencils = true;
+                break;
+            }
+        }
+        if (hasPencils) break;
+    }
+
+    const candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
     
     // Evaluate moves in order of increasing difficulty
     let hint = findNakedSingle(candGrid) || 
