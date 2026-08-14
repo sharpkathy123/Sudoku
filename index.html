@@ -1813,7 +1813,7 @@ function findDirectRevealFallback(candGrid) {
         const correctVal = solution[target.r][target.c];
         return {
             cells: [{ r: target.r, c: target.c }],
-            nudge: `Look at Cell (${target.r+1}, ${target.c+1}) — it is your best target to fill next!`,
+            nudge: `Cell (${target.r+1}, ${target.c+1}) requires too advanced technique — hint will reveal the number!`,
             explanation: `Advanced pattern needed. Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
         };
     }
