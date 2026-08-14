@@ -34,7 +34,7 @@
     ctx.moveTo(67, 22); ctx.lineTo(67, 158);
     ctx.moveTo(115, 22); ctx.lineTo(115, 158);
     ctx.moveTo(22, 67); ctx.lineTo(158, 67);
-    ctx.moveTo(22, 115); ctx.lineTo(158, 115);
+    ctx.moveTo(22, 115); ctx.lineTo(115, 115);
     ctx.stroke();
 
     const appleIcon = document.createElement('link');
@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v12.0';
+            const CACHE_NAME = 'sudoku-v13.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -497,6 +497,10 @@ let selectedCell = null;
 let selectedNumber = null;
 let gameWon = false;
 
+// Progressive Hint Tracking
+let currentHintState = null;
+let currentHintLevel = 0;
+
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 const givenMask = [];
 
@@ -734,6 +738,10 @@ for (let n = 1; n <= 9; n++) {
         autoRemovePencilMarks(r, c, correctValue);
         checkAndBoldCompletedNumbers();
 
+        // Clear progressive hint tracking on action
+        currentHintState = null;
+        currentHintLevel = 0;
+
         const completedUnits = [];
 
         if (isRowComplete(r)) {
@@ -809,6 +817,8 @@ function buildBoard() {
     for (let k = 1; k <= 9; k++) placements[k] = [];
     selectedCell = null;
     gameWon = false;
+    currentHintState = null;
+    currentHintLevel = 0;
 
     for (let r = 0; r < 9; r++) {
         givenMask[r] = [];
@@ -1135,7 +1145,6 @@ function getCurrentGrid() {
     return grid;
 }
 
-// Reads actual pencil marks currently active on the board UI
 function getBoardPencilGrid() {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
     for (let r = 0; r < 9; r++) {
@@ -1179,6 +1188,7 @@ function findNakedSingle(candGrid) {
                 return {
                     r, c, val,
                     cells: [{ r, c }],
+                    nudge: `Look closely at Cell (${r+1}, ${c+1}) — a Single digit is forced here!`,
                     explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only candidate that fits here.`
                 };
             }
@@ -1199,6 +1209,7 @@ function findHiddenSingle(candGrid) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
+                    nudge: `Check Row ${r+1} — one number has only a single valid spot remaining!`,
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Row ${r+1} can hold it.`
                 };
             }
@@ -1215,6 +1226,7 @@ function findHiddenSingle(candGrid) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
+                    nudge: `Check Column ${c+1} — one number has only a single valid spot remaining!`,
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Column ${c+1} can hold it.`
                 };
             }
@@ -1223,6 +1235,7 @@ function findHiddenSingle(candGrid) {
 
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
+            const boxNum = br * 3 + bc + 1;
             for (let n = 1; n <= 9; n++) {
                 const spots = [];
                 for (let r = br * 3; r < br * 3 + 3; r++) {
@@ -1234,7 +1247,8 @@ function findHiddenSingle(candGrid) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
                         cells: [spots[0]],
-                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${br*3 + bc + 1} can hold it.`
+                        nudge: `Check Box ${boxNum} — one number has only a single valid spot remaining!`,
+                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
                     };
                 }
             }
@@ -1293,6 +1307,7 @@ function findNakedPair(candGrid) {
 
                         return {
                             cells: [{ r, c }, { r, c: cc }],
+                            nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
                         };
                     }
@@ -1339,6 +1354,7 @@ function findNakedPair(candGrid) {
 
                         return {
                             cells: [{ r, c }, { r: rr, c }],
+                            nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
                         };
                     }
@@ -1377,6 +1393,7 @@ function findPointingPairs(candGrid) {
                         if (hasElims) {
                             return {
                                 cells: spots,
+                                nudge: `Look at Box ${boxNum} — a candidate is locked along Row ${targetRow + 1} (Pointing Pair/Triple)!`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Row ${targetRow + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Row ${targetRow + 1}.`
                             };
                         }
@@ -1396,6 +1413,7 @@ function findPointingPairs(candGrid) {
                         if (hasElims) {
                             return {
                                 cells: spots,
+                                nudge: `Look at Box ${boxNum} — a candidate is locked along Column ${targetCol + 1} (Pointing Pair/Triple)!`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Column ${targetCol + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Column ${targetCol + 1}.`
                             };
                         }
@@ -1435,6 +1453,7 @@ function findClaimingLines(candGrid) {
                     if (hasElims) {
                         return {
                             cells: spots,
+                            nudge: `Look at Row ${r + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
                             explanation: `In Row ${r + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
                         };
                     }
@@ -1469,6 +1488,7 @@ function findClaimingLines(candGrid) {
                     if (hasElims) {
                         return {
                             cells: spots,
+                            nudge: `Look at Column ${c + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
                             explanation: `In Column ${c + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
                         };
                     }
@@ -1504,6 +1524,7 @@ function findNakedTriples(candGrid) {
                             if (hasElims) {
                                 return {
                                     cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
+                                    nudge: `Check Row ${r+1} — three cells form a Naked Triple!`,
                                     explanation: `Cells (${r+1},${c1+1}), (${r+1},${c2+1}), (${r+1},${c3+1}) form a Naked Triple for {${union.join(",")}}. Eliminate ${union.join(",")} from the rest of Row ${r+1}.`
                                 };
                             }
@@ -1547,6 +1568,7 @@ function findXWing(candGrid) {
                         if (hasElims) {
                             return {
                                 cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
+                                nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1} (X-Wing)!`,
                                 explanation: `X-Wing found for ${num} on Rows ${r1+1} & ${r2+1} (Columns ${c1+1} & ${c2+1}). Eliminate ${num} from the rest of Columns ${c1+1} & ${c2+1}.`
                             };
                         }
@@ -1606,6 +1628,7 @@ function findXYWing(candGrid) {
                     if (hasElims) {
                         return {
                             cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
+                            nudge: `Look for a Y-shaped candidate relationship (XY-Wing) centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
                             explanation: `XY-Wing with Pivot at Cell (${pivot.r+1}, ${pivot.c+1}) and Wings at (${wA.r+1}, ${wA.c+1}) & (${wB.r+1}, ${wB.c+1}). Eliminate candidate ${z} where both wings intersect.`
                         };
                     }
@@ -1656,6 +1679,7 @@ function findSwordfish(candGrid) {
                                 });
                                 return {
                                     cells: activeCells,
+                                    nudge: `Look for a 3-row grid pattern (Swordfish) across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1}!`,
                                     explanation: `Swordfish detected for ${num} across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1} in Columns ${colSet.map(c=>c+1).join(", ")}. Eliminate ${num} from other cells in these columns.`
                                 };
                             }
@@ -1688,6 +1712,7 @@ function findDirectRevealFallback(candGrid) {
         const correctVal = solution[target.r][target.c];
         return {
             cells: [{ r: target.r, c: target.c }],
+            nudge: `Look at Cell (${target.r+1}, ${target.c+1}) — it is your best target to fill next!`,
             explanation: `Advanced pattern needed. Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
         };
     }
@@ -1750,7 +1775,7 @@ function showHint() {
 
     clearNumberHighlights();
 
-    // Check actual board pencil notes first if any exist
+    // Determine current candidate grid
     const boardPencils = getBoardPencilGrid();
     let hasPencils = false;
     for (let r = 0; r < 9; r++) {
@@ -1765,7 +1790,7 @@ function showHint() {
 
     const candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
     
-    // Evaluate moves in order of increasing difficulty
+    // Find highest priority available hint
     let hint = findNakedSingle(candGrid) || 
                findHiddenSingle(candGrid) || 
                findNakedPair(candGrid) ||
@@ -1782,7 +1807,16 @@ function showHint() {
         return;
     }
 
-    const { cells, explanation } = hint;
+    // Progressive Hint Logic: Same hint step advances to explanation
+    const hintKey = JSON.stringify(hint.cells);
+    if (currentHintState === hintKey) {
+        currentHintLevel++;
+    } else {
+        currentHintState = hintKey;
+        currentHintLevel = 1;
+    }
+
+    const { cells, nudge, explanation } = hint;
 
     cells.forEach(({ r, c }) => {
         const cell = board.children[r * 9 + c];
@@ -1795,7 +1829,11 @@ function showHint() {
         onCellClick(board.children[cells[0].r * 9 + cells[0].c]);
     }
 
-    statusEl.textContent = `💡 ${explanation}`;
+    if (currentHintLevel === 1 && nudge) {
+        statusEl.textContent = `💡 Hint (Nudge): ${nudge} (Tap Hint again for full details)`;
+    } else {
+        statusEl.textContent = `💡 Hint (Full): ${explanation}`;
+    }
 }
 
 function isBoardSolved() {
