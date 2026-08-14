@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.6';
+            const CACHE_NAME = 'sudoku-v19.7';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -997,8 +997,7 @@ function highlightSameNumbers(num) {
 
 function clearNumberHighlights() {
     [...board.children].forEach(cell => {
-        cell.classList.remove("highlight-number");
-        cell.classList.remove("highlight-least");
+        cell.classList.remove("highlight-number", "highlight-least", "glow", "selected");
         const digits = cell._pencilDigits;
         if (digits) {
             for (let n = 1; n <= 9; n++) {
@@ -1995,11 +1994,21 @@ function showHint() {
         setTimeout(() => cell.classList.remove("glow"), 2000);
     });
 
-    // Highlight target elimination cells if applicable
+    // Strictly highlight target elimination cells ONLY if they actively hold candidate values to remove
     if (type === 'elim' && elimTargets) {
-        elimTargets.forEach(({ r, c }) => {
+        elimTargets.forEach(({ r, c, val }) => {
             const cell = board.children[r * 9 + c];
-            cell.classList.add("highlight-least");
+            const digits = cell._pencilDigits;
+            const valueSpan = cell.querySelector(".cell-value");
+            
+            // Highlight only if cell is open AND contains candidate or pencil mark for val
+            if (valueSpan.textContent.trim() === "") {
+                if (digits && digits[val] && digits[val].classList.contains("active")) {
+                    cell.classList.add("highlight-least");
+                } else if (!hasPencils && candGrid[r][c].includes(val)) {
+                    cell.classList.add("highlight-least");
+                }
+            }
         });
     }
 
