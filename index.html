@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v15.0';
+            const CACHE_NAME = 'sudoku-v16.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1670,7 +1670,6 @@ function findXYZWing(candGrid) {
                 const w1 = visibleWings[i];
                 const w2 = visibleWings[j];
 
-                // One wing must be in the same 3x3 box as pivot
                 const inSameBox = (a, b) => Math.floor(a.r / 3) === Math.floor(b.r / 3) && Math.floor(a.c / 3) === Math.floor(b.c / 3);
                 if (!inSameBox(pivot, w1) && !inSameBox(pivot, w2)) continue;
 
@@ -1709,11 +1708,11 @@ function findXYZWing(candGrid) {
 function findUniqueRectangleType1(candGrid) {
     for (let r1 = 0; r1 < 9; r1++) {
         for (let r2 = r1 + 1; r2 < 9; r2++) {
-            if (Math.floor(r1 / 3) === Math.floor(r2 / 3)) continue; // Must span across two 3x3 box rows
+            if (Math.floor(r1 / 3) === Math.floor(r2 / 3)) continue;
 
             for (let c1 = 0; c1 < 9; c1++) {
                 for (let c2 = c1 + 1; c2 < 9; c2++) {
-                    if (Math.floor(c1 / 3) === Math.floor(c2 / 3)) continue; // Must span across two 3x3 box cols
+                    if (Math.floor(c1 / 3) === Math.floor(c2 / 3)) continue;
 
                     const corners = [
                         { r: r1, c: c1, cands: candGrid[r1][c1] },
@@ -1722,7 +1721,6 @@ function findUniqueRectangleType1(candGrid) {
                         { r: r2, c: c2, cands: candGrid[r2][c2] }
                     ];
 
-                    // Check if 3 corners are identical bi-value cells
                     const biValueCorners = corners.filter(k => k.cands.length === 2);
                     if (biValueCorners.length === 3) {
                         const basePair = biValueCorners[0].cands;
@@ -1826,6 +1824,21 @@ function findDirectRevealFallback(candGrid) {
     return null;
 }
 
+function evaluateHintStack(candGrid) {
+    return findHiddenSingleInBox(candGrid) || 
+           findHiddenSingleInLine(candGrid) || 
+           findNakedSingle(candGrid) || 
+           findNakedPair(candGrid) ||
+           findPointingPairs(candGrid) ||
+           findClaimingLines(candGrid) ||
+           findNakedTriples(candGrid) ||
+           findXWing(candGrid) ||
+           findXYWing(candGrid) ||
+           findXYZWing(candGrid) ||
+           findUniqueRectangleType1(candGrid) ||
+           findSwordfish(candGrid);
+}
+
 function ratePuzzleDifficulty(initialGrid) {
     const grid = deepCopyGrid(initialGrid);
     let maxTechniqueNeeded = "easy";
@@ -1889,7 +1902,7 @@ function showHint() {
 
     clearNumberHighlights();
 
-    // Determine current candidate grid
+    // Check board pencil marks first
     const boardPencils = getBoardPencilGrid();
     let hasPencils = false;
     for (let r = 0; r < 9; r++) {
@@ -1902,22 +1915,19 @@ function showHint() {
         if (hasPencils) break;
     }
 
-    const candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
-    
-    // Evaluate moves in HUMAN SEARCH ORDER
-    let hint = findHiddenSingleInBox(candGrid) || 
-               findHiddenSingleInLine(candGrid) || 
-               findNakedSingle(candGrid) || 
-               findNakedPair(candGrid) ||
-               findPointingPairs(candGrid) ||
-               findClaimingLines(candGrid) ||
-               findNakedTriples(candGrid) ||
-               findXWing(candGrid) ||
-               findXYWing(candGrid) ||
-               findXYZWing(candGrid) ||
-               findUniqueRectangleType1(candGrid) ||
-               findSwordfish(candGrid) ||
-               findDirectRevealFallback(candGrid);
+    let candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
+    let hint = evaluateHintStack(candGrid);
+
+    // FIX: If pencil notes yielded no match, fallback to pure calculated math candidates!
+    if (!hint && hasPencils) {
+        candGrid = getCandidatesGrid(getCurrentGrid());
+        hint = evaluateHintStack(candGrid);
+    }
+
+    // Direct reveal fallback if pattern is beyond our 12 solvers
+    if (!hint) {
+        hint = findDirectRevealFallback(getCandidatesGrid(getCurrentGrid()));
+    }
 
     if (!hint) {
         statusEl.textContent = "Board is complete!";
