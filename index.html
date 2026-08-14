@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v16.0';
+            const CACHE_NAME = 'sudoku-v17.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1179,6 +1179,22 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
+// Helper to check if a pattern actually has targets left to erase on the active board
+function hasEliminationsOnBoard(eliminations) {
+    // eliminations = [{r, c, val}, ...]
+    for (const e of eliminations) {
+        const cell = board.children[e.r * 9 + e.c];
+        const valSpan = cell.querySelector(".cell-value");
+        if (valSpan.textContent.trim() !== "") continue;
+
+        const digits = cell._pencilDigits;
+        if (digits && digits[e.val] && digits[e.val].classList.contains("active")) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // 1. Hidden Single in 3x3 Box (Cross-Hatching)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
@@ -1274,45 +1290,33 @@ function findNakedPair(candGrid) {
                     if (sameCandidates(cands, candGrid[r][cc])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(r / 3) && Math.floor(c / 3) === Math.floor(cc / 3);
 
-                        let hasRowElims = false;
+                        const elimTargets = [];
                         for (let col = 0; col < 9; col++) {
                             if (col === c || col === cc) continue;
-                            if (candGrid[r][col].some(n => cands.includes(n))) {
-                                hasRowElims = true;
-                                break;
-                            }
+                            cands.forEach(n => {
+                                if (candGrid[r][col].includes(n)) elimTargets.push({ r, c: col, val: n });
+                            });
                         }
 
-                        let hasBoxElims = false;
                         if (inSameBox) {
                             const br = Math.floor(r / 3) * 3;
                             const bc = Math.floor(c / 3) * 3;
                             for (let rr = br; rr < br + 3; rr++) {
                                 for (let ccc = bc; ccc < bc + 3; ccc++) {
                                     if ((rr === r && ccc === c) || (rr === r && ccc === cc)) continue;
-                                    if (candGrid[rr][ccc].some(n => cands.includes(n))) {
-                                        hasBoxElims = true;
-                                        break;
-                                    }
+                                    cands.forEach(n => {
+                                        if (candGrid[rr][ccc].includes(n)) elimTargets.push({ r: rr, c: ccc, val: n });
+                                    });
                                 }
                             }
                         }
 
-                        if (!hasRowElims && !hasBoxElims) continue;
-
-                        let targetUnits = [];
-                        if (hasBoxElims && inSameBox) {
-                            const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
-                            targetUnits.push(`Box ${boxNum}`);
-                        }
-                        if (hasRowElims) {
-                            targetUnits.push(`Row ${r + 1}`);
-                        }
+                        if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets)) continue;
 
                         return {
                             cells: [{ r, c }, { r, c: cc }],
                             nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
-                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared row/box.`
                         };
                     }
                 }
@@ -1321,45 +1325,33 @@ function findNakedPair(candGrid) {
                     if (sameCandidates(cands, candGrid[rr][c])) {
                         const inSameBox = Math.floor(r / 3) === Math.floor(rr / 3);
 
-                        let hasColElims = false;
+                        const elimTargets = [];
                         for (let row = 0; row < 9; row++) {
                             if (row === r || row === rr) continue;
-                            if (candGrid[row][c].some(n => cands.includes(n))) {
-                                hasColElims = true;
-                                break;
-                            }
+                            cands.forEach(n => {
+                                if (candGrid[row][c].includes(n)) elimTargets.push({ r: row, c, val: n });
+                            });
                         }
 
-                        let hasBoxElims = false;
                         if (inSameBox) {
                             const br = Math.floor(r / 3) * 3;
                             const bc = Math.floor(c / 3) * 3;
                             for (let rrr = br; rrr < br + 3; rrr++) {
                                 for (let cc = bc; cc < bc + 3; cc++) {
                                     if ((rrr === r && cc === c) || (rrr === rr && cc === c)) continue;
-                                    if (candGrid[rrr][cc].some(n => cands.includes(n))) {
-                                        hasBoxElims = true;
-                                        break;
-                                    }
+                                    cands.forEach(n => {
+                                        if (candGrid[rrr][cc].includes(n)) elimTargets.push({ r: rrr, c: cc, val: n });
+                                    });
                                 }
                             }
                         }
 
-                        if (!hasColElims && !hasBoxElims) continue;
-
-                        let targetUnits = [];
-                        if (hasBoxElims && inSameBox) {
-                            const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
-                            targetUnits.push(`Box ${boxNum}`);
-                        }
-                        if (hasColElims) {
-                            targetUnits.push(`Column ${c + 1}`);
-                        }
+                        if (elimTargets.length === 0 || !hasEliminationsOnBoard(elimTargets)) continue;
 
                         return {
                             cells: [{ r, c }, { r: rr, c }],
                             nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
-                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of ${targetUnits.join(" and ")}.`
+                            explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared column/box.`
                         };
                     }
                 }
@@ -1386,15 +1378,12 @@ function findPointingPairs(candGrid) {
                     const sameRow = spots.every(s => s.r === spots[0].r);
                     if (sameRow) {
                         const targetRow = spots[0].r;
-                        let hasElims = false;
+                        const elimTargets = [];
                         for (let c = 0; c < 9; c++) {
                             if (c >= bc * 3 && c < bc * 3 + 3) continue;
-                            if (candGrid[targetRow][c].includes(num)) {
-                                hasElims = true;
-                                break;
-                            }
+                            if (candGrid[targetRow][c].includes(num)) elimTargets.push({ r: targetRow, c, val: num });
                         }
-                        if (hasElims) {
+                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
                                 cells: spots,
                                 nudge: `Look at Box ${boxNum} — a candidate is locked along Row ${targetRow + 1} (Pointing Pair/Triple)!`,
@@ -1406,15 +1395,12 @@ function findPointingPairs(candGrid) {
                     const sameCol = spots.every(s => s.c === spots[0].c);
                     if (sameCol) {
                         const targetCol = spots[0].c;
-                        let hasElims = false;
+                        const elimTargets = [];
                         for (let r = 0; r < 9; r++) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
-                            if (candGrid[r][targetCol].includes(num)) {
-                                hasElims = true;
-                                break;
-                            }
+                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r, c: targetCol, val: num });
                         }
-                        if (hasElims) {
+                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
                                 cells: spots,
                                 nudge: `Look at Box ${boxNum} — a candidate is locked along Column ${targetCol + 1} (Pointing Pair/Triple)!`,
@@ -1444,17 +1430,14 @@ function findClaimingLines(candGrid) {
                     const br = Math.floor(r / 3);
                     const bc = firstBox;
                     const boxNum = br * 3 + bc + 1;
-                    let hasElims = false;
+                    const elimTargets = [];
                     for (let rr = br * 3; rr < br * 3 + 3; rr++) {
                         if (rr === r) continue;
                         for (let cc = bc * 3; cc < bc * 3 + 3; cc++) {
-                            if (candGrid[rr][cc].includes(num)) {
-                                hasElims = true;
-                                break;
-                            }
+                            if (candGrid[rr][cc].includes(num)) elimTargets.push({ r: rr, c: cc, val: num });
                         }
                     }
-                    if (hasElims) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
                             cells: spots,
                             nudge: `Look at Row ${r + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
@@ -1479,17 +1462,14 @@ function findClaimingLines(candGrid) {
                     const br = firstBox;
                     const bc = Math.floor(c / 3);
                     const boxNum = br * 3 + bc + 1;
-                    let hasElims = false;
+                    const elimTargets = [];
                     for (let rr = br * 3; rr < br * 3 + 3; rr++) {
                         for (let cc = bc * 3; cc < bc * 3 + 3; cc++) {
                             if (cc === c) continue;
-                            if (candGrid[rr][cc].includes(num)) {
-                                hasElims = true;
-                                break;
-                            }
+                            if (candGrid[rr][cc].includes(num)) elimTargets.push({ r: rr, c: cc, val: num });
                         }
                     }
-                    if (hasElims) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
                             cells: spots,
                             nudge: `Look at Column ${c + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
@@ -1517,15 +1497,14 @@ function findNakedTriples(candGrid) {
                         const c1 = emptyCols[i], c2 = emptyCols[j], c3 = emptyCols[k];
                         const union = Array.from(new Set([...candGrid[r][c1], ...candGrid[r][c2], ...candGrid[r][c3]]));
                         if (union.length === 3) {
-                            let hasElims = false;
+                            const elimTargets = [];
                             for (let col = 0; col < 9; col++) {
                                 if (col === c1 || col === c2 || col === c3) continue;
-                                if (candGrid[r][col].some(n => union.includes(n))) {
-                                    hasElims = true;
-                                    break;
-                                }
+                                union.forEach(n => {
+                                    if (candGrid[r][col].includes(n)) elimTargets.push({ r, c: col, val: n });
+                                });
                             }
-                            if (hasElims) {
+                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                                 return {
                                     cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
                                     nudge: `Check Row ${r+1} — three cells form a Naked Triple!`,
@@ -1561,15 +1540,13 @@ function findXWing(candGrid) {
                     const r1 = rowSpots[i].r, r2 = rowSpots[j].r;
                     const c1 = rowSpots[i].cols[0], c2 = rowSpots[i].cols[1];
                     if (rowSpots[j].cols[0] === c1 && rowSpots[j].cols[1] === c2) {
-                        let hasElims = false;
+                        const elimTargets = [];
                         for (let row = 0; row < 9; row++) {
                             if (row === r1 || row === r2) continue;
-                            if (candGrid[row][c1].includes(num) || candGrid[row][c2].includes(num)) {
-                                hasElims = true;
-                                break;
-                            }
+                            if (candGrid[row][c1].includes(num)) elimTargets.push({ r: row, c: c1, val: num });
+                            if (candGrid[row][c2].includes(num)) elimTargets.push({ r: row, c: c2, val: num });
                         }
-                        if (hasElims) {
+                        if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
                                 cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
                                 nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1} (X-Wing)!`,
@@ -1615,21 +1592,19 @@ function findXYWing(candGrid) {
 
                 if (zA === zB && zA !== undefined) {
                     const z = zA;
-                    let hasElims = false;
-                    const elimCells = [];
+                    const elimTargets = [];
 
                     for (let r = 0; r < 9; r++) {
                         for (let c = 0; c < 9; c++) {
                             const target = { r, c };
                             if ((r === wA.r && c === wA.c) || (r === wB.r && c === wB.c) || (r === pivot.r && c === pivot.c)) continue;
                             if (canSee(wA, target) && canSee(wB, target) && candGrid[r][c].includes(z)) {
-                                hasElims = true;
-                                elimCells.push(target);
+                                elimTargets.push({ r, c, val: z });
                             }
                         }
                     }
 
-                    if (hasElims) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
                             cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
                             nudge: `Look for a Y-shaped candidate relationship (XY-Wing) centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
@@ -1678,19 +1653,18 @@ function findXYZWing(candGrid) {
                     const sharedZ = pivot.cands.find(num => w1.cands.includes(num) && w2.cands.includes(num));
                     if (!sharedZ) continue;
 
-                    let hasElims = false;
+                    const elimTargets = [];
                     for (let r = 0; r < 9; r++) {
                         for (let c = 0; c < 9; c++) {
                             const target = { r, c };
                             if ((r===pivot.r && c===pivot.c) || (r===w1.r && c===w1.c) || (r===w2.r && c===w2.c)) continue;
                             if (canSee(pivot, target) && canSee(w1, target) && canSee(w2, target) && candGrid[r][c].includes(sharedZ)) {
-                                hasElims = true;
-                                break;
+                                elimTargets.push({ r, c, val: sharedZ });
                             }
                         }
                     }
 
-                    if (hasElims) {
+                    if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                         return {
                             cells: [{ r: pivot.r, c: pivot.c }, { r: w1.r, c: w1.c }, { r: w2.r, c: w2.c }],
                             nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1}) — an XYZ-Wing pattern is present!`,
@@ -1729,11 +1703,14 @@ function findUniqueRectangleType1(candGrid) {
                         if (allMatch) {
                             const targetCorner = corners.find(k => k.cands.length > 2);
                             if (targetCorner && basePair.every(num => targetCorner.cands.includes(num))) {
-                                return {
-                                    cells: corners.map(k => ({ r: k.r, c: k.c })),
-                                    nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1} (Unique Rectangle)!`,
-                                    explanation: `Unique Rectangle Type 1: To prevent a non-unique solution, eliminate {${basePair.join(", ")}} from Cell (${targetCorner.r+1}, ${targetCorner.c+1}).`
-                                };
+                                const elimTargets = basePair.map(num => ({ r: targetCorner.r, c: targetCorner.c, val: num }));
+                                if (hasEliminationsOnBoard(elimTargets)) {
+                                    return {
+                                        cells: corners.map(k => ({ r: k.r, c: k.c })),
+                                        nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1} (Unique Rectangle)!`,
+                                        explanation: `Unique Rectangle Type 1: To prevent a non-unique solution, eliminate {${basePair.join(", ")}} from Cell (${targetCorner.r+1}, ${targetCorner.c+1}).`
+                                    };
+                                }
                             }
                         }
                     }
@@ -1765,19 +1742,15 @@ function findSwordfish(candGrid) {
                         const r1 = rowData[i], r2 = rowData[j], r3 = rowData[k];
                         const colSet = Array.from(new Set([...r1.cols, ...r2.cols, ...r3.cols]));
                         if (colSet.length === 3) {
-                            let hasElims = false;
+                            const elimTargets = [];
                             for (let r = 0; r < 9; r++) {
                                 if (r === r1.r || r === r2.r || r === r3.r) continue;
                                 for (const c of colSet) {
-                                    if (candGrid[r][c].includes(num)) {
-                                        hasElims = true;
-                                        break;
-                                    }
+                                    if (candGrid[r][c].includes(num)) elimTargets.push({ r, c, val: num });
                                 }
-                                if (hasElims) break;
                             }
 
-                            if (hasElims) {
+                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                                 const activeCells = [];
                                 [r1, r2, r3].forEach(rd => {
                                     rd.cols.forEach(c => activeCells.push({ r: rd.r, c }));
@@ -1918,7 +1891,7 @@ function showHint() {
     let candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
     let hint = evaluateHintStack(candGrid);
 
-    // FIX: If pencil notes yielded no match, fallback to pure calculated math candidates!
+    // If pencil notes yielded no match or targets are already erased, fallback to pure calculated math candidates
     if (!hint && hasPencils) {
         candGrid = getCandidatesGrid(getCurrentGrid());
         hint = evaluateHintStack(candGrid);
