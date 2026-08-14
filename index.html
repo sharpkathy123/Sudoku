@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v17.0';
+            const CACHE_NAME = 'sudoku-v18.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -455,6 +455,7 @@ h2 {
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
+            <option value="master">Master (Chain Fallbacks)</option>
         </select>
     </div>
 
@@ -1179,9 +1180,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// Helper to check if a pattern actually has targets left to erase on the active board
 function hasEliminationsOnBoard(eliminations) {
-    // eliminations = [{r, c, val}, ...]
     for (const e of eliminations) {
         const cell = board.children[e.r * 9 + e.c];
         const valSpan = cell.querySelector(".cell-value");
@@ -1812,6 +1811,7 @@ function evaluateHintStack(candGrid) {
            findSwordfish(candGrid);
 }
 
+// FULL DIFFICULTY GRADER (Ensures Expert puzzles only use 12 known patterns)
 function ratePuzzleDifficulty(initialGrid) {
     const grid = deepCopyGrid(initialGrid);
     let maxTechniqueNeeded = "easy";
@@ -1852,8 +1852,8 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        const np = findNakedPair(candGrid);
-        if (np) {
+        const basicElim = findNakedPair(candGrid) || findPointingPairs(candGrid) || findClaimingLines(candGrid) || findNakedTriples(candGrid);
+        if (basicElim) {
             if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") {
                 maxTechniqueNeeded = "hard";
             }
@@ -1861,8 +1861,15 @@ function ratePuzzleDifficulty(initialGrid) {
             break; 
         }
 
-        if (!progress && filledCount < 81) {
+        const advElim = findXWing(candGrid) || findXYWing(candGrid) || findXYZWing(candGrid) || findUniqueRectangleType1(candGrid) || findSwordfish(candGrid);
+        if (advElim) {
             maxTechniqueNeeded = "expert";
+            progress = true;
+            break;
+        }
+
+        if (!progress && filledCount < 81) {
+            maxTechniqueNeeded = "master";
             break;
         }
     }
@@ -1891,13 +1898,12 @@ function showHint() {
     let candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
     let hint = evaluateHintStack(candGrid);
 
-    // If pencil notes yielded no match or targets are already erased, fallback to pure calculated math candidates
     if (!hint && hasPencils) {
         candGrid = getCandidatesGrid(getCurrentGrid());
         hint = evaluateHintStack(candGrid);
     }
 
-    // Direct reveal fallback if pattern is beyond our 12 solvers
+    // Direct reveal fallback ONLY used if pattern is beyond our 12 solvers
     if (!hint) {
         hint = findDirectRevealFallback(getCandidatesGrid(getCurrentGrid()));
     }
@@ -2037,14 +2043,15 @@ function generateFullSolution() {
 function generatePuzzleFromSolution(fullSolution, difficulty) {
     let puzzleGrid;
     let attempts = 0;
-    const maxAttempts = 25;
+    const maxAttempts = 30;
 
     let removals;
     switch (difficulty) {
         case "easy":   removals = 35; break;
         case "medium": removals = 45; break;
         case "hard":   removals = 52; break;
-        case "expert": removals = 58; break;
+        case "expert": removals = 56; break;
+        case "master": removals = 60; break;
         default:       removals = 45;
     }
 
