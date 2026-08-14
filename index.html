@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.3';
+            const CACHE_NAME = 'sudoku-v19.5';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1181,13 +1181,11 @@ function getCandidatesGrid(grid) {
 }
 
 function hasEliminationsOnBoard(eliminations) {
+    // Returns true if any elimination targets remain as open, unfilled cells
     for (const e of eliminations) {
         const cell = board.children[e.r * 9 + e.c];
         const valSpan = cell.querySelector(".cell-value");
-        if (valSpan.textContent.trim() !== "") continue;
-
-        const digits = cell._pencilDigits;
-        if (digits && digits[e.val] && digits[e.val].classList.contains("active")) {
+        if (valSpan.textContent.trim() === "") {
             return true;
         }
     }
@@ -1810,6 +1808,7 @@ function findDirectRevealFallback(candGrid) {
     }
 
     if (target) {
+        const correctVal = solution[target.r][target.c];
         return {
             cells: [{ r: target.r, c: target.c }],
             nudge: `Cell (${target.r+1}, ${target.c+1}) requires too advanced technique — hint will reveal the number!`,
@@ -1947,17 +1946,19 @@ function showHint() {
         if (hasPencils) break;
     }
 
-    let candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
+    let pureCands = getCandidatesGrid(getCurrentGrid());
+    let candGrid = hasPencils ? boardPencils : pureCands;
+
     let hint = evaluateHintStack(candGrid);
 
+    // Fall back to pure candidates if manual pencil notes are blocking progress
     if (!hint && hasPencils) {
-        candGrid = getCandidatesGrid(getCurrentGrid());
-        hint = evaluateHintStack(candGrid);
+        hint = evaluateHintStack(pureCands);
     }
 
-    // Direct reveal fallback ONLY used if pattern is beyond our 12 solvers
+    // Direct reveal fallback if pattern exceeds standard solvers
     if (!hint) {
-        hint = findDirectRevealFallback(getCandidatesGrid(getCurrentGrid()));
+        hint = findDirectRevealFallback(pureCands);
     }
 
     if (!hint) {
@@ -1965,8 +1966,9 @@ function showHint() {
         return;
     }
 
-    // Progressive Hint Logic
-    const hintKey = JSON.stringify(hint.cells);
+    // Progressive Hint Logic & Re-explain Tracking
+    const hintKey = JSON.stringify(hint.cells) + (hint.nudge || "") + (hint.explanation || "");
+    
     if (currentHintState === hintKey) {
         currentHintLevel++;
     } else {
@@ -1974,8 +1976,9 @@ function showHint() {
         currentHintLevel = 1;
     }
 
-    const { cells, nudge, explanation } = hint;
+    const { cells, nudge, explanation, type, elimTargets } = hint;
 
+    // Highlight involved cells
     cells.forEach(({ r, c }) => {
         const cell = board.children[r * 9 + c];
         cell.classList.add("highlight-least");
@@ -1983,14 +1986,25 @@ function showHint() {
         setTimeout(() => cell.classList.remove("glow"), 2000);
     });
 
+    // If elimination hint, also highlight target elimination cells
+    if (type === 'elim' && elimTargets) {
+        elimTargets.forEach(({ r, c }) => {
+            const cell = board.children[r * 9 + c];
+            cell.classList.add("highlight-least");
+        });
+    }
+
     if (cells.length === 1) {
         onCellClick(board.children[cells[0].r * 9 + cells[0].c]);
     }
 
+    // Deliver Nudge on level 1, or Re-explain with Full Detail on level 2+
     if (currentHintLevel === 1 && nudge) {
         statusEl.textContent = `💡 Hint (Nudge): ${nudge} (Tap Hint again for full details)`;
-    } else {
+    } else if (currentHintLevel === 2) {
         statusEl.textContent = `💡 Hint (Full): ${explanation}`;
+    } else {
+        statusEl.textContent = `💡 Hint (Re-explain): ${explanation}`;
     }
 }
 
