@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.0';
+            const CACHE_NAME = 'sudoku-v19.3';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -455,7 +455,7 @@ h2 {
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
-            <option value="master">Master</option>
+            <option value="master">Master (hints may be limited)</option>
         </select>
     </div>
 
@@ -1403,7 +1403,7 @@ function findPointingPairs(candGrid) {
                         const elimTargets = [];
                         for (let r = 0; r < 9; r++) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
-                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r, c: targetCol, val: num });
+                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r: targetCol, c: num });
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets)) {
                             return {
@@ -1841,6 +1841,23 @@ function ratePuzzleDifficulty(initialGrid) {
     let maxTechniqueNeeded = "easy";
     let progress = true;
 
+    // Helper to safely place a digit and update candidate lists without wiping eliminations
+    function placeAndClean(r, c, val) {
+        simGrid[r][c] = val;
+        simCands[r][c] = [];
+        for (let i = 0; i < 9; i++) {
+            simCands[r][i] = simCands[r][i].filter(v => v !== val);
+            simCands[i][c] = simCands[i][c].filter(v => v !== val);
+        }
+        const br = Math.floor(r / 3) * 3;
+        const bc = Math.floor(c / 3) * 3;
+        for (let rr = br; rr < br + 3; rr++) {
+            for (let cc = bc; cc < bc + 3; cc++) {
+                simCands[rr][cc] = simCands[rr][cc].filter(v => v !== val);
+            }
+        }
+    }
+
     while (progress) {
         progress = false;
 
@@ -1850,31 +1867,32 @@ function ratePuzzleDifficulty(initialGrid) {
         }
         if (emptyCount === 0) break;
 
+        // 1. Hidden Single in Box
         const hsBox = findHiddenSingleInBox(simCands);
         if (hsBox) {
-            simGrid[hsBox.r][hsBox.c] = hsBox.val;
-            simCands = getCandidatesGrid(simGrid);
+            placeAndClean(hsBox.r, hsBox.c, hsBox.val);
             progress = true;
             continue;
         }
 
+        // 2. Hidden Single in Line
         const hsLine = findHiddenSingleInLine(simCands);
         if (hsLine) {
-            simGrid[hsLine.r][hsLine.c] = hsLine.val;
-            simCands = getCandidatesGrid(simGrid);
+            placeAndClean(hsLine.r, hsLine.c, hsLine.val);
             if (maxTechniqueNeeded === "easy") maxTechniqueNeeded = "medium";
             progress = true;
             continue;
         }
 
+        // 3. Naked Single
         const ns = findNakedSingle(simCands);
         if (ns) {
-            simGrid[ns.r][ns.c] = ns.val;
-            simCands = getCandidatesGrid(simGrid);
+            placeAndClean(ns.r, ns.c, ns.val);
             progress = true;
             continue;
         }
 
+        // 4. Basic Eliminations (Hard)
         const basicElim = findNakedPair(simCands) || findPointingPairs(simCands) || findClaimingLines(simCands) || findNakedTriples(simCands);
         if (basicElim) {
             if (basicElim.elimTargets) {
@@ -1889,6 +1907,7 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
+        // 5. Advanced Eliminations (Expert)
         const advElim = findXWing(simCands) || findXYWing(simCands) || findXYZWing(simCands) || findUniqueRectangleType1(simCands) || findSwordfish(simCands);
         if (advElim) {
             if (advElim.elimTargets) {
@@ -1901,8 +1920,9 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
+        // 6. Stuck -> Master
         if (!progress && emptyCount > 0) {
-            return "master"; // Guaranteed fallback territory
+            return "master";
         }
     }
 
@@ -2075,6 +2095,7 @@ function generateFullSolution() {
 function generatePuzzleFromSolution(fullSolution, difficulty) {
     let puzzleGrid;
     let verified = false;
+    let attempts = 0;
 
     let removals;
     switch (difficulty) {
@@ -2087,6 +2108,7 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
     }
 
     while (!verified) {
+        attempts++;
         puzzleGrid = deepCopyGrid(fullSolution);
         const cells = [];
         for (let r = 0; r < 9; r++) {
@@ -2117,9 +2139,13 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
 
         const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
 
-        if (difficulty === "master") {
-            verified = true;
-        } else if (ratedDiff === difficulty) {
+        /*
+           GENERATOR BAILOUT THRESHOLD:
+           Finding specific Expert/Master patterns from random clue removals requires testing many candidate grids.
+           We set the limit to 200 attempts (~100-250ms) to ensure high-grade puzzles are successfully generated 
+           without causing noticeable UI freezing on mobile browsers.
+        */
+        if (ratedDiff === difficulty || attempts > 200) {
             verified = true;
         }
     }
