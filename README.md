@@ -12,18 +12,21 @@ A clean, responsive, single-file Sudoku web application optimized for mobile dev
 * **🌐 100% Offline Support:** Embedded Service Worker automatically caches the app locally for uninterrupted offline play (even in Airplane Mode).
 * **📲 PWA & Home Screen Ready:** Includes native web app configuration, black translucent status bar styling, and a dynamic canvas-generated Apple Touch Icon.
 * **💾 Automatic Progress Saving:** Automatically saves game state (including filled cells, active pencil notes, and current difficulty) to `localStorage` so you never lose progress when closing or refreshing the app.
-* **💡 Advanced 10-Tier Hint Engine:** Solves and explains logical moves in increasing order of complexity:
-  1. **Naked Singles** & **Hidden Singles**
+* **💡 Advanced 12-Technique Logical Hint Engine:** Features a progressive nudge-to-full explanation system covering techniques in increasing order of complexity:
+  1. **Naked Singles** & **Hidden Singles** (Box & Line Scanning)
   2. **Naked Pairs** & **Naked Triples**
   3. **Pointing Pairs/Triples** & **Claiming Lines** (Locked Candidates)
-  4. **X-Wing**, **XY-Wing**, and **Swordfish**
-  5. **Direct Reveal Fallback:** Ensures you never get stuck on complex Expert puzzles.
+  4. **X-Wing**, **XY-Wing**, **XYZ-Wing**, **Swordfish**, and **Unique Rectangles (Type 1)**
+* **📊 5 Difficulty Tiers with Guaranteed Quality:**
+  * **Easy, Medium, and Hard:** Solvable using standard scanning, singles, pairs, and locked candidates.
+  * **Expert:** Guaranteed to be 100% solvable using our 12 built-in logical solver techniques—**zero direct-reveal hints guaranteed**.
+  * **Master:** Extreme puzzles requiring advanced logic chains beyond our 12 techniques. If a board hits a logical bottleneck, the hint engine can directly reveal a cell value rather than a step-by-step rule.
 * **🧰 Smart Gameplay Helpers:**
   * **Pencil Mode & Auto-Notes:** Toggle pencil marks manually or auto-fill candidate numbers across the board.
   * **Highlight Fullest:** Quickly highlight rows, columns, or 3x3 boxes with the fewest empty cells remaining.
+  * **Smart Elimination Verification:** Hint engine automatically verifies active pencil marks on your board to avoid repeating instructions you've already acted on.
   * **New Game & Restart Controls:** One-tap button to generate a brand-new puzzle at your current difficulty, or reset your current board.
   * **Visual Feedback:** Line/box completion neon glow animations, error flashing, and a celebratory confetti banner upon solving.
-* **📊 Multiple Difficulties:** Supports Easy, Medium, Hard, and Expert puzzle generation with guaranteed unique solutions.
 
 ---
 
@@ -61,4 +64,4 @@ Simply open `index.html` directly in any web browser.
 
 * **HTML5** (Embedded Web App Manifest & Inline Service Worker)
 * **CSS3** (CSS Grid, Custom Variables, Fluid Typography/Scaling)
-* **Vanilla JavaScript** (ES6+, Advanced Logical Sudoku Solver Engine, HTML5 Canvas Confetti)
+* **Vanilla JavaScript** (ES6+, Full-Simulation Logical Solver & Generator Engine, HTML5 Canvas Confetti)
