@@ -34,7 +34,7 @@
     ctx.moveTo(67, 22); ctx.lineTo(67, 158);
     ctx.moveTo(115, 22); ctx.lineTo(115, 158);
     ctx.moveTo(22, 67); ctx.lineTo(158, 67);
-    ctx.moveTo(22, 115); ctx.lineTo(115, 115);
+    ctx.moveTo(22, 115); ctx.lineTo(158, 115);
     ctx.stroke();
 
     const appleIcon = document.createElement('link');
@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v13.0';
+            const CACHE_NAME = 'sudoku-v14.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1179,26 +1179,34 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// 1. Naked Single
-function findNakedSingle(candGrid) {
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            if (candGrid[r][c].length === 1) {
-                const val = candGrid[r][c][0];
-                return {
-                    r, c, val,
-                    cells: [{ r, c }],
-                    nudge: `Look closely at Cell (${r+1}, ${c+1}) — a Single digit is forced here!`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only candidate that fits here.`
-                };
+// 1. Hidden Single in 3x3 Box (Cross-Hatching - Most natural human search method)
+function findHiddenSingleInBox(candGrid) {
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            const boxNum = br * 3 + bc + 1;
+            for (let n = 1; n <= 9; n++) {
+                const spots = [];
+                for (let r = br * 3; r < br * 3 + 3; r++) {
+                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                        if (candGrid[r][c].includes(n)) spots.push({ r, c });
+                    }
+                }
+                if (spots.length === 1) {
+                    return {
+                        r: spots[0].r, c: spots[0].c, val: n,
+                        cells: [spots[0]],
+                        nudge: `Cross-hatch Box ${boxNum} — one digit has only a single valid open cell left!`,
+                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
+                    };
+                }
             }
         }
     }
     return null;
 }
 
-// 2. Hidden Single
-function findHiddenSingle(candGrid) {
+// 2. Hidden Single in Line (Scanning Rows/Columns)
+function findHiddenSingleInLine(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let n = 1; n <= 9; n++) {
             const spots = [];
@@ -1209,7 +1217,7 @@ function findHiddenSingle(candGrid) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
-                    nudge: `Check Row ${r+1} — one number has only a single valid spot remaining!`,
+                    nudge: `Scan Row ${r+1} — one missing digit has only a single open spot!`,
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Row ${r+1} can hold it.`
                 };
             }
@@ -1226,38 +1234,34 @@ function findHiddenSingle(candGrid) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
-                    nudge: `Check Column ${c+1} — one number has only a single valid spot remaining!`,
+                    nudge: `Scan Column ${c+1} — one missing digit has only a single open spot!`,
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Column ${c+1} can hold it.`
                 };
-            }
-        }
-    }
-
-    for (let br = 0; br < 3; br++) {
-        for (let bc = 0; bc < 3; bc++) {
-            const boxNum = br * 3 + bc + 1;
-            for (let n = 1; n <= 9; n++) {
-                const spots = [];
-                for (let r = br * 3; r < br * 3 + 3; r++) {
-                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
-                        if (candGrid[r][c].includes(n)) spots.push({ r, c });
-                    }
-                }
-                if (spots.length === 1) {
-                    return {
-                        r: spots[0].r, c: spots[0].c, val: n,
-                        cells: [spots[0]],
-                        nudge: `Check Box ${boxNum} — one number has only a single valid spot remaining!`,
-                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
-                    };
-                }
             }
         }
     }
     return null;
 }
 
-// 3. Naked Pairs
+// 3. Naked Single (Counting all row/col/box eliminations for 1 single cell)
+function findNakedSingle(candGrid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length === 1) {
+                const val = candGrid[r][c][0];
+                return {
+                    r, c, val,
+                    cells: [{ r, c }],
+                    nudge: `Focus on Cell (${r+1}, ${c+1}) — when you count its row, column, and box, only 1 candidate remains!`,
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only candidate that fits here.`
+                };
+            }
+        }
+    }
+    return null;
+}
+
+// 4. Naked Pairs
 function findNakedPair(candGrid) {
     const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
@@ -1365,7 +1369,7 @@ function findNakedPair(candGrid) {
     return null;
 }
 
-// 4. Pointing Pairs / Triples
+// 5. Pointing Pairs / Triples
 function findPointingPairs(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1425,7 +1429,7 @@ function findPointingPairs(candGrid) {
     return null;
 }
 
-// 5. Claiming Lines
+// 6. Claiming Lines
 function findClaimingLines(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let num = 1; num <= 9; num++) {
@@ -1499,7 +1503,7 @@ function findClaimingLines(candGrid) {
     return null;
 }
 
-// 6. Naked Triples
+// 7. Naked Triples
 function findNakedTriples(candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1537,7 +1541,7 @@ function findNakedTriples(candGrid) {
     return null;
 }
 
-// 7. X-Wing
+// 8. X-Wing
 function findXWing(candGrid) {
     for (let num = 1; num <= 9; num++) {
         const rowSpots = [];
@@ -1580,7 +1584,7 @@ function findXWing(candGrid) {
     return null;
 }
 
-// 8. XY-Wing
+// 9. XY-Wing
 function findXYWing(candGrid) {
     const biValueCells = [];
     for (let r = 0; r < 9; r++) {
@@ -1639,7 +1643,7 @@ function findXYWing(candGrid) {
     return null;
 }
 
-// 9. Swordfish
+// 10. Swordfish
 function findSwordfish(candGrid) {
     for (let num = 1; num <= 9; num++) {
         const rowData = [];
@@ -1692,7 +1696,7 @@ function findSwordfish(candGrid) {
     return null;
 }
 
-// 10. Direct Reveal Fallback
+// 11. Direct Reveal Fallback
 function findDirectRevealFallback(candGrid) {
     let minCandidates = 10;
     let target = null;
@@ -1737,17 +1741,24 @@ function ratePuzzleDifficulty(initialGrid) {
 
         const candGrid = getCandidatesGrid(grid);
 
-        const ns = findNakedSingle(candGrid);
-        if (ns) {
-            grid[ns.r][ns.c] = ns.val;
+        const hsBox = findHiddenSingleInBox(candGrid);
+        if (hsBox) {
+            grid[hsBox.r][hsBox.c] = hsBox.val;
             progress = true;
             continue;
         }
 
-        const hs = findHiddenSingle(candGrid);
-        if (hs) {
-            grid[hs.r][hs.c] = hs.val;
+        const hsLine = findHiddenSingleInLine(candGrid);
+        if (hsLine) {
+            grid[hsLine.r][hsLine.c] = hsLine.val;
             if (maxTechniqueNeeded === "easy") maxTechniqueNeeded = "medium";
+            progress = true;
+            continue;
+        }
+
+        const ns = findNakedSingle(candGrid);
+        if (ns) {
+            grid[ns.r][ns.c] = ns.val;
             progress = true;
             continue;
         }
@@ -1790,9 +1801,14 @@ function showHint() {
 
     const candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
     
-    // Find highest priority available hint
-    let hint = findNakedSingle(candGrid) || 
-               findHiddenSingle(candGrid) || 
+    // Evaluate moves in NATURAL HUMAN SEARCH ORDER:
+    // 1. Cross-hatch 3x3 Boxes for Hidden Singles
+    // 2. Scan Rows & Columns for Hidden Singles
+    // 3. Single Cell Candidate Counting (Naked Singles)
+    // 4. Advanced Candidate Elimination Techniques
+    let hint = findHiddenSingleInBox(candGrid) || 
+               findHiddenSingleInLine(candGrid) || 
+               findNakedSingle(candGrid) || 
                findNakedPair(candGrid) ||
                findPointingPairs(candGrid) ||
                findClaimingLines(candGrid) ||
@@ -1807,7 +1823,7 @@ function showHint() {
         return;
     }
 
-    // Progressive Hint Logic: Same hint step advances to explanation
+    // Progressive Hint Logic
     const hintKey = JSON.stringify(hint.cells);
     if (currentHintState === hintKey) {
         currentHintLevel++;
