@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v14.0';
+            const CACHE_NAME = 'sudoku-v15.0';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1179,7 +1179,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// 1. Hidden Single in 3x3 Box (Cross-Hatching - Most natural human search method)
+// 1. Hidden Single in 3x3 Box (Cross-Hatching)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1243,7 +1243,7 @@ function findHiddenSingleInLine(candGrid) {
     return null;
 }
 
-// 3. Naked Single (Counting all row/col/box eliminations for 1 single cell)
+// 3. Naked Single (Counting all eliminations for 1 single cell)
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1643,7 +1643,110 @@ function findXYWing(candGrid) {
     return null;
 }
 
-// 10. Swordfish
+// 10. XYZ-Wing
+function findXYZWing(candGrid) {
+    const triValueCells = [];
+    const biValueCells = [];
+
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length === 3) triValueCells.push({ r, c, cands: candGrid[r][c] });
+            if (candGrid[r][c].length === 2) biValueCells.push({ r, c, cands: candGrid[r][c] });
+        }
+    }
+
+    const canSee = (c1, c2) => {
+        if (c1.r === c2.r && c1.c === c2.c) return false;
+        if (c1.r === c2.r || c1.c === c2.c) return true;
+        return Math.floor(c1.r / 3) === Math.floor(c2.r / 3) && Math.floor(c1.c / 3) === Math.floor(c2.c / 3);
+    };
+
+    for (const pivot of triValueCells) {
+        const [x, y, z] = pivot.cands;
+        const visibleWings = biValueCells.filter(w => canSee(pivot, w));
+
+        for (let i = 0; i < visibleWings.length; i++) {
+            for (let j = i + 1; j < visibleWings.length; j++) {
+                const w1 = visibleWings[i];
+                const w2 = visibleWings[j];
+
+                // One wing must be in the same 3x3 box as pivot
+                const inSameBox = (a, b) => Math.floor(a.r / 3) === Math.floor(b.r / 3) && Math.floor(a.c / 3) === Math.floor(b.c / 3);
+                if (!inSameBox(pivot, w1) && !inSameBox(pivot, w2)) continue;
+
+                const candsUnion = Array.from(new Set([...w1.cands, ...w2.cands]));
+                if (candsUnion.length === 3 && candsUnion.every(num => pivot.cands.includes(num))) {
+                    const sharedZ = pivot.cands.find(num => w1.cands.includes(num) && w2.cands.includes(num));
+                    if (!sharedZ) continue;
+
+                    let hasElims = false;
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) {
+                            const target = { r, c };
+                            if ((r===pivot.r && c===pivot.c) || (r===w1.r && c===w1.c) || (r===w2.r && c===w2.c)) continue;
+                            if (canSee(pivot, target) && canSee(w1, target) && canSee(w2, target) && candGrid[r][c].includes(sharedZ)) {
+                                hasElims = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (hasElims) {
+                        return {
+                            cells: [{ r: pivot.r, c: pivot.c }, { r: w1.r, c: w1.c }, { r: w2.r, c: w2.c }],
+                            nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1}) — an XYZ-Wing pattern is present!`,
+                            explanation: `XYZ-Wing centered at (${pivot.r+1}, ${pivot.c+1}). Candidate ${sharedZ} can be eliminated from cells seeing all 3 wing corners.`
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 11. Unique Rectangle Type 1 (Uniqueness Technique)
+function findUniqueRectangleType1(candGrid) {
+    for (let r1 = 0; r1 < 9; r1++) {
+        for (let r2 = r1 + 1; r2 < 9; r2++) {
+            if (Math.floor(r1 / 3) === Math.floor(r2 / 3)) continue; // Must span across two 3x3 box rows
+
+            for (let c1 = 0; c1 < 9; c1++) {
+                for (let c2 = c1 + 1; c2 < 9; c2++) {
+                    if (Math.floor(c1 / 3) === Math.floor(c2 / 3)) continue; // Must span across two 3x3 box cols
+
+                    const corners = [
+                        { r: r1, c: c1, cands: candGrid[r1][c1] },
+                        { r: r1, c: c2, cands: candGrid[r1][c2] },
+                        { r: r2, c: c1, cands: candGrid[r2][c1] },
+                        { r: r2, c: c2, cands: candGrid[r2][c2] }
+                    ];
+
+                    // Check if 3 corners are identical bi-value cells
+                    const biValueCorners = corners.filter(k => k.cands.length === 2);
+                    if (biValueCorners.length === 3) {
+                        const basePair = biValueCorners[0].cands;
+                        const allMatch = biValueCorners.every(k => k.cands.length === 2 && k.cands[0] === basePair[0] && k.cands[1] === basePair[1]);
+
+                        if (allMatch) {
+                            const targetCorner = corners.find(k => k.cands.length > 2);
+                            if (targetCorner && basePair.every(num => targetCorner.cands.includes(num))) {
+                                return {
+                                    cells: corners.map(k => ({ r: k.r, c: k.c })),
+                                    nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1} (Unique Rectangle)!`,
+                                    explanation: `Unique Rectangle Type 1: To prevent a non-unique solution, eliminate {${basePair.join(", ")}} from Cell (${targetCorner.r+1}, ${targetCorner.c+1}).`
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 12. Swordfish
 function findSwordfish(candGrid) {
     for (let num = 1; num <= 9; num++) {
         const rowData = [];
@@ -1696,7 +1799,7 @@ function findSwordfish(candGrid) {
     return null;
 }
 
-// 11. Direct Reveal Fallback
+// 13. Direct Reveal Fallback
 function findDirectRevealFallback(candGrid) {
     let minCandidates = 10;
     let target = null;
@@ -1801,11 +1904,7 @@ function showHint() {
 
     const candGrid = hasPencils ? boardPencils : getCandidatesGrid(getCurrentGrid());
     
-    // Evaluate moves in NATURAL HUMAN SEARCH ORDER:
-    // 1. Cross-hatch 3x3 Boxes for Hidden Singles
-    // 2. Scan Rows & Columns for Hidden Singles
-    // 3. Single Cell Candidate Counting (Naked Singles)
-    // 4. Advanced Candidate Elimination Techniques
+    // Evaluate moves in HUMAN SEARCH ORDER
     let hint = findHiddenSingleInBox(candGrid) || 
                findHiddenSingleInLine(candGrid) || 
                findNakedSingle(candGrid) || 
@@ -1815,6 +1914,8 @@ function showHint() {
                findNakedTriples(candGrid) ||
                findXWing(candGrid) ||
                findXYWing(candGrid) ||
+               findXYZWing(candGrid) ||
+               findUniqueRectangleType1(candGrid) ||
                findSwordfish(candGrid) ||
                findDirectRevealFallback(candGrid);
 
