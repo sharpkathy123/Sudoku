@@ -494,7 +494,7 @@ h2 {
        <button id="newGameBtn">New Game</button>
        <button id="restartBtn">Restart Game</button>
        <button id="pencilToggle">Pencil Mode: OFF</button>
-       <button id="guardNotesToggle">Guard Notes: OFF</button>
+       <button id="guardNotesToggle" class="active">Guard Notes: ON</button>
        <button id="autoPencilBtn">Auto‑Notes</button>
        <button id="clearNotesBtn">Clear Notes</button>
        <button id="highlightLeastBtn">Highlight Fullest</button>
@@ -526,7 +526,7 @@ h2 {
 let puzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
 let solution = Array.from({ length: 9 }, () => Array(9).fill(0));
 let pencilMode = false;
-let guardNotesMode = false;
+let guardNotesMode = true;
 let selectedCell = null;
 let selectedNumber = null;
 let gameWon = false;
@@ -2470,6 +2470,10 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         const defaultDiff = "medium";
         difficultySelect.value = defaultDiff;
         
+        guardNotesMode = true;
+        guardNotesToggle.textContent = "Guard Notes: ON";
+        guardNotesToggle.classList.add("active");
+
         showGeneratingStatus("Generating initial puzzle...");
         
         setTimeout(() => {
