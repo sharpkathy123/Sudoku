@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.1';
+            const CACHE_NAME = 'sudoku-v20.2';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1520,7 +1520,7 @@ function findPointingPairs(candGrid) {
                         const elimTargets = [];
                         for (let r = 0; r < 9; r++) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
-                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r, c: targetCol, val: num });
+                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r: targetCol, c, val: num });
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
@@ -2273,8 +2273,15 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
 
         const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
 
-        if (ratedDiff === difficulty || attempts > 200) {
+        // Strict difficulty rating check
+        if (ratedDiff === difficulty) {
             verified = true;
+        }
+
+        // Prevent stalling by regenerating a fresh grid seed after 500 attempts
+        if (attempts > 500) {
+            fullSolution = generateFullSolution();
+            attempts = 0;
         }
     }
 
