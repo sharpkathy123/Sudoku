@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.6';
+            const CACHE_NAME = 'sudoku-v20.7';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -2433,7 +2433,7 @@ async function createNewPuzzleAsync(difficulty) {
 }
 
 /* -----------------------------------------
-   CONFETTI + WIN LOGIC
+   CONFETTI ENGINE
 ----------------------------------------- */
 function resizeConfettiCanvas() {
     confettiCanvas.width = window.innerWidth;
@@ -2446,13 +2446,14 @@ let confettiPieces = [];
 let confettiRunning = false;
 
 function startConfetti() {
+    resizeConfettiCanvas();
     confettiPieces = [];
     const colors = ["#ff4b5c", "#ffb400", "#3ae374", "#17c0eb", "#9b59b6"];
 
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 250; i++) {
         confettiPieces.push({
             x: Math.random() * confettiCanvas.width,
-            y: Math.random() * -confettiCanvas.height,
+            y: Math.random() * -confettiCanvas.height - 20,
             w: 6 + Math.random() * 4,
             h: 8 + Math.random() * 6,
             color: colors[Math.floor(Math.random() * colors.length)],
@@ -2465,8 +2466,6 @@ function startConfetti() {
 
     confettiRunning = true;
     requestAnimationFrame(confettiLoop);
-
-    setTimeout(stopConfetti, 10000);
 }
 
 function confettiLoop() {
@@ -2474,29 +2473,37 @@ function confettiLoop() {
 
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
-    confettiPieces.forEach(p => {
-        p.x += p.speedX;
-        p.y += p.speedY;
-        p.rotation += p.rotationSpeed;
+    let activeParticles = 0;
+    const maxY = confettiCanvas.height + 20;
 
-        if (p.y > confettiCanvas.height) {
-            p.y = confettiCanvas.height;
-            p.x = Math.random() * confettiCanvas.width;
+    for (let i = 0; i < confettiPieces.length; i++) {
+        const p = confettiPieces[i];
+
+        if (p.y <= maxY) {
+            p.x += p.speedX;
+            p.y += p.speedY;
+            p.rotation += p.rotationSpeed;
+            activeParticles++;
+
+            ctx.save();
+            ctx.translate(Math.floor(p.x), Math.floor(p.y));
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
         }
+    }
 
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
-    });
-
-    requestAnimationFrame(confettiLoop);
+    if (activeParticles > 0) {
+        requestAnimationFrame(confettiLoop);
+    } else {
+        stopConfetti();
+    }
 }
 
 function stopConfetti() {
     confettiRunning = false;
+    confettiPieces = [];
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 }
 
