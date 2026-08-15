@@ -182,6 +182,30 @@ h2 {
     text-align: center;
     line-height: 1.4;
     padding: 0 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-msg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.gear-icon {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    animation: gearSpin 1.2s linear infinite;
+    vertical-align: middle;
+}
+
+@keyframes gearSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .top-bar,
@@ -520,10 +544,19 @@ let glowQueue = [];
 let glowActive = false;
 
 /* -----------------------------------------
-   UTILS
+   UTILS & STATUS HELPERS
 ----------------------------------------- */
 function deepCopyGrid(grid) {
     return grid.map(row => row.slice());
+}
+
+function showGeneratingStatus(text = "Generating puzzle...") {
+    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`;
+    statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
+}
+
+function setStatusText(text) {
+    statusEl.textContent = text;
 }
 
 /* -----------------------------------------
@@ -598,9 +631,9 @@ function loadSavedGameState() {
 
         checkAndBoldCompletedNumbers();
         updateNumberTileStyles();
-        statusEl.textContent = "Resumed saved game.";
+        setStatusText("Resumed saved game.");
         setTimeout(() => {
-            if (statusEl.textContent === "Resumed saved game.") statusEl.textContent = "";
+            if (statusEl.textContent === "Resumed saved game.") setStatusText("");
         }, 2000);
         return true;
     } catch (e) {
@@ -688,9 +721,9 @@ for (let n = 1; n <= 9; n++) {
         if (gameWon) return;
 
         if (!selectedCell) {
-            statusEl.textContent = "Select a cell first.";
+            setStatusText("Select a cell first.");
             setTimeout(() => {
-                if (statusEl.textContent === "Select a cell first.") statusEl.textContent = "";
+                if (statusEl.textContent === "Select a cell first.") setStatusText("");
             }, 1500);
             selectedNumber = n;
             updateNumberTileStyles();
@@ -701,9 +734,9 @@ for (let n = 1; n <= 9; n++) {
         const c = parseInt(selectedCell.dataset.col, 10);
 
         if (givenMask[r][c]) {
-            statusEl.textContent = "You can't change a given cell.";
+            setStatusText("You can't change a given cell.");
             setTimeout(() => {
-                if (statusEl.textContent === "You can't change a given cell.") statusEl.textContent = "";
+                if (statusEl.textContent === "You can't change a given cell.") setStatusText("");
             }, 1500);
             return;
         }
@@ -1064,7 +1097,7 @@ function highlightLeastUnfilled() {
     }
 
     if (targets.length === 0) {
-        statusEl.textContent = "Board is complete!";
+        setStatusText("Board is complete!");
         return;
     }
 
@@ -1082,9 +1115,9 @@ function highlightLeastUnfilled() {
         }
     });
 
-    statusEl.textContent = `Highlighted group(s) with lowest unfilled count (${minEmpty} remaining).`;
+    setStatusText(`Highlighted group(s) with lowest unfilled count (${minEmpty} remaining).`);
     setTimeout(() => {
-        if (statusEl.textContent.startsWith("Highlighted group")) statusEl.textContent = "";
+        if (statusEl.textContent.startsWith("Highlighted group")) setStatusText("");
     }, 4000);
 }
 
@@ -1182,7 +1215,6 @@ function getCandidatesGrid(grid) {
 }
 
 function hasEliminationsOnBoard(eliminations, candGrid) {
-    // Returns true ONLY if at least one candidate digit actually remains to be eliminated in an open cell
     for (const e of eliminations) {
         const cell = board.children[e.r * 9 + e.c];
         const valSpan = cell.querySelector(".cell-value");
@@ -1843,7 +1875,6 @@ function ratePuzzleDifficulty(initialGrid) {
     let maxTechniqueNeeded = "easy";
     let progress = true;
 
-    // Helper to safely place a digit and update candidate lists without wiping eliminations
     function placeAndClean(r, c, val) {
         simGrid[r][c] = val;
         simCands[r][c] = [];
@@ -1869,7 +1900,6 @@ function ratePuzzleDifficulty(initialGrid) {
         }
         if (emptyCount === 0) break;
 
-        // 1. Hidden Single in Box
         const hsBox = findHiddenSingleInBox(simCands);
         if (hsBox) {
             placeAndClean(hsBox.r, hsBox.c, hsBox.val);
@@ -1877,7 +1907,6 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // 2. Hidden Single in Line
         const hsLine = findHiddenSingleInLine(simCands);
         if (hsLine) {
             placeAndClean(hsLine.r, hsLine.c, hsLine.val);
@@ -1886,7 +1915,6 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // 3. Naked Single
         const ns = findNakedSingle(simCands);
         if (ns) {
             placeAndClean(ns.r, ns.c, ns.val);
@@ -1894,7 +1922,6 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // 4. Basic Eliminations (Hard)
         const basicElim = findNakedPair(simCands) || findPointingPairs(simCands) || findClaimingLines(simCands) || findNakedTriples(simCands);
         if (basicElim) {
             if (basicElim.elimTargets) {
@@ -1909,7 +1936,6 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // 5. Advanced Eliminations (Expert)
         const advElim = findXWing(simCands) || findXYWing(simCands) || findXYZWing(simCands) || findUniqueRectangleType1(simCands) || findSwordfish(simCands);
         if (advElim) {
             if (advElim.elimTargets) {
@@ -1922,7 +1948,6 @@ function ratePuzzleDifficulty(initialGrid) {
             continue;
         }
 
-        // 6. Stuck -> Master
         if (!progress && emptyCount > 0) {
             return "master";
         }
@@ -1934,7 +1959,6 @@ function ratePuzzleDifficulty(initialGrid) {
 function showHint() {
     if (gameWon) return;
 
-    // Clear board selections and stray digit highlights
     if (selectedCell) {
         selectedCell.classList.remove("selected");
         selectedCell = null;
@@ -1943,7 +1967,6 @@ function showHint() {
     clearNumberHighlights();
     updateNumberTileStyles();
 
-    // Check board pencil marks first
     const boardPencils = getBoardPencilGrid();
     let hasPencils = false;
     for (let r = 0; r < 9; r++) {
@@ -1961,22 +1984,19 @@ function showHint() {
 
     let hint = evaluateHintStack(candGrid);
 
-    // Fall back to pure candidates if manual pencil notes are blocking progress
     if (!hint && hasPencils) {
         hint = evaluateHintStack(pureCands);
     }
 
-    // Direct reveal fallback if pattern exceeds standard solvers
     if (!hint) {
         hint = findDirectRevealFallback(pureCands);
     }
 
     if (!hint) {
-        statusEl.textContent = "Board is complete!";
+        setStatusText("Board is complete!");
         return;
     }
 
-    // Progressive Hint Logic & Re-explain Tracking
     const hintKey = JSON.stringify(hint.cells) + (hint.nudge || "") + (hint.explanation || "");
     
     if (currentHintState === hintKey) {
@@ -1988,7 +2008,6 @@ function showHint() {
 
     const { cells, nudge, explanation, type, elimTargets } = hint;
 
-    // Highlight pattern source cells (amber glow)
     cells.forEach(({ r, c }) => {
         const cell = board.children[r * 9 + c];
         cell.classList.add("highlight-least");
@@ -1996,14 +2015,12 @@ function showHint() {
         setTimeout(() => cell.classList.remove("glow"), 2000);
     });
 
-    // Strictly highlight target elimination cells ONLY if they actively hold candidate values to remove
     if (type === 'elim' && elimTargets) {
         elimTargets.forEach(({ r, c, val }) => {
             const cell = board.children[r * 9 + c];
             const digits = cell._pencilDigits;
             const valueSpan = cell.querySelector(".cell-value");
             
-            // Highlight only if cell is open AND contains candidate or pencil mark for val
             if (valueSpan.textContent.trim() === "") {
                 if (digits && digits[val] && digits[val].classList.contains("active")) {
                     cell.classList.add("highlight-least");
@@ -2018,13 +2035,12 @@ function showHint() {
         onCellClick(board.children[cells[0].r * 9 + cells[0].c]);
     }
 
-    // Deliver Nudge on level 1, or Re-explain with Full Detail on level 2+
     if (currentHintLevel === 1 && nudge) {
-        statusEl.textContent = `💡 Hint (Nudge): ${nudge} (Tap Hint again for full details)`;
+        setStatusText(`💡 Hint (Nudge): ${nudge} (Tap Hint again for full details)`);
     } else if (currentHintLevel === 2) {
-        statusEl.textContent = `💡 Hint (Full): ${explanation}`;
+        setStatusText(`💡 Hint (Full): ${explanation}`);
     } else {
-        statusEl.textContent = `💡 Hint (Re-explain): ${explanation}`;
+        setStatusText(`💡 Hint (Re-explain): ${explanation}`);
     }
 }
 
@@ -2173,12 +2189,6 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
 
         const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
 
-        /*
-           GENERATOR BAILOUT THRESHOLD:
-           Finding specific Expert/Master patterns from random clue removals requires testing many candidate grids.
-           We set the limit to 200 attempts (~100-250ms) to ensure high-grade puzzles are successfully generated 
-           without causing noticeable UI freezing on mobile browsers.
-        */
         if (ratedDiff === difficulty || attempts > 200) {
             verified = true;
         }
@@ -2300,7 +2310,7 @@ document.getElementById("newGameBtn").addEventListener("click", () => {
     board.classList.remove("board-win");
     winMessage.textContent = "";
 
-    statusEl.textContent = "Generating new puzzle...";
+    showGeneratingStatus("Generating new puzzle...");
 
     setTimeout(() => {
         const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(currentDiff);
@@ -2311,9 +2321,9 @@ document.getElementById("newGameBtn").addEventListener("click", () => {
         updateNumberTileStyles();
         saveGameState();
 
-        statusEl.textContent = `New puzzle loaded (${currentDiff}).`;
+        setStatusText(`New puzzle loaded (${currentDiff}).`);
         setTimeout(() => {
-            if (statusEl.textContent.startsWith("New puzzle loaded")) statusEl.textContent = "";
+            if (statusEl.textContent.startsWith("New puzzle loaded")) setStatusText("");
         }, 2000);
     }, 50);
 });
@@ -2329,9 +2339,9 @@ document.getElementById("restartBtn").addEventListener("click", () => {
     updateNumberTileStyles();
     saveGameState();
 
-    statusEl.textContent = "Game restarted.";
+    setStatusText("Game restarted.");
     setTimeout(() => {
-        if (statusEl.textContent === "Game restarted.") statusEl.textContent = "";
+        if (statusEl.textContent === "Game restarted.") setStatusText("");
     }, 2000);
 });
 
@@ -2359,7 +2369,7 @@ difficultySelect.addEventListener("change", () => {
     board.classList.remove("board-win");
     winMessage.textContent = "";
 
-    statusEl.textContent = "Generating puzzle...";
+    showGeneratingStatus("Generating puzzle...");
 
     setTimeout(() => {
         const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
@@ -2370,9 +2380,9 @@ difficultySelect.addEventListener("change", () => {
         updateNumberTileStyles();
         saveGameState();
 
-        statusEl.textContent = `Puzzle loaded (${diff}).`;
+        setStatusText(`Puzzle loaded (${diff}).`);
         setTimeout(() => {
-            if (statusEl.textContent.startsWith("Puzzle loaded")) statusEl.textContent = "";
+            if (statusEl.textContent.startsWith("Puzzle loaded")) setStatusText("");
         }, 2000);
     }, 50);
 });
@@ -2392,13 +2402,18 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         const defaultDiff = "medium";
         difficultySelect.value = defaultDiff;
         
-        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(defaultDiff);
-        puzzle = newPuzzle;
-        solution = newSolution;
+        showGeneratingStatus("Generating initial puzzle...");
+        
+        setTimeout(() => {
+            const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(defaultDiff);
+            puzzle = newPuzzle;
+            solution = newSolution;
 
-        buildBoard();
-        updateNumberTileStyles();
-        saveGameState();
+            buildBoard();
+            updateNumberTileStyles();
+            saveGameState();
+            setStatusText("");
+        }, 50);
     }
 })();
 </script>
