@@ -1030,7 +1030,7 @@ function highlightSameNumbers(num) {
 
 function clearNumberHighlights() {
     [...board.children].forEach(cell => {
-        cell.classList.remove("highlight-number", "highlight-least", "glow", "selected");
+        cell.classList.remove("highlight-number", "highlight-least", "selected");
         const digits = cell._pencilDigits;
         if (digits) {
             for (let n = 1; n <= 9; n++) {
@@ -1867,7 +1867,7 @@ function findDirectRevealFallback(candGrid) {
         const correctVal = solution[target.r][target.c];
         return {
             cells: [{ r: target.r, c: target.c }],
-            nudge: `No hint pattern found for this move—full details reveal Cell (${target.r+1}, ${target.c+1}).`,
+            nudge: `Cell (${target.r+1}, ${target.c+1}) requires too advanced technique — hint will reveal the number!`,
             explanation: `Advanced pattern needed. Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
         };
     }
