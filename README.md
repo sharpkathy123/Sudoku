@@ -9,24 +9,26 @@ A clean, responsive, single-file Sudoku web application optimized for mobile dev
 ## ✨ Features
 
 * **📱 iPhone & Android Optimized:** Uses fluid CSS (`clamp()`, `vw`) and dynamic viewport scaling to ensure the board fits perfectly on any screen size without scrolling.
-* **🌐 100% Offline Support:** Embedded Service Worker automatically caches the app locally for uninterrupted offline play (even in Airplane Mode).
+* **🌐 100% Offline Support:** Embedded Service Worker automatically caches the app locally for uninterrupted offline play (even in Airplane Mode). Includes a discreet version timestamp in the header to confirm when code updates take effect.
 * **📲 PWA & Home Screen Ready:** Includes native web app configuration, black translucent status bar styling, and a dynamic canvas-generated Apple Touch Icon.
-* **💾 Automatic Progress Saving:** Automatically saves game state (including filled cells, active pencil notes, and current difficulty) to `localStorage` so you never lose progress when closing or refreshing the app.
-* **💡 Advanced 12-Technique Logical Hint Engine:** Features a progressive nudge-to-full explanation system covering techniques in increasing order of complexity:
+* **💾 Automatic Progress Saving:** Automatically saves game state (including filled cells, active pencil notes, Guard Notes status, and current difficulty) to `localStorage` so you never lose progress when closing or refreshing the app.
+* **💡 Progressive Logical Hint Engine:** Features a progressive nudge-to-full explanation system that guides you through techniques step by step:
   1. **Naked Singles** & **Hidden Singles** (Box & Line Scanning)
-  2. **Naked Pairs** & **Naked Triples**
-  3. **Pointing Pairs/Triples** & **Claiming Lines** (Locked Candidates)
+  2. **Naked Pairs**, **Naked Triples**, & **Pointing Pairs/Triples**
+  3. **Claiming Lines** (Locked Candidates)
   4. **X-Wing**, **XY-Wing**, **XYZ-Wing**, **Swordfish**, and **Unique Rectangles (Type 1)**
 * **📊 5 Difficulty Tiers with Guaranteed Quality:**
   * **Easy, Medium, and Hard:** Solvable using standard scanning, singles, pairs, and locked candidates.
-  * **Expert:** Guaranteed to be 100% solvable using our 12 built-in logical solver techniques—**zero direct-reveal hints guaranteed**.
-  * **Master:** Extreme puzzles requiring advanced logic chains beyond our 12 techniques. If a board hits a logical bottleneck, the hint engine can directly reveal a cell value rather than a step-by-step rule.
+  * **Expert:** Guaranteed to be 100% solvable using our built-in logical solver techniques—**zero direct-reveal hints required**.
+  * **Master:** Extreme puzzles requiring advanced logic chains. If a board hits a logical bottleneck beyond standard solver patterns, the hint engine can directly reveal a cell value rather than a step-by-step rule.
 * **🧰 Smart Gameplay Helpers:**
-  * **Pencil Mode & Auto-Notes:** Toggle pencil marks manually or auto-fill candidate numbers across the board.
+  * **Pencil Mode & Auto-Notes:** Toggle pencil marks manually or auto-fill valid candidate numbers across the board with a single tap.
+  * **🛡️ Guard Notes:** Mode toggle that prevents accidentally erasing correct pencil marks or placing invalid candidate notes.
   * **Highlight Fullest:** Quickly highlight rows, columns, or 3x3 boxes with the fewest empty cells remaining.
-  * **Smart Elimination Verification:** Hint engine automatically verifies active pencil marks on your board to avoid repeating instructions you've already acted on.
-  * **New Game & Restart Controls:** One-tap button to generate a brand-new puzzle at your current difficulty, or reset your current board.
-  * **Visual Feedback:** Line/box completion neon glow animations, error flashing, and a celebratory confetti banner upon solving.
+  * **Number Highlighting & Bolding:** Tapping a number on the board highlights matching digits across the board, and completed number sets (1–9) are bold.
+  * **Smart Hint Verification:** The hint engine checks your current pencil notes on the board to avoid repeating instructions you've already acted on.
+  * **New Game & Restart Controls:** One-tap button to generate a brand-new puzzle at your current difficulty or reset your current board back to its starting state.
+  * **Visual Feedback & Tap-to-Skip Animation:** Cell/unit completion glows, error flashes, and confetti upon solving. **Tap anywhere on the screen at any time to instantly skip the animation.**
 
 ---
 
