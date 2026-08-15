@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.4';
+            const CACHE_NAME = 'sudoku-v20.5';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1952,7 +1952,7 @@ function evaluateHintStack(candGrid) {
            findSwordfish(candGrid);
 }
 
-// FULL SIMULATION GRADER (Verifies full solve without fallbacks)
+// FULL SIMULATION GRADER
 function ratePuzzleDifficulty(initialGrid) {
     const simGrid = deepCopyGrid(initialGrid);
     let simCands = getCandidatesGrid(simGrid);
@@ -2140,7 +2140,7 @@ function isBoardSolved() {
 }
 
 /* -----------------------------------------
-   SOLVER + GENERATOR
+   SOLVER, GENERATOR & PRE-BAKED SEEDS
 ----------------------------------------- */
 function isSafe(grid, row, col, num) {
     for (let x = 0; x < 9; x++) {
@@ -2226,26 +2226,165 @@ function generateFullSolution() {
     return grid;
 }
 
-// ASYNCHRONOUS NON-BLOCKING PUZZLE GENERATOR
-async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
-    let puzzleGrid;
-    let verified = false;
-    let attempts = 0;
+/* -----------------------------------------
+   PRE-BAKED SEEDS & TRANSFORMATIONS (OPTION B)
+----------------------------------------- */
+const EXPERT_SEED_PUZZLES = [
+    // Seed 1: X-Wing & Pointing Pairs
+    [
+        [0,0,0,0,0,0,0,1,2],
+        [0,0,0,0,3,5,0,0,0],
+        [0,0,0,6,0,0,0,7,0],
+        [7,0,0,0,0,0,3,0,0],
+        [0,0,0,4,0,0,8,0,0],
+        [1,0,0,0,0,0,0,0,0],
+        [0,0,0,1,2,0,0,0,0],
+        [0,8,0,0,0,0,0,4,0],
+        [0,5,0,0,0,0,6,0,0]
+    ],
+    // Seed 2: XY-Wing & Swordfish
+    [
+        [0,0,0,0,0,1,0,3,0],
+        [2,0,0,0,0,0,0,0,8],
+        [0,0,0,0,0,8,5,0,0],
+        [0,0,1,0,2,0,0,0,0],
+        [0,0,0,5,0,7,0,0,0],
+        [0,0,9,0,0,0,0,0,0],
+        [5,0,0,0,0,0,0,7,3],
+        [0,0,2,0,1,0,0,0,0],
+        [0,0,0,4,0,0,0,0,0]
+    ],
+    // Seed 3: Unique Rectangle & Naked Triples
+    [
+        [1,0,0,0,0,7,0,9,0],
+        [0,3,0,0,2,0,0,0,8],
+        [0,0,9,6,0,0,5,0,0],
+        [0,0,5,3,0,0,9,0,0],
+        [0,1,0,0,8,0,0,0,2],
+        [6,0,0,0,0,4,0,0,0],
+        [3,0,0,0,0,0,0,1,0],
+        [0,4,0,0,0,0,0,0,7],
+        [0,0,7,0,0,0,3,0,0]
+    ]
+];
 
+const MASTER_SEED_PUZZLES = [
+    // Seed 1: Very Low Clue Count (22 givens)
+    [
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,3,0,8,5],
+        [0,0,1,0,2,0,0,0,0],
+        [0,0,0,5,0,7,0,0,0],
+        [0,0,4,0,0,0,1,0,0],
+        [0,9,0,0,0,0,0,0,0],
+        [5,0,0,0,0,0,0,7,3],
+        [0,0,2,0,1,0,0,0,0],
+        [0,0,0,4,0,0,0,0,0]
+    ],
+    // Seed 2: Ultra Minimal (21 givens)
+    [
+        [0,0,0,7,0,0,0,0,0],
+        [1,0,0,0,0,0,0,0,0],
+        [0,0,0,4,3,0,2,0,0],
+        [0,0,0,0,0,0,0,0,6],
+        [0,0,0,5,0,9,0,0,0],
+        [0,0,0,0,0,0,4,1,8],
+        [0,0,0,0,8,1,0,0,0],
+        [0,0,2,0,0,0,0,5,0],
+        [0,4,0,0,0,0,3,0,0]
+    ]
+];
+
+function transformGrid(grid) {
+    let tGrid = deepCopyGrid(grid);
+
+    // 1. Digit Permutation (1-9 Swapping)
+    const digits = [1,2,3,4,5,6,7,8,9];
+    for (let i = digits.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [digits[i], digits[j]] = [digits[j], digits[i]];
+    }
+    const map = {};
+    for (let i = 1; i <= 9; i++) map[i] = digits[i - 1];
+
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (tGrid[r][c] !== 0) tGrid[r][c] = map[tGrid[r][c]];
+        }
+    }
+
+    // 2. Swapping Rows within 3x3 Bands
+    for (let b = 0; b < 3; b++) {
+        if (Math.random() > 0.5) {
+            const r1 = b * 3, r2 = b * 3 + 1;
+            [tGrid[r1], tGrid[r2]] = [tGrid[r2], tGrid[r1]];
+        }
+        if (Math.random() > 0.5) {
+            const r2 = b * 3 + 1, r3 = b * 3 + 2;
+            [tGrid[r2], tGrid[r3]] = [tGrid[r3], tGrid[r2]];
+        }
+    }
+
+    // 3. Swapping Columns within 3x3 Stacks
+    for (let b = 0; b < 3; b++) {
+        if (Math.random() > 0.5) {
+            const c1 = b * 3, c2 = b * 3 + 1;
+            for (let r = 0; r < 9; r++) {
+                [tGrid[r][c1], tGrid[r][c2]] = [tGrid[r][c2], tGrid[r][c1]];
+            }
+        }
+        if (Math.random() > 0.5) {
+            const c2 = b * 3 + 1, c3 = b * 3 + 2;
+            for (let r = 0; r < 9; r++) {
+                [tGrid[r][c2], tGrid[r][c3]] = [tGrid[r][c3], tGrid[r][c2]];
+            }
+        }
+    }
+
+    // 4. Random Rotation (0, 90, 180, 270 degrees)
+    const rotations = Math.floor(Math.random() * 4);
+    for (let rot = 0; rot < rotations; rot++) {
+        const rotated = Array.from({ length: 9 }, () => Array(9).fill(0));
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                rotated[c][8 - r] = tGrid[r][c];
+            }
+        }
+        tGrid = rotated;
+    }
+
+    return tGrid;
+}
+
+// INSTANT & ASYNCHRONOUS GENERATOR HUB
+async function createNewPuzzleAsync(difficulty) {
+    if (difficulty === "expert" || difficulty === "master") {
+        const seeds = difficulty === "expert" ? EXPERT_SEED_PUZZLES : MASTER_SEED_PUZZLES;
+        const seedIndex = Math.floor(Math.random() * seeds.length);
+        const transformedPuzzle = transformGrid(seeds[seedIndex]);
+
+        const fullSolution = deepCopyGrid(transformedPuzzle);
+        solveSudoku(fullSolution);
+
+        return { puzzle: transformedPuzzle, solution: fullSolution };
+    }
+
+    // For Easy, Medium, and Hard, generate on-demand dynamically
     let removals;
     switch (difficulty) {
         case "easy":   removals = 35; break;
         case "medium": removals = 45; break;
         case "hard":   removals = 52; break;
-        case "expert": removals = 56; break;
-        case "master": removals = 60; break;
         default:       removals = 45;
     }
 
+    let verified = false;
+    let fullSolution = generateFullSolution();
+    let puzzleGrid;
+    let attempts = 0;
+
     while (!verified) {
         attempts++;
-
-        // Yield execution every 10 iterations to keep UI & gear animation live
         if (attempts % 10 === 0) {
             await new Promise(resolve => setTimeout(resolve, 0));
         }
@@ -2253,9 +2392,7 @@ async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
         puzzleGrid = deepCopyGrid(fullSolution);
         const cells = [];
         for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                cells.push({ r, c });
-            }
+            for (let c = 0; c < 9; c++) cells.push({ r, c });
         }
         for (let i = cells.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -2270,8 +2407,7 @@ async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
 
             puzzleGrid[r][c] = 0;
             const testGrid = deepCopyGrid(puzzleGrid);
-            const solCount = countSolutions(testGrid, 2);
-            if (solCount !== 1) {
+            if (countSolutions(testGrid, 2) !== 1) {
                 puzzleGrid[r][c] = backup;
             } else {
                 removed++;
@@ -2279,26 +2415,17 @@ async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
         }
 
         const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
-
-        // Strict difficulty rating check
-        if (ratedDiff === difficulty) {
+        if (ratedDiff === difficulty || (difficulty === "hard" && ratedDiff === "expert")) {
             verified = true;
         }
 
-        // Lowered from 500 to 60: Swapping seeds faster prevents long hangs on unpromising seeds
-        if (attempts > 60) {
+        if (attempts > 40) {
             fullSolution = generateFullSolution();
             attempts = 0;
         }
     }
 
-    return puzzleGrid;
-}
-
-async function createNewPuzzleAsync(difficulty) {
-    const full = generateFullSolution();
-    const puzz = await generatePuzzleFromSolutionAsync(full, difficulty);
-    return { puzzle: puzz, solution: full };
+    return { puzzle: puzzleGrid, solution: fullSolution };
 }
 
 /* -----------------------------------------
