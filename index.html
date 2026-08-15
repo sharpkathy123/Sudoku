@@ -687,6 +687,7 @@ function runGlowQueue() {
     });
     setTimeout(runGlowQueue, 2100);
 }
+
 function glowAllCells() {
     const all = [...board.children].map((_, i) => i);
     queueGlow(all);
@@ -1215,7 +1216,6 @@ function getCandidatesGrid(grid) {
 }
 
 function hasEliminationsOnBoard(eliminations, candGrid) {
-    // Check if pencil notes are currently active anywhere on the board
     const boardPencils = getBoardPencilGrid();
     let hasPencils = false;
     for (let r = 0; r < 9; r++) {
@@ -1232,13 +1232,11 @@ function hasEliminationsOnBoard(eliminations, candGrid) {
         const cell = board.children[e.r * 9 + e.c];
         const valSpan = cell.querySelector(".cell-value");
         if (valSpan.textContent.trim() === "") {
-            // If user has pencil notes active, verify the candidate is actually written on the board
             if (hasPencils) {
                 if (boardPencils[e.r][e.c].includes(e.val)) {
                     return true;
                 }
             } else {
-                // Otherwise fallback to logical candidates grid
                 if (candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
                     return true;
                 }
