@@ -234,7 +234,8 @@ h2 {
 
 .top-bar select,
 .controls button,
-#pencilToggle {
+#pencilToggle,
+#guardNotesToggle {
     padding: 6px 12px;
     border-radius: 999px;
     border: 1px solid var(--border-light);
@@ -246,7 +247,8 @@ h2 {
 }
 
 .controls button:hover,
-#pencilToggle:hover {
+#pencilToggle:hover,
+#guardNotesToggle:hover {
     background: #eef2ff;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
@@ -254,6 +256,11 @@ h2 {
 #pencilToggle.active {
     background: #fff3d1;
     border-color: #e0b44c;
+}
+
+#guardNotesToggle.active {
+    background: #dcfce7;
+    border-color: #16a34a;
 }
 
 .number-bar {
@@ -487,6 +494,7 @@ h2 {
        <button id="newGameBtn">New Game</button>
        <button id="restartBtn">Restart Game</button>
        <button id="pencilToggle">Pencil Mode: OFF</button>
+       <button id="guardNotesToggle">Guard Notes: OFF</button>
        <button id="autoPencilBtn">Auto‑Notes</button>
        <button id="clearNotesBtn">Clear Notes</button>
        <button id="highlightLeastBtn">Highlight Fullest</button>
@@ -518,6 +526,7 @@ h2 {
 let puzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
 let solution = Array.from({ length: 9 }, () => Array(9).fill(0));
 let pencilMode = false;
+let guardNotesMode = false;
 let selectedCell = null;
 let selectedNumber = null;
 let gameWon = false;
@@ -593,6 +602,7 @@ function saveGameState() {
         solution,
         difficulty: difficultySelect.value,
         givenMask,
+        guardNotesMode,
         cells: currentCells
     };
 
@@ -608,6 +618,11 @@ function loadSavedGameState() {
         puzzle = state.puzzle;
         solution = state.solution;
         if (state.difficulty) difficultySelect.value = state.difficulty;
+        if (typeof state.guardNotesMode !== "undefined") {
+            guardNotesMode = state.guardNotesMode;
+            guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
+            guardNotesToggle.classList.toggle("active", guardNotesMode);
+        }
 
         buildBoard();
 
@@ -745,6 +760,31 @@ for (let n = 1; n <= 9; n++) {
         const correctValue = solution[r][c];
 
         if (pencilMode) {
+            if (guardNotesMode) {
+                const digits = selectedCell._pencilDigits;
+                const isCurrentlyActive = digits && digits[n] && digits[n].classList.contains("active");
+
+                // Prevent erasing correct solution candidate
+                if (isCurrentlyActive && n === correctValue) {
+                    flashWrong(selectedCell);
+                    setStatusText(`Cannot erase ${n}—it is the correct digit for this cell!`);
+                    setTimeout(() => {
+                        if (statusEl.textContent.startsWith("Cannot erase")) setStatusText("");
+                    }, 1500);
+                    return;
+                }
+
+                // Prevent adding incorrect candidate
+                if (!isCurrentlyActive && n !== correctValue) {
+                    flashWrong(selectedCell);
+                    setStatusText(`Candidate ${n} doesn't belong in this cell!`);
+                    setTimeout(() => {
+                        if (statusEl.textContent.startsWith("Candidate")) setStatusText("");
+                    }, 1500);
+                    return;
+                }
+            }
+
             togglePencilMark(selectedCell, n);
             selectedNumber = n;
             updateNumberTileStyles();
@@ -832,7 +872,7 @@ function updateNumberTileStyles() {
 }
 
 /* -----------------------------------------
-   PENCIL MODE TOGGLE
+   PENCIL MODE & GUARD NOTES TOGGLES
 ----------------------------------------- */
 const pencilToggle = document.getElementById("pencilToggle");
 pencilToggle.addEventListener("click", () => {
@@ -841,6 +881,15 @@ pencilToggle.addEventListener("click", () => {
     pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
     pencilToggle.classList.toggle("active", pencilMode);
     updateNumberTileStyles();
+});
+
+const guardNotesToggle = document.getElementById("guardNotesToggle");
+guardNotesToggle.addEventListener("click", () => {
+    if (gameWon) return;
+    guardNotesMode = !guardNotesMode;
+    guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
+    guardNotesToggle.classList.toggle("active", guardNotesMode);
+    saveGameState();
 });
 
 /* -----------------------------------------
