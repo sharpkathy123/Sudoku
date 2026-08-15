@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.8';
+            const CACHE_NAME = 'sudoku-v19.9';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1295,7 +1295,7 @@ function hasEliminationsOnBoard(eliminations, candGrid) {
     return false;
 }
 
-// 1. Hidden Single in 3x3 Box (Cross-Hatching)
+// 1. Hidden Single in 3x3 Box
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1311,7 +1311,7 @@ function findHiddenSingleInBox(candGrid) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
                         cells: [spots[0]],
-                        nudge: `Cross-hatch Box ${boxNum} — one digit has only a single valid open cell left!`,
+                        nudge: `Look in Box ${boxNum} — one digit has only a single valid open cell left!`,
                         explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
                     };
                 }
@@ -1492,7 +1492,7 @@ function findPointingPairs(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: spots,
-                                nudge: `Look at Box ${boxNum} — a candidate is locked along Row ${targetRow + 1} (Pointing Pair/Triple)!`,
+                                nudge: `Look in Box ${boxNum} — a candidate is locked along Row ${targetRow + 1} (Pointing Pair/Triple)!`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Row ${targetRow + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Row ${targetRow + 1}.`
                             };
                         }
@@ -1511,7 +1511,7 @@ function findPointingPairs(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: spots,
-                                nudge: `Look at Box ${boxNum} — a candidate is locked along Column ${targetCol + 1} (Pointing Pair/Triple)!`,
+                                nudge: `Look in Box ${boxNum} — a candidate is locked along Column ${targetCol + 1} (Pointing Pair/Triple)!`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Column ${targetCol + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Column ${targetCol + 1}.`
                             };
                         }
