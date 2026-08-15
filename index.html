@@ -487,7 +487,7 @@ h2 {
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
-            <option value="expert">Expert (takes longer to generate)</option>
+            <option value="expert">Expert</option>
             <option value="master">Master (hints may be limited)</option>
         </select>
     </div>
@@ -2245,7 +2245,7 @@ async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
     while (!verified) {
         attempts++;
 
-        // Yield execution every 10 iterations to prevent main thread freezing
+        // Yield execution every 10 iterations to keep UI & gear animation live
         if (attempts % 10 === 0) {
             await new Promise(resolve => setTimeout(resolve, 0));
         }
@@ -2285,7 +2285,7 @@ async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
             verified = true;
         }
 
-        // Swapping full solution seed earlier (at 60 attempts) speeds up Expert puzzle generation
+        // Lowered from 500 to 60: Swapping seeds faster prevents long hangs on unpromising seeds
         if (attempts > 60) {
             fullSolution = generateFullSolution();
             attempts = 0;
