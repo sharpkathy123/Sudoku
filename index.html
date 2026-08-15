@@ -479,7 +479,7 @@ h2 {
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
-            <option value="master">Master</option>
+            <option value="master">Master (hints may be limited)</option>
         </select>
     </div>
 
@@ -1215,12 +1215,33 @@ function getCandidatesGrid(grid) {
 }
 
 function hasEliminationsOnBoard(eliminations, candGrid) {
+    // Check if pencil notes are currently active anywhere on the board
+    const boardPencils = getBoardPencilGrid();
+    let hasPencils = false;
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (boardPencils[r][c].length > 0) {
+                hasPencils = true;
+                break;
+            }
+        }
+        if (hasPencils) break;
+    }
+
     for (const e of eliminations) {
         const cell = board.children[e.r * 9 + e.c];
         const valSpan = cell.querySelector(".cell-value");
         if (valSpan.textContent.trim() === "") {
-            if (candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
-                return true;
+            // If user has pencil notes active, verify the candidate is actually written on the board
+            if (hasPencils) {
+                if (boardPencils[e.r][e.c].includes(e.val)) {
+                    return true;
+                }
+            } else {
+                // Otherwise fallback to logical candidates grid
+                if (candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
+                    return true;
+                }
             }
         }
     }
