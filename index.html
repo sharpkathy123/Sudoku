@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.2';
+            const CACHE_NAME = 'sudoku-v20.4';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -487,7 +487,7 @@ h2 {
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
-            <option value="expert">Expert</option>
+            <option value="expert">Expert (takes longer to generate)</option>
             <option value="master">Master (hints may be limited)</option>
         </select>
     </div>
@@ -2226,7 +2226,8 @@ function generateFullSolution() {
     return grid;
 }
 
-function generatePuzzleFromSolution(fullSolution, difficulty) {
+// ASYNCHRONOUS NON-BLOCKING PUZZLE GENERATOR
+async function generatePuzzleFromSolutionAsync(fullSolution, difficulty) {
     let puzzleGrid;
     let verified = false;
     let attempts = 0;
@@ -2243,6 +2244,12 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
 
     while (!verified) {
         attempts++;
+
+        // Yield execution every 10 iterations to prevent main thread freezing
+        if (attempts % 10 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
         puzzleGrid = deepCopyGrid(fullSolution);
         const cells = [];
         for (let r = 0; r < 9; r++) {
@@ -2278,8 +2285,8 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
             verified = true;
         }
 
-        // Prevent stalling by regenerating a fresh grid seed after 500 attempts
-        if (attempts > 500) {
+        // Swapping full solution seed earlier (at 60 attempts) speeds up Expert puzzle generation
+        if (attempts > 60) {
             fullSolution = generateFullSolution();
             attempts = 0;
         }
@@ -2288,9 +2295,9 @@ function generatePuzzleFromSolution(fullSolution, difficulty) {
     return puzzleGrid;
 }
 
-function createNewPuzzle(difficulty) {
+async function createNewPuzzleAsync(difficulty) {
     const full = generateFullSolution();
-    const puzz = generatePuzzleFromSolution(full, difficulty);
+    const puzz = await generatePuzzleFromSolutionAsync(full, difficulty);
     return { puzzle: puzz, solution: full };
 }
 
@@ -2392,7 +2399,7 @@ function onWin() {
 /* -----------------------------------------
    BUTTONS + INIT
 ----------------------------------------- */
-document.getElementById("newGameBtn").addEventListener("click", () => {
+document.getElementById("newGameBtn").addEventListener("click", async () => {
     const currentDiff = difficultySelect.value || "medium";
     
     if (glowActive) glowQueue = [];
@@ -2403,20 +2410,18 @@ document.getElementById("newGameBtn").addEventListener("click", () => {
 
     showGeneratingStatus("Generating new puzzle...");
 
+    const { puzzle: newPuzzle, solution: newSolution } = await createNewPuzzleAsync(currentDiff);
+    puzzle = newPuzzle;
+    solution = newSolution;
+
+    buildBoard();
+    updateNumberTileStyles();
+    saveGameState();
+
+    setStatusText(`New puzzle loaded (${currentDiff}).`);
     setTimeout(() => {
-        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(currentDiff);
-        puzzle = newPuzzle;
-        solution = newSolution;
-
-        buildBoard();
-        updateNumberTileStyles();
-        saveGameState();
-
-        setStatusText(`New puzzle loaded (${currentDiff}).`);
-        setTimeout(() => {
-            if (statusEl.textContent.startsWith("New puzzle loaded")) setStatusText("");
-        }, 2000);
-    }, 50);
+        if (statusEl.textContent.startsWith("New puzzle loaded")) setStatusText("");
+    }, 2000);
 });
 
 document.getElementById("restartBtn").addEventListener("click", () => {
@@ -2450,7 +2455,7 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     highlightLeastUnfilled();
 });
 
-difficultySelect.addEventListener("change", () => {
+difficultySelect.addEventListener("change", async () => {
     const diff = difficultySelect.value;
     if (!diff) return;
 
@@ -2462,20 +2467,18 @@ difficultySelect.addEventListener("change", () => {
 
     showGeneratingStatus("Generating puzzle...");
 
+    const { puzzle: newPuzzle, solution: newSolution } = await createNewPuzzleAsync(diff);
+    puzzle = newPuzzle;
+    solution = newSolution;
+
+    buildBoard();
+    updateNumberTileStyles();
+    saveGameState();
+
+    setStatusText(`Puzzle loaded (${diff}).`);
     setTimeout(() => {
-        const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(diff);
-        puzzle = newPuzzle;
-        solution = newSolution;
-
-        buildBoard();
-        updateNumberTileStyles();
-        saveGameState();
-
-        setStatusText(`Puzzle loaded (${diff}).`);
-        setTimeout(() => {
-            if (statusEl.textContent.startsWith("Puzzle loaded")) setStatusText("");
-        }, 2000);
-    }, 50);
+        if (statusEl.textContent.startsWith("Puzzle loaded")) setStatusText("");
+    }, 2000);
 });
 
 document.getElementById("autoPencilBtn").addEventListener("click", () => {
@@ -2486,7 +2489,7 @@ document.getElementById("HintBtn").addEventListener("click", () => {
     showHint();
 });
 
-(function init() {
+(async function init() {
     const resumed = loadSavedGameState();
 
     if (!resumed) {
@@ -2499,16 +2502,14 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 
         showGeneratingStatus("Generating initial puzzle...");
         
-        setTimeout(() => {
-            const { puzzle: newPuzzle, solution: newSolution } = createNewPuzzle(defaultDiff);
-            puzzle = newPuzzle;
-            solution = newSolution;
+        const { puzzle: newPuzzle, solution: newSolution } = await createNewPuzzleAsync(defaultDiff);
+        puzzle = newPuzzle;
+        solution = newSolution;
 
-            buildBoard();
-            updateNumberTileStyles();
-            saveGameState();
-            setStatusText("");
-        }, 50);
+        buildBoard();
+        updateNumberTileStyles();
+        saveGameState();
+        setStatusText("");
     }
 })();
 </script>
