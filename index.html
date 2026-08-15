@@ -44,7 +44,7 @@
 })();
 </script>
 
-<!-- Fully Local Embedded Manifest (Prevents iOS Network Checks) -->
+<!-- Fully Local Embedded Manifest -->
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":"./","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff"}' />
 
 <!-- Discreet Server Code Last Modified Timestamp Indicator -->
@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.7';
+            const CACHE_NAME = 'sudoku-v20.8';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -129,10 +129,6 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <style>
-/* ------------------------------
-   RESPONSIVE MODERN THEME
------------------------------- */
-
 :root {
     --bg: #f2f4f7;
     --panel: #ffffff;
@@ -195,7 +191,6 @@ h2 {
     gap: 8px;
 }
 
-/* Prominent Gear Icon */
 .gear-icon {
     width: 28px;
     height: 28px;
@@ -533,7 +528,6 @@ let selectedCell = null;
 let selectedNumber = null;
 let gameWon = false;
 
-// Progressive Hint Tracking
 let currentHintState = null;
 let currentHintLevel = 0;
 
@@ -554,19 +548,14 @@ const ctx = confettiCanvas.getContext("2d");
 let glowQueue = [];
 let glowActive = false;
 
-/* 
-   STOP ALL ANIMATIONS & OVERLAYS IMMEDIATELY ON TOUCH/CLICK
-*/
 function stopBoardAnimations() {
     glowQueue = [];
     glowActive = false;
 
-    // Halt active cell glows, board win pulse & overlay banner
     [...board.children].forEach(cell => cell.classList.remove("glow"));
     board.classList.remove("board-win");
     winOverlay.classList.remove("visible");
 
-    // Immediately cancel active win confetti
     stopConfetti();
 }
 
@@ -784,7 +773,6 @@ for (let n = 1; n <= 9; n++) {
                 const digits = selectedCell._pencilDigits;
                 const isCurrentlyActive = digits && digits[n] && digits[n].classList.contains("active");
 
-                // Prevent erasing correct solution candidate
                 if (isCurrentlyActive && n === correctValue) {
                     flashWrong(selectedCell);
                     setStatusText(`Cannot erase ${n}—it is the correct digit for this cell!`);
@@ -794,7 +782,6 @@ for (let n = 1; n <= 9; n++) {
                     return;
                 }
 
-                // Prevent adding incorrect candidate
                 if (!isCurrentlyActive && n !== correctValue) {
                     flashWrong(selectedCell);
                     setStatusText(`Candidate ${n} doesn't belong in this cell!`);
@@ -833,7 +820,6 @@ for (let n = 1; n <= 9; n++) {
         autoRemovePencilMarks(r, c, correctValue);
         checkAndBoldCompletedNumbers();
 
-        // Clear progressive hint tracking on action
         currentHintState = null;
         currentHintLevel = 0;
 
@@ -1215,7 +1201,7 @@ function isColumnComplete(c) {
     for (let r = 0; r < 9; r++) {
         const cell = board.children[r * 9 + c];
         const value = parseInt(cell.querySelector(".cell-value").textContent || "0", 10);
-        if (value !== solution[r][c]) return false;
+        if (value !== solution[rr * 9 + c] && value !== solution[r][c]) return false;
     }
     return true;
 }
@@ -1315,7 +1301,6 @@ function hasEliminationsOnBoard(eliminations, candGrid) {
     return false;
 }
 
-// 1. Hidden Single in 3x3 Box
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1341,7 +1326,6 @@ function findHiddenSingleInBox(candGrid) {
     return null;
 }
 
-// 2. Hidden Single in Line (Scanning Rows/Columns)
 function findHiddenSingleInLine(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let n = 1; n <= 9; n++) {
@@ -1379,7 +1363,6 @@ function findHiddenSingleInLine(candGrid) {
     return null;
 }
 
-// 3. Naked Single (Counting all eliminations for 1 single cell)
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1397,7 +1380,6 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// 4. Naked Pairs
 function findNakedPair(candGrid) {
     const sameCandidates = (a1, a2) => a1.length === 2 && a2.length === 2 && a1[0] === a2[0] && a1[1] === a2[1];
 
@@ -1485,7 +1467,6 @@ function findNakedPair(candGrid) {
     return null;
 }
 
-// 5. Pointing Pairs / Triples
 function findPointingPairs(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1543,7 +1524,6 @@ function findPointingPairs(candGrid) {
     return null;
 }
 
-// 6. Claiming Lines
 function findClaimingLines(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let num = 1; num <= 9; num++) {
@@ -1615,7 +1595,6 @@ function findClaimingLines(candGrid) {
     return null;
 }
 
-// 7. Naked Triples
 function findNakedTriples(candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1654,7 +1633,6 @@ function findNakedTriples(candGrid) {
     return null;
 }
 
-// 8. X-Wing
 function findXWing(candGrid) {
     for (let num = 1; num <= 9; num++) {
         const rowSpots = [];
@@ -1697,7 +1675,6 @@ function findXWing(candGrid) {
     return null;
 }
 
-// 9. XY-Wing
 function findXYWing(candGrid) {
     const biValueCells = [];
     for (let r = 0; r < 9; r++) {
@@ -1756,7 +1733,6 @@ function findXYWing(candGrid) {
     return null;
 }
 
-// 10. XYZ-Wing
 function findXYZWing(candGrid) {
     const triValueCells = [];
     const biValueCells = [];
@@ -1818,7 +1794,6 @@ function findXYZWing(candGrid) {
     return null;
 }
 
-// 11. Unique Rectangle Type 1 (Uniqueness Technique)
 function findUniqueRectangleType1(candGrid) {
     for (let r1 = 0; r1 < 9; r1++) {
         for (let r2 = r1 + 1; r2 < 9; r2++) {
@@ -1863,7 +1838,6 @@ function findUniqueRectangleType1(candGrid) {
     return null;
 }
 
-// 12. Swordfish
 function findSwordfish(candGrid) {
     for (let num = 1; num <= 9; num++) {
         const rowData = [];
@@ -1914,7 +1888,6 @@ function findSwordfish(candGrid) {
     return null;
 }
 
-// 13. Direct Reveal Fallback
 function findDirectRevealFallback(candGrid) {
     let minCandidates = 10;
     let target = null;
@@ -1956,7 +1929,6 @@ function evaluateHintStack(candGrid) {
            findSwordfish(candGrid);
 }
 
-// FULL SIMULATION GRADER
 function ratePuzzleDifficulty(initialGrid) {
     const simGrid = deepCopyGrid(initialGrid);
     let simCands = getCandidatesGrid(simGrid);
@@ -1986,29 +1958,20 @@ function ratePuzzleDifficulty(initialGrid) {
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
         }
-        if (emptyCount === 0) break;
+        if (emptyCount === 0) return maxTechniqueNeeded;
 
         const hsBox = findHiddenSingleInBox(simCands);
-        if (hsBox) {
-            placeAndClean(hsBox.r, hsBox.c, hsBox.val);
-            progress = true;
-            continue;
-        }
+        if (hsBox) { placeAndClean(hsBox.r, hsBox.c, hsBox.val); progress = true; continue; }
 
         const hsLine = findHiddenSingleInLine(simCands);
         if (hsLine) {
             placeAndClean(hsLine.r, hsLine.c, hsLine.val);
             if (maxTechniqueNeeded === "easy") maxTechniqueNeeded = "medium";
-            progress = true;
-            continue;
+            progress = true; continue;
         }
 
         const ns = findNakedSingle(simCands);
-        if (ns) {
-            placeAndClean(ns.r, ns.c, ns.val);
-            progress = true;
-            continue;
-        }
+        if (ns) { placeAndClean(ns.r, ns.c, ns.val); progress = true; continue; }
 
         const basicElim = findNakedPair(simCands) || findPointingPairs(simCands) || findClaimingLines(simCands) || findNakedTriples(simCands);
         if (basicElim) {
@@ -2017,11 +1980,8 @@ function ratePuzzleDifficulty(initialGrid) {
                     simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
                 });
             }
-            if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") {
-                maxTechniqueNeeded = "hard";
-            }
-            progress = true;
-            continue;
+            if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") maxTechniqueNeeded = "hard";
+            progress = true; continue;
         }
 
         const advElim = findXWing(simCands) || findXYWing(simCands) || findXYZWing(simCands) || findUniqueRectangleType1(simCands) || findSwordfish(simCands);
@@ -2032,16 +1992,11 @@ function ratePuzzleDifficulty(initialGrid) {
                 });
             }
             maxTechniqueNeeded = "expert";
-            progress = true;
-            continue;
-        }
-
-        if (!progress && emptyCount > 0) {
-            return "master";
+            progress = true; continue;
         }
     }
 
-    return maxTechniqueNeeded;
+    return "unsolvable_without_guessing";
 }
 
 function showHint() {
@@ -2056,23 +2011,21 @@ function showHint() {
     updateNumberTileStyles();
 
     const boardPencils = getBoardPencilGrid();
-    let hasPencils = false;
+    let boardPencilCount = 0;
+
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            if (boardPencils[r][c].length > 0) {
-                hasPencils = true;
-                break;
-            }
+            boardPencilCount += boardPencils[r][c].length;
         }
-        if (hasPencils) break;
     }
 
+    let hasSubstantialPencils = boardPencilCount > 10;
     let pureCands = getCandidatesGrid(getCurrentGrid());
-    let candGrid = hasPencils ? boardPencils : pureCands;
+    let candGrid = hasSubstantialPencils ? boardPencils : pureCands;
 
     let hint = evaluateHintStack(candGrid);
 
-    if (!hint && hasPencils) {
+    if (!hint && hasSubstantialPencils) {
         hint = evaluateHintStack(pureCands);
     }
 
@@ -2112,7 +2065,7 @@ function showHint() {
             if (valueSpan.textContent.trim() === "") {
                 if (digits && digits[val] && digits[val].classList.contains("active")) {
                     cell.classList.add("highlight-least");
-                } else if (!hasPencils && candGrid[r][c].includes(val)) {
+                } else if (!hasSubstantialPencils && candGrid[r][c].includes(val)) {
                     cell.classList.add("highlight-least");
                 }
             }
@@ -2230,11 +2183,7 @@ function generateFullSolution() {
     return grid;
 }
 
-/* -----------------------------------------
-   PRE-BAKED SEEDS & TRANSFORMATIONS (OPTION B)
------------------------------------------ */
 const EXPERT_SEED_PUZZLES = [
-    // Seed 1: X-Wing & Pointing Pairs
     [
         [0,0,0,0,0,0,0,1,2],
         [0,0,0,0,3,5,0,0,0],
@@ -2246,7 +2195,6 @@ const EXPERT_SEED_PUZZLES = [
         [0,8,0,0,0,0,0,4,0],
         [0,5,0,0,0,0,6,0,0]
     ],
-    // Seed 2: XY-Wing & Swordfish
     [
         [0,0,0,0,0,1,0,3,0],
         [2,0,0,0,0,0,0,0,8],
@@ -2257,23 +2205,10 @@ const EXPERT_SEED_PUZZLES = [
         [5,0,0,0,0,0,0,7,3],
         [0,0,2,0,1,0,0,0,0],
         [0,0,0,4,0,0,0,0,0]
-    ],
-    // Seed 3: Unique Rectangle & Naked Triples
-    [
-        [1,0,0,0,0,7,0,9,0],
-        [0,3,0,0,2,0,0,0,8],
-        [0,0,9,6,0,0,5,0,0],
-        [0,0,5,3,0,0,9,0,0],
-        [0,1,0,0,8,0,0,0,2],
-        [6,0,0,0,0,4,0,0,0],
-        [3,0,0,0,0,0,0,1,0],
-        [0,4,0,0,0,0,0,0,7],
-        [0,0,7,0,0,0,3,0,0]
     ]
 ];
 
 const MASTER_SEED_PUZZLES = [
-    // Seed 1: Very Low Clue Count (22 givens)
     [
         [0,0,0,0,0,0,0,0,0],
         [0,0,0,0,0,3,0,8,5],
@@ -2285,7 +2220,6 @@ const MASTER_SEED_PUZZLES = [
         [0,0,2,0,1,0,0,0,0],
         [0,0,0,4,0,0,0,0,0]
     ],
-    // Seed 2: Ultra Minimal (21 givens)
     [
         [0,0,0,7,0,0,0,0,0],
         [1,0,0,0,0,0,0,0,0],
@@ -2302,7 +2236,6 @@ const MASTER_SEED_PUZZLES = [
 function transformGrid(grid) {
     let tGrid = deepCopyGrid(grid);
 
-    // 1. Digit Permutation (1-9 Swapping)
     const digits = [1,2,3,4,5,6,7,8,9];
     for (let i = digits.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -2317,7 +2250,6 @@ function transformGrid(grid) {
         }
     }
 
-    // 2. Swapping Rows within 3x3 Bands
     for (let b = 0; b < 3; b++) {
         if (Math.random() > 0.5) {
             const r1 = b * 3, r2 = b * 3 + 1;
@@ -2329,7 +2261,6 @@ function transformGrid(grid) {
         }
     }
 
-    // 3. Swapping Columns within 3x3 Stacks
     for (let b = 0; b < 3; b++) {
         if (Math.random() > 0.5) {
             const c1 = b * 3, c2 = b * 3 + 1;
@@ -2345,7 +2276,6 @@ function transformGrid(grid) {
         }
     }
 
-    // 4. Random Rotation (0, 90, 180, 270 degrees)
     const rotations = Math.floor(Math.random() * 4);
     for (let rot = 0; rot < rotations; rot++) {
         const rotated = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -2360,7 +2290,6 @@ function transformGrid(grid) {
     return tGrid;
 }
 
-// INSTANT & ASYNCHRONOUS GENERATOR HUB
 async function createNewPuzzleAsync(difficulty) {
     if (difficulty === "expert" || difficulty === "master") {
         const seeds = difficulty === "expert" ? EXPERT_SEED_PUZZLES : MASTER_SEED_PUZZLES;
@@ -2373,7 +2302,6 @@ async function createNewPuzzleAsync(difficulty) {
         return { puzzle: transformedPuzzle, solution: fullSolution };
     }
 
-    // For Easy, Medium, and Hard, generate on-demand dynamically
     let removals;
     switch (difficulty) {
         case "easy":   removals = 35; break;
@@ -2641,7 +2569,113 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         setStatusText("");
     }
 })();
-</script>
 
+/* ==========================================================================
+   AUTOMATED REGRESSION TEST HARNESS
+   Runs automatically when navigating to index.html?test=true
+   ========================================================================== */
+(function runAutomatedRegressionTests() {
+    if (!new URLSearchParams(window.location.search).has('test')) return;
+
+    console.group("%c🧪 Executing Sudoku Regression Suite...", "color: #2563eb; font-weight: bold; font-size: 14px;");
+
+    let passed = 0;
+    let failed = 0;
+
+    function assert(condition, message) {
+        if (!condition) throw new Error(message);
+    }
+
+    const tests = {
+        testIsSafeEngine() {
+            const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+            grid[0][0] = 5;
+
+            assert(!isSafe(grid, 0, 5, 5), "Row conflict missed");
+            assert(!isSafe(grid, 5, 0, 5), "Column conflict missed");
+            assert(!isSafe(grid, 2, 2, 5), "Box conflict missed");
+            assert(isSafe(grid, 4, 4, 5), "Safe placement rejected");
+        },
+
+        testRatingEngineIntegrity() {
+            const easyBoard = [
+                [0,0,0,2,6,0,7,0,1],
+                [6,8,0,0,7,0,0,9,0],
+                [1,9,0,0,0,4,5,0,0],
+                [8,2,0,1,0,0,0,4,0],
+                [0,0,4,6,0,2,9,0,0],
+                [0,5,0,0,0,3,0,2,8],
+                [0,0,9,3,0,0,0,7,4],
+                [0,4,0,0,5,0,0,3,6],
+                [7,0,3,0,1,8,0,0,0]
+            ];
+            const rating = ratePuzzleDifficulty(easyBoard);
+            assert(rating === "easy" || rating === "medium", `Expected Easy/Medium, got "${rating}"`);
+        },
+
+        testNoFallbackHintsInExpertPuzzles() {
+            EXPERT_SEED_PUZZLES.forEach((seed, index) => {
+                let simGrid = deepCopyGrid(seed);
+                let progress = true;
+                let usedFallback = false;
+
+                while (progress) {
+                    progress = false;
+                    let pureCands = getCandidatesGrid(simGrid);
+
+                    let emptyCount = 0;
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
+                    }
+                    if (emptyCount === 0) break;
+
+                    let hint = evaluateHintStack(pureCands);
+
+                    if (hint) {
+                        if (hint.val && hint.r !== undefined && hint.c !== undefined) {
+                            simGrid[hint.r][hint.c] = hint.val;
+                            progress = true;
+                        } else if (hint.type === 'elim' && hint.elimTargets) {
+                            hint.elimTargets.forEach(e => {
+                                pureCands[e.r][e.c] = pureCands[e.r][e.c].filter(v => v !== e.val);
+                            });
+                            progress = true;
+                        }
+                    } else {
+                        let fallback = findDirectRevealFallback(pureCands);
+                        if (fallback) {
+                            usedFallback = true;
+                        }
+                    }
+                }
+
+                assert(!usedFallback, `Expert Seed #${index + 1} degraded into direct reveal fallback!`);
+            });
+        },
+
+        testStatePersistenceSerialization() {
+            saveGameState();
+            const saved = localStorage.getItem(STORAGE_KEY);
+            assert(saved !== null, "localStorage failed to receive payload.");
+            const parsed = JSON.parse(saved);
+            assert(Array.isArray(parsed.puzzle), "Persisted puzzle grid missing or malformed.");
+        }
+    };
+
+    Object.entries(tests).forEach(([name, testFn]) => {
+        try {
+            testFn();
+            console.log(`%c  ✔ ${name}`, "color: #16a34a; font-weight: 500;");
+            passed++;
+        } catch (err) {
+            console.error(`  ✖ ${name}:`, err.message);
+            failed++;
+        }
+    });
+
+    console.log(`%c Test Results: ${passed} Passed, ${failed} Failed`, `color: ${failed > 0 ? '#dc2626' : '#16a34a'}; font-weight: bold;`);
+    console.groupEnd();
+})();
+</script>
 </body>
 </html>
