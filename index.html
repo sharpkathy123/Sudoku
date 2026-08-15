@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v19.9';
+            const CACHE_NAME = 'sudoku-v20.1';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -175,7 +175,7 @@ h2 {
 
 #status {
     margin-bottom: 10px;
-    min-height: 18px;
+    min-height: 32px;
     font-size: 13px;
     font-weight: 500;
     color: var(--text-soft);
@@ -192,15 +192,17 @@ h2 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
 }
 
+/* Prominent Gear Icon */
 .gear-icon {
-    width: 15px;
-    height: 15px;
+    width: 28px;
+    height: 28px;
     fill: currentColor;
     animation: gearSpin 1.2s linear infinite;
     vertical-align: middle;
+    flex-shrink: 0;
 }
 
 @keyframes gearSpin {
@@ -551,6 +553,20 @@ const ctx = confettiCanvas.getContext("2d");
 
 let glowQueue = [];
 let glowActive = false;
+
+/* 
+   STOP NON-GEAR ANIMATIONS IMMEDIATELY ON TOUCH/CLICK
+*/
+function stopBoardAnimations() {
+    glowQueue = [];
+    glowActive = false;
+
+    // Stop active cell glows & board win animations
+    [...board.children].forEach(cell => cell.classList.remove("glow"));
+    board.classList.remove("board-win");
+}
+
+document.addEventListener("pointerdown", stopBoardAnimations);
 
 /* -----------------------------------------
    UTILS & STATUS HELPERS
