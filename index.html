@@ -65,12 +65,12 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- iOS Safari Compliant Offline Service Worker -->
+<!-- iOS Safari Compliant Offline Service Worker (Runs only over HTTP/HTTPS) -->
 <script>
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.9';
+            const CACHE_NAME = 'sudoku-v20.10';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -174,16 +174,16 @@ if ('serviceWorker' in navigator) {
 
     console.log = function (...args) {
         origLog.apply(console, args);
-        const text = args.join(' ').replace(/%c/g, '');
+        const cleanText = args[0] ? String(args[0]).replace(/%c/g, '') : '';
         let color = '#f8fafc';
-        if (text.includes('✔')) color = '#4ade80';
-        if (text.includes('Test Results') || text.includes('Executing')) color = '#60a5fa';
-        appendLine(text, color);
+        if (cleanText.includes('✔')) color = '#4ade80';
+        if (cleanText.includes('Test Results') || cleanText.includes('Executing')) color = '#60a5fa';
+        appendLine(cleanText, color);
     };
 
     console.error = function (...args) {
         origErr.apply(console, args);
-        const text = args.join(' ').replace(/%c/g, '');
+        const text = args.map(a => String(a).replace(/%c/g, '')).join(' ');
         appendLine(text, '#f87171');
     };
 
