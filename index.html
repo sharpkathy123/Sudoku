@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.12';
+            const CACHE_NAME = 'sudoku-v20.13';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1498,7 +1498,7 @@ function findNakedPair(candGrid) {
                         for (let row = 0; row < 9; row++) {
                             if (row === r || row === rr) continue;
                             cands.forEach(n => {
-                                if (candGrid[row][c].includes(n)) elimTargets.push({ r: row, c, val: n });
+                                if (candGrid[row][c].includes(n)) elimTargets.push({ r: row, c: c, val: n });
                             });
                         }
 
@@ -1570,7 +1570,7 @@ function findPointingPairs(candGrid) {
                         const elimTargets = [];
                         for (let r = 0; r < 9; r++) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
-                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r: targetCol, c, val: num });
+                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r: targetCol, c: targetCol, val: num });
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
