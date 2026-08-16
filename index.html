@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.14';
+            const CACHE_NAME = 'sudoku-v20.15';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1336,6 +1336,15 @@ function getCandidatesGrid(grid) {
 }
 
 function hasEliminationsOnBoard(eliminations, candGrid) {
+    if (candGrid) {
+        for (const e of eliminations) {
+            if (candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const boardPencils = getBoardPencilGrid();
     let hasPencils = false;
     for (let r = 0; r < 9; r++) {
@@ -1357,7 +1366,7 @@ function hasEliminationsOnBoard(eliminations, candGrid) {
                     return true;
                 }
             } else {
-                if (candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
+                if (candGrid && candGrid[e.r][e.c] && candGrid[e.r][e.c].includes(e.val)) {
                     return true;
                 }
             }
@@ -1570,7 +1579,7 @@ function findPointingPairs(candGrid) {
                         const elimTargets = [];
                         for (let r = 0; r < 9; r++) {
                             if (r >= br * 3 && r < br * 3 + 3) continue;
-                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r, c: targetCol, val: num });
+                            if (candGrid[r][targetCol].includes(num)) elimTargets.push({ r: targetCol, c: targetCol, val: num });
                         }
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
