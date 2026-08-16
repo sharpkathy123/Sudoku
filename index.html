@@ -7,7 +7,7 @@
 <!-- Mobile Viewport Setup -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
-<!-- iOS Web App Capabilities (Fullscreen Mode) -->
+<!-- iOS Web App Capabilities -->
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Sudoku" />
@@ -34,7 +34,7 @@
     ctx.moveTo(67, 22); ctx.lineTo(67, 158);
     ctx.moveTo(115, 22); ctx.lineTo(115, 158);
     ctx.moveTo(22, 67); ctx.lineTo(158, 67);
-    ctx.moveTo(22, 115); ctx.lineTo(158, 115);
+    ctx.moveTo(22, 115); ctx.lineTo(115, 115);
     ctx.stroke();
 
     const appleIcon = document.createElement('link');
@@ -44,10 +44,8 @@
 })();
 </script>
 
-<!-- Fully Local Embedded Manifest -->
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":"./","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff"}' />
 
-<!-- Discreet Server Code Last Modified Timestamp Indicator -->
 <script>
 window.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
@@ -65,12 +63,11 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- iOS Safari Compliant Offline Service Worker -->
 <script>
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.16';
+            const CACHE_NAME = 'sudoku-v20.17';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -130,7 +127,7 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 }
 </script>
 
-<!-- ON-SCREEN LOG OVERLAY FOR IPAD / MOBILE DEVELOPMENT -->
+<!-- ON-SCREEN LOG OVERLAY FOR DEVELOPMENT / TESTING -->
 <script>
 (function setupOnScreenLogger() {
     if (!new URLSearchParams(window.location.search).has('test')) return;
@@ -237,7 +234,7 @@ h2 {
 }
 
 #status {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     min-height: 32px;
     font-size: 13px;
     font-weight: 500;
@@ -276,7 +273,7 @@ h2 {
 .controls {
     display: flex;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
@@ -317,9 +314,14 @@ h2 {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
+#pencilToggle {
+    font-weight: 600;
+}
+
 #pencilToggle.active {
     background: #fff3d1;
     border-color: #e0b44c;
+    color: #854d0e;
 }
 
 #guardNotesToggle.active {
@@ -327,10 +329,19 @@ h2 {
     border-color: #16a34a;
 }
 
+/* Number Pad & Input Mode Bar */
+.input-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 12px;
+    width: 100%;
+}
+
 .number-bar {
     display: flex;
     gap: 6px;
-    margin: 10px 0 14px;
     justify-content: center;
     width: 100%;
 }
@@ -356,7 +367,7 @@ h2 {
 .number-tile.pencil {
     background: #ffffff;
     border: 2px dashed #cbd5e1;
-    opacity: 0.8;
+    opacity: 0.85;
 }
 
 .number-tile.selected {
@@ -371,6 +382,7 @@ h2 {
     border-color: #4b5563;
 }
 
+/* Board & Cells */
 .board {
     display: grid;
     grid-template-columns: repeat(9, var(--cell-size));
@@ -428,21 +440,24 @@ h2 {
     z-index: 1;
 }
 
+/* Static 3x3 Pencil Sub-grid Layout */
 .pencil-container {
     position: absolute;
-    inset: 2px;
+    inset: 1px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    font-size: clamp(7px, 2vw, 10px);
+    font-size: clamp(7px, 2.1vw, 10px);
     color: var(--text-soft);
     pointer-events: none;
 }
 
 .pencil-digit {
-    justify-self: center;
-    align-self: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     visibility: hidden;
+    line-height: 1;
 }
 
 .pencil-digit.active {
@@ -557,7 +572,6 @@ h2 {
    <div class="controls">
        <button id="newGameBtn">New Game</button>
        <button id="restartBtn">Restart Game</button>
-       <button id="pencilToggle">Pencil Mode: OFF</button>
        <button id="guardNotesToggle" class="active">Guard Notes: ON</button>
        <button id="autoPencilBtn">Auto‑Notes</button>
        <button id="clearNotesBtn">Clear Notes</button>
@@ -565,7 +579,10 @@ h2 {
        <button id="HintBtn">Hint</button>
    </div>
 
-    <div class="number-bar" id="numberBar"></div>
+    <div class="input-section">
+        <button id="pencilToggle">Pencil Mode: OFF</button>
+        <div class="number-bar" id="numberBar"></div>
+    </div>
 
     <div class="board" id="board"></div>
 
@@ -748,7 +765,7 @@ function clearSelectionAndHighlights() {
 
 document.addEventListener("click", (e) => {
     const isClickInsideGame = e.target.closest("#board") || 
-                              e.target.closest("#numberBar") || 
+                              e.target.closest(".input-section") || 
                               e.target.closest(".controls") || 
                               e.target.closest(".top-bar");
     if (!isClickInsideGame) {
@@ -802,7 +819,7 @@ function checkAndBoldCompletedNumbers() {
 }
 
 /* -----------------------------------------
-   NUMBER BAR
+   NUMBER BAR & INPUT
 ----------------------------------------- */
 for (let n = 1; n <= 9; n++) {
     const tile = document.createElement("div");
@@ -819,6 +836,7 @@ for (let n = 1; n <= 9; n++) {
             }, 1500);
             selectedNumber = n;
             updateNumberTileStyles();
+            highlightSameNumbers(n);
             return;
         }
 
@@ -1033,7 +1051,7 @@ function buildBoard() {
 }
 
 /* -----------------------------------------
-   CELL CLICK
+   CELL CLICK & CROSS-HIGHLIGHTING
 ----------------------------------------- */
 function onCellClick(cell) {
     if (gameWon) return;
@@ -1047,8 +1065,12 @@ function onCellClick(cell) {
     const valueSpan = cell.querySelector(".cell-value");
     const val = valueSpan.textContent.trim();
     if (val && !isNaN(val)) {
-        highlightSameNumbers(parseInt(val, 10));
+        selectedNumber = parseInt(val, 10);
+        highlightSameNumbers(selectedNumber);
+    } else {
+        selectedNumber = null;
     }
+    updateNumberTileStyles();
 }
 
 /* -----------------------------------------
@@ -1092,6 +1114,7 @@ function autoFillAllPencils() {
     if (gameWon) return;
 
     const currentGrid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    let notesAdded = 0;
 
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1121,11 +1144,16 @@ function autoFillAllPencils() {
             for (let n = 1; n <= 9; n++) {
                 if (isSafe(currentGrid, r, c, n)) {
                     cell._pencilDigits[n].classList.add("active");
+                    notesAdded++;
                 }
             }
         }
     }
     saveGameState();
+    setStatusText(`Auto-Notes generated ${notesAdded} candidates across empty cells.`);
+    setTimeout(() => {
+        if (statusEl.textContent.startsWith("Auto-Notes")) setStatusText("");
+    }, 2500);
 }
 
 /* -----------------------------------------
@@ -1393,6 +1421,7 @@ function findHiddenSingleInBox(candGrid) {
                         r: spots[0].r, c: spots[0].c, val: n,
                         cells: [spots[0]],
                         nudge: `Look in Box ${boxNum} — one digit has only a single valid open cell left!`,
+                        techName: `Hidden Single (Box ${boxNum})`,
                         explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
                     };
                 }
@@ -1414,6 +1443,7 @@ function findHiddenSingleInLine(candGrid) {
                     r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
                     nudge: `Scan Row ${r+1} — one missing digit has only a single open spot!`,
+                    techName: `Hidden Single (Row ${r+1})`,
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Row ${r+1} can hold it.`
                 };
             }
@@ -1431,6 +1461,7 @@ function findHiddenSingleInLine(candGrid) {
                     r: spots[0].r, c: spots[0].c, val: n,
                     cells: [spots[0]],
                     nudge: `Scan Column ${c+1} — one missing digit has only a single open spot!`,
+                    techName: `Hidden Single (Column ${c+1})`,
                     explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Column ${c+1} can hold it.`
                 };
             }
@@ -1447,8 +1478,9 @@ function findNakedSingle(candGrid) {
                 return {
                     r, c, val,
                     cells: [{ r, c }],
-                    nudge: `Focus on Cell (${r+1}, ${c+1}) — when you count its row, column, and box, only 1 candidate remains!`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it's the only candidate that fits here.`
+                    nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 valid candidate digit remains for this spot!`,
+                    techName: `Naked Single Cell (${r+1}, ${c+1})`,
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it is the only digit that fits here.`
                 };
             }
         }
@@ -1496,6 +1528,7 @@ function findNakedPair(candGrid) {
                             elimTargets,
                             cells: [{ r, c }, { r, c: cc }],
                             nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
+                            techName: `Naked Pair in Row ${r + 1}`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${r+1}, ${cc+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared row/box.`
                         };
                     }
@@ -1533,6 +1566,7 @@ function findNakedPair(candGrid) {
                             elimTargets,
                             cells: [{ r, c }, { r: rr, c }],
                             nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
+                            techName: `Naked Pair in Column ${c + 1}`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared column/box.`
                         };
                     }
@@ -1569,7 +1603,8 @@ function findPointingPairs(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: spots,
-                                nudge: `Look in Box ${boxNum} — a candidate is locked along Row ${targetRow + 1} (Pointing Pair/Triple)!`,
+                                nudge: `Look in Box ${boxNum} — a candidate is locked along Row ${targetRow + 1}!`,
+                                techName: `Pointing Pair/Triple (Box ${boxNum})`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Row ${targetRow + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Row ${targetRow + 1}.`
                             };
                         }
@@ -1588,7 +1623,8 @@ function findPointingPairs(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: spots,
-                                nudge: `Look in Box ${boxNum} — a candidate is locked along Column ${targetCol + 1} (Pointing Pair/Triple)!`,
+                                nudge: `Look in Box ${boxNum} — a candidate is locked along Column ${targetCol + 1}!`,
+                                techName: `Pointing Pair/Triple (Box ${boxNum})`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Column ${targetCol + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Column ${targetCol + 1}.`
                             };
                         }
@@ -1626,7 +1662,8 @@ function findClaimingLines(candGrid) {
                             type: 'elim',
                             elimTargets,
                             cells: spots,
-                            nudge: `Look at Row ${r + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
+                            nudge: `Look at Row ${r + 1} and Box ${boxNum}!`,
+                            techName: `Claiming Line (Row ${r + 1})`,
                             explanation: `In Row ${r + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
                         };
                     }
@@ -1660,7 +1697,8 @@ function findClaimingLines(candGrid) {
                             type: 'elim',
                             elimTargets,
                             cells: spots,
-                            nudge: `Look at Column ${c + 1} and Box ${boxNum} — a Claiming Line pattern exists here!`,
+                            nudge: `Look at Column ${c + 1} and Box ${boxNum}!`,
+                            techName: `Claiming Line (Column ${c + 1})`,
                             explanation: `In Column ${c + 1}, ${num} only appears within Box ${boxNum}. Claiming Line allows erasing ${num} from the rest of Box ${boxNum}.`
                         };
                     }
@@ -1696,7 +1734,8 @@ function findNakedTriples(candGrid) {
                                     type: 'elim',
                                     elimTargets,
                                     cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
-                                    nudge: `Check Row ${r+1} — three cells form a Naked Triple!`,
+                                    nudge: `Check Row ${r+1} — three cells form a pattern!`,
+                                    techName: `Naked Triple in Row ${r+1}`,
                                     explanation: `Cells (${r+1},${c1+1}), (${r+1},${c2+1}), (${r+1},${c3+1}) form a Naked Triple for {${union.join(",")}}. Eliminate ${union.join(",")} from the rest of Row ${r+1}.`
                                 };
                             }
@@ -1739,7 +1778,8 @@ function findXWing(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
-                                nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1} (X-Wing)!`,
+                                nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1}!`,
+                                techName: `X-Wing Pattern`,
                                 explanation: `X-Wing found for ${num} on Rows ${r1+1} & ${r2+1} (Columns ${c1+1} & ${c2+1}). Eliminate ${num} from the rest of Columns ${c1+1} & ${c2+1}.`
                             };
                         }
@@ -1798,7 +1838,8 @@ function findXYWing(candGrid) {
                             type: 'elim',
                             elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
-                            nudge: `Look for a Y-shaped candidate relationship (XY-Wing) centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
+                            nudge: `Look for a Y-shaped candidate relationship centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
+                            techName: `XY-Wing Strategy`,
                             explanation: `XY-Wing with Pivot at Cell (${pivot.r+1}, ${pivot.c+1}) and Wings at (${wA.r+1}, ${wA.c+1}) & (${wB.r+1}, ${wB.c+1}). Eliminate candidate ${z} where both wings intersect.`
                         };
                     }
@@ -1859,7 +1900,8 @@ function findXYZWing(candGrid) {
                             type: 'elim',
                             elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: w1.r, c: w1.c }, { r: w2.r, c: w2.c }],
-                            nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1}) — an XYZ-Wing pattern is present!`,
+                            nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1})!`,
+                            techName: `XYZ-Wing Strategy`,
                             explanation: `XYZ-Wing centered at (${pivot.r+1}, ${pivot.c+1}). Candidate ${sharedZ} can be eliminated from cells seeing all 3 wing corners.`
                         };
                     }
@@ -1900,7 +1942,8 @@ function findUniqueRectangleType1(candGrid) {
                                         type: 'elim',
                                         elimTargets,
                                         cells: corners.map(k => ({ r: k.r, c: k.c })),
-                                        nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1} (Unique Rectangle)!`,
+                                        nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1}!`,
+                                        techName: `Unique Rectangle (Type 1)`,
                                         explanation: `Unique Rectangle Type 1: To prevent a non-unique solution, eliminate {${basePair.join(", ")}} from Cell (${targetCorner.r+1}, ${targetCorner.c+1}).`
                                     };
                                 }
@@ -1951,7 +1994,8 @@ function findSwordfish(candGrid) {
                                     type: 'elim',
                                     elimTargets,
                                     cells: activeCells,
-                                    nudge: `Look for a 3-row grid pattern (Swordfish) across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1}!`,
+                                    nudge: `Look for a 3-row grid pattern across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1}!`,
+                                    techName: `Swordfish Pattern`,
                                     explanation: `Swordfish detected for ${num} across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1} in Columns ${colSet.map(c=>c+1).join(", ")}. Eliminate ${num} from other cells in these columns.`
                                 };
                             }
@@ -1983,8 +2027,9 @@ function findDirectRevealFallback(candGrid) {
         const correctVal = solution[target.r][target.c];
         return {
             cells: [{ r: target.r, c: target.c }],
-            nudge: `Cell (${target.r+1}, ${target.c+1}) requires too advanced technique — hint will reveal the number!`,
-            explanation: `Advanced pattern needed. Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
+            nudge: `Cell (${target.r+1}, ${target.c+1}) requires a very advanced technique.`,
+            techName: `Direct Digit Reveal`,
+            explanation: `Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
         };
     }
     return null;
@@ -2075,6 +2120,7 @@ function ratePuzzleDifficulty(initialGrid) {
     return "unsolvable_without_guessing";
 }
 
+/* 3-TIER PROGRESSIVE HINT ENGINE */
 function showHint() {
     if (gameWon) return;
 
@@ -2117,13 +2163,13 @@ function showHint() {
     const hintKey = JSON.stringify(hint.cells) + (hint.nudge || "") + (hint.explanation || "");
     
     if (currentHintState === hintKey) {
-        currentHintLevel++;
+        currentHintLevel = (currentHintLevel % 3) + 1;
     } else {
         currentHintState = hintKey;
         currentHintLevel = 1;
     }
 
-    const { cells, nudge, explanation, type, elimTargets } = hint;
+    const { cells, nudge, techName, explanation, type, elimTargets } = hint;
 
     cells.forEach(({ r, c }) => {
         const cell = board.children[r * 9 + c];
@@ -2152,12 +2198,12 @@ function showHint() {
         onCellClick(board.children[cells[0].r * 9 + cells[0].c]);
     }
 
-    if (currentHintLevel === 1 && nudge) {
-        setStatusText(`💡 Hint (Nudge): ${nudge} (Tap Hint again for full details)`);
+    if (currentHintLevel === 1) {
+        setStatusText(`💡 Tier 1 (Nudge): ${nudge} (Tap Hint again for technique name)`);
     } else if (currentHintLevel === 2) {
-        setStatusText(`💡 Hint (Full): ${explanation}`);
+        setStatusText(`💡 Tier 2 (Technique): ${techName || 'Pattern Identified'} (Tap Hint again for full explanation)`);
     } else {
-        setStatusText(`💡 Hint (Re-explain): ${explanation}`);
+        setStatusText(`💡 Tier 3 (Full Solution): ${explanation}`);
     }
 }
 
@@ -2579,12 +2625,27 @@ document.getElementById("restartBtn").addEventListener("click", () => {
 
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
     if (gameWon) return;
+    let cleared = 0;
     [...board.children].forEach(cell => {
         const r = parseInt(cell.dataset.row, 10);
         const c = parseInt(cell.dataset.col, 10);
-        if (!givenMask[r][c]) clearAllPencilsInCell(cell);
+        if (!givenMask[r][c]) {
+            const digits = cell._pencilDigits;
+            if (digits) {
+                for (let n = 1; n <= 9; n++) {
+                    if (digits[n].classList.contains("active")) {
+                        digits[n].classList.remove("active");
+                        cleared++;
+                    }
+                }
+            }
+        }
     });
     saveGameState();
+    setStatusText(`Cleared ${cleared} pencil notes.`);
+    setTimeout(() => {
+        if (statusEl.textContent.startsWith("Cleared")) setStatusText("");
+    }, 2000);
 });
 
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
@@ -2648,7 +2709,6 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 
 /* ==========================================================================
    AUTOMATED REGRESSION TEST HARNESS
-   Runs automatically when navigating to index.html?test=true
    ========================================================================== */
 (function runAutomatedRegressionTests() {
     if (!new URLSearchParams(window.location.search).has('test')) return;
