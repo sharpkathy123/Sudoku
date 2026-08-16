@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.18';
+            const CACHE_NAME = 'sudoku-v20.19';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -2024,9 +2024,9 @@ function findDirectRevealFallback(candGrid) {
         const correctVal = solution[target.r][target.c];
         return {
             cells: [{ r: target.r, c: target.c }],
-            nudge: `Cell (${target.r+1}, ${target.c+1}) requires a very advanced technique.`,
-            techName: `Direct Digit Reveal`,
-            explanation: `Cell (${target.r+1}, ${target.c+1}) is correct with number ${correctVal}.`
+            nudge: `Cell (${target.r+1}, ${target.c+1}) is a good cell to focus on next.`,
+            techName: `Direct Candidate Placement`,
+            explanation: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
         };
     }
     return null;
@@ -2120,7 +2120,7 @@ function ratePuzzleDifficulty(initialGrid) {
     return "unsolvable_without_guessing";
 }
 
-/* 3-TIER PROGRESSIVE HINT ENGINE (NOTE-AWARE) */
+/* 3-TIER PROGRESSIVE HINT ENGINE (INDEPENDENT FROM HIGHLIGHT FULLEST) */
 function showHint() {
     if (gameWon) return;
 
@@ -2148,13 +2148,8 @@ function showHint() {
 
     let hint = evaluateHintStack(candGrid, hasSubstantialPencils);
 
-    if (!hint && hasSubstantialPencils) {
-        hint = evaluateHintStack(pureCands, true);
-    }
-
     if (!hint && !hasSubstantialPencils) {
-        highlightLeastUnfilled();
-        return;
+        hint = evaluateHintStack(pureCands, true);
     }
 
     if (!hint) {
