@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.11';
+            const CACHE_NAME = 'sudoku-v20.12';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1506,10 +1506,10 @@ function findNakedPair(candGrid) {
                             const br = Math.floor(r / 3) * 3;
                             const bc = Math.floor(c / 3) * 3;
                             for (let rrr = br; rrr < br + 3; rrr++) {
-                                for (let cc = bc; cc < bc + 3; cc++) {
-                                    if ((rrr === r && cc === c) || (rrr === rr && cc === c)) continue;
+                                for (let ccc = bc; ccc < bc + 3; ccc++) {
+                                    if ((rrr === r && ccc === c) || (rrr === rr && ccc === c)) continue;
                                     cands.forEach(n => {
-                                        if (candGrid[rrr][cc].includes(n)) elimTargets.push({ r: rrr, c: cc, val: n });
+                                        if (candGrid[rrr][ccc].includes(n)) elimTargets.push({ r: rrr, c: ccc, val: n });
                                     });
                                 }
                             }
@@ -2708,7 +2708,6 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                                 pureCands[e.r][e.c] = pureCands[e.r][e.c].filter(v => v !== e.val);
                             });
                             
-                            // Check if candidate eliminations formed any Naked Singles to update simGrid
                             for (let r = 0; r < 9; r++) {
                                 for (let c = 0; c < 9; c++) {
                                     if (simGrid[r][c] === 0 && pureCands[r][c].length === 1) {
@@ -2719,7 +2718,6 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                             progress = true;
                         }
                     } else {
-                        // If no strategic hint was found, place the correct solved digit for one empty cell to advance the test loop
                         let filledOne = false;
                         for (let r = 0; r < 9; r++) {
                             for (let c = 0; c < 9; c++) {
