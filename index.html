@@ -70,7 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.15';
+            const CACHE_NAME = 'sudoku-v20.16';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -123,7 +123,9 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 
         navigator.serviceWorker.register(swDataUrl, { scope: './' })
             .then(reg => console.log('SW Registered:', reg.scope))
-            .catch(err => console.log('SW Registration Failed:', err));
+            .catch(err => {
+                console.log('💡 Note: Offline caching (PWA offline installation) is unavailable while running via inline data strings or local file paths.');
+            });
     });
 }
 </script>
