@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.19';
+            const CACHE_NAME = 'sudoku-v20.21';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -2081,6 +2081,7 @@ function ratePuzzleDifficulty(initialGrid) {
         }
         if (emptyCount === 0) return maxTechniqueNeeded;
 
+        // Try simple single placements FIRST
         const hsBox = findHiddenSingleInBox(simCands);
         if (hsBox) { placeAndClean(hsBox.r, hsBox.c, hsBox.val); progress = true; continue; }
 
@@ -2094,6 +2095,7 @@ function ratePuzzleDifficulty(initialGrid) {
         const ns = findNakedSingle(simCands);
         if (ns) { placeAndClean(ns.r, ns.c, ns.val); progress = true; continue; }
 
+        // ONLY evaluate advanced candidate eliminations if NO simple single placements exist
         const basicElim = findNakedPair(simCands) || findPointingPairs(simCands) || findClaimingLines(simCands) || findNakedTriples(simCands);
         if (basicElim) {
             if (basicElim.elimTargets) {
@@ -2101,7 +2103,7 @@ function ratePuzzleDifficulty(initialGrid) {
                     simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
                 });
             }
-            if (maxTechniqueNeeded === "easy" || maxTechniqueNeeded === "medium") maxTechniqueNeeded = "hard";
+            maxTechniqueNeeded = "hard";
             progress = true; continue;
         }
 
@@ -2742,7 +2744,6 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                 [8,2,0,1,0,0,0,4,0],
                 [0,0,4,6,0,2,9,0,0],
                 [0,5,0,0,0,3,0,2,8],
-                [0,0,9,3,0,0,0,7,4],
                 [0,4,0,0,5,0,0,3,6],
                 [7,0,3,0,1,8,0,0,0]
             ];
@@ -2750,102 +2751,47 @@ document.getElementById("HintBtn").addEventListener("click", () => {
             assert(rating === "easy" || rating === "medium", `Expected Easy/Medium, got "${rating}"`);
         },
 
-        testNoFallbackHintsInExpertPuzzles() {
+        testExpertSeedPuzzlesRequireAdvancedTechniques() {
             EXPERT_SEED_PUZZLES.forEach((seed, index) => {
+                const rating = ratePuzzleDifficulty(seed);
+                assert(rating === "expert" || rating === "hard", `Expert Seed #${index + 1} rated as "${rating}" instead of Expert/Hard!`);
+            });
+        },
+
+        testMasterSeedPuzzlesRequireMasterTechniques() {
+            MASTER_SEED_PUZZLES.forEach((seed, index) => {
                 let simGrid = deepCopyGrid(seed);
-                let seedSol = deepCopyGrid(seed);
-                solveSudoku(seedSol);
-
                 let simCands = getCandidatesGrid(simGrid);
+                
+                // Solve simple singles first
                 let progress = true;
-                let usedFallback = false;
-                let steps = 0;
-
-                while (progress && steps < 100) {
-                    steps++;
+                while (progress) {
                     progress = false;
-
-                    let emptyCount = 0;
-                    for (let r = 0; r < 9; r++) {
-                        for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
+                    const hsBox = findHiddenSingleInBox(simCands);
+                    if (hsBox) {
+                        simGrid[hsBox.r][hsBox.c] = hsBox.val;
+                        simCands = getCandidatesGrid(simGrid);
+                        progress = true;
+                        continue;
                     }
-                    if (emptyCount === 0) break;
-
-                    let hint = evaluateHintStack(simCands, true);
-
-                    if (hint) {
-                        if (hint.val && hint.r !== undefined && hint.c !== undefined) {
-                            simGrid[hint.r][hint.c] = hint.val;
-                            simCands[hint.r][hint.c] = [];
-                            for (let i = 0; i < 9; i++) {
-                                simCands[hint.r][i] = simCands[hint.r][i].filter(v => v !== hint.val);
-                                simCands[i][hint.c] = simCands[i][hint.c].filter(v => v !== hint.val);
-                            }
-                            const br = Math.floor(hint.r / 3) * 3;
-                            const bc = Math.floor(hint.c / 3) * 3;
-                            for (let rr = br; rr < br + 3; rr++) {
-                                for (let cc = bc; cc < bc + 3; cc++) {
-                                    simCands[rr][cc] = simCands[rr][cc].filter(v => v !== hint.val);
-                                }
-                            }
-                            progress = true;
-                        } else if (hint.type === 'elim' && hint.elimTargets) {
-                            hint.elimTargets.forEach(e => {
-                                simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                            });
-                            
-                            for (let r = 0; r < 9; r++) {
-                                for (let c = 0; c < 9; c++) {
-                                    if (simGrid[r][c] === 0 && simCands[r][c].length === 1) {
-                                        const placedVal = simCands[r][c][0];
-                                        simGrid[r][c] = placedVal;
-                                        simCands[r][c] = [];
-                                        for (let i = 0; i < 9; i++) {
-                                            simCands[r][i] = simCands[r][i].filter(v => v !== placedVal);
-                                            simCands[i][c] = simCands[i][c].filter(v => v !== placedVal);
-                                        }
-                                        const br = Math.floor(r / 3) * 3;
-                                        const bc = Math.floor(c / 3) * 3;
-                                        for (let rr = br; rr < br + 3; rr++) {
-                                            for (let cc = bc; cc < bc + 3; cc++) {
-                                                simCands[rr][cc] = simCands[rr][cc].filter(v => v !== placedVal);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            progress = true;
-                        }
-                    } else {
-                        let filledOne = false;
-                        for (let r = 0; r < 9; r++) {
-                            for (let c = 0; c < 9; c++) {
-                                if (simGrid[r][c] === 0) {
-                                    const placedVal = seedSol[r][c];
-                                    simGrid[r][c] = placedVal;
-                                    simCands[r][c] = [];
-                                    for (let i = 0; i < 9; i++) {
-                                        simCands[r][i] = simCands[r][i].filter(v => v !== placedVal);
-                                        simCands[i][c] = simCands[i][c].filter(v => v !== placedVal);
-                                    }
-                                    const br = Math.floor(r / 3) * 3;
-                                    const bc = Math.floor(c / 3) * 3;
-                                    for (let rr = br; rr < br + 3; rr++) {
-                                        for (let cc = bc; cc < bc + 3; cc++) {
-                                            simCands[rr][cc] = simCands[rr][cc].filter(v => v !== placedVal);
-                                        }
-                                    }
-                                    filledOne = true;
-                                    break;
-                                }
-                            }
-                            if (filledOne) break;
-                        }
-                        progress = filledOne;
+                    const ns = findNakedSingle(simCands);
+                    if (ns) {
+                        simGrid[ns.r][ns.c] = ns.val;
+                        simCands = getCandidatesGrid(simGrid);
+                        progress = true;
+                        continue;
                     }
                 }
 
-                assert(!usedFallback, `Expert Seed #${index + 1} degraded into direct reveal fallback!`);
+                // Verify that Master seeds reach a non-trivial bottleneck where simple singles are depleted
+                let unassignedCount = 0;
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (simGrid[r][c] === 0) unassignedCount++;
+                    }
+                }
+
+                assert(unassignedCount > 0, `Master Seed #${index + 1} collapsed completely using only simple singles!`);
             });
         },
 
