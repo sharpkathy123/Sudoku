@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.17';
+            const CACHE_NAME = 'sudoku-v20.18';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -329,7 +329,6 @@ h2 {
     border-color: #16a34a;
 }
 
-/* Number Pad & Input Mode Bar */
 .input-section {
     display: flex;
     flex-direction: column;
@@ -382,7 +381,6 @@ h2 {
     border-color: #4b5563;
 }
 
-/* Board & Cells */
 .board {
     display: grid;
     grid-template-columns: repeat(9, var(--cell-size));
@@ -440,7 +438,6 @@ h2 {
     z-index: 1;
 }
 
-/* Static 3x3 Pencil Sub-grid Layout */
 .pencil-container {
     position: absolute;
     inset: 1px;
@@ -653,7 +650,7 @@ function deepCopyGrid(grid) {
 }
 
 function showGeneratingStatus(text = "Generating puzzle...") {
-    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`;
+    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
 }
 
@@ -1420,7 +1417,7 @@ function findHiddenSingleInBox(candGrid) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
                         cells: [spots[0]],
-                        nudge: `Look in Box ${boxNum} — one digit has only a single valid open cell left!`,
+                        nudge: `Look in Box ${boxNum} — one missing digit has only a single valid cell left!`,
                         techName: `Hidden Single (Box ${boxNum})`,
                         explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
                     };
@@ -1478,9 +1475,9 @@ function findNakedSingle(candGrid) {
                 return {
                     r, c, val,
                     cells: [{ r, c }],
-                    nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 valid candidate digit remains for this spot!`,
+                    nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 digit can legally fit here!`,
                     techName: `Naked Single Cell (${r+1}, ${c+1})`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — it is the only digit that fits here.`
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — all other digits are blocked by its row, column, or box.`
                 };
             }
         }
@@ -1603,7 +1600,7 @@ function findPointingPairs(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: spots,
-                                nudge: `Look in Box ${boxNum} — a candidate is locked along Row ${targetRow + 1}!`,
+                                nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Row ${targetRow + 1}!`,
                                 techName: `Pointing Pair/Triple (Box ${boxNum})`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Row ${targetRow + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Row ${targetRow + 1}.`
                             };
@@ -1623,7 +1620,7 @@ function findPointingPairs(candGrid) {
                                 type: 'elim',
                                 elimTargets,
                                 cells: spots,
-                                nudge: `Look in Box ${boxNum} — a candidate is locked along Column ${targetCol + 1}!`,
+                                nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Column ${targetCol + 1}!`,
                                 techName: `Pointing Pair/Triple (Box ${boxNum})`,
                                 explanation: `In Box ${boxNum}, ${num} is locked in Column ${targetCol + 1}. Pointing Pair/Triple allows erasing ${num} from the rest of Column ${targetCol + 1}.`
                             };
@@ -2035,19 +2032,22 @@ function findDirectRevealFallback(candGrid) {
     return null;
 }
 
-function evaluateHintStack(candGrid) {
+/* Evaluating Placement Steps First, Pattern Eliminations Second */
+function evaluateHintStack(candGrid, allowElims = true) {
     return findHiddenSingleInBox(candGrid) || 
            findHiddenSingleInLine(candGrid) || 
            findNakedSingle(candGrid) || 
-           findNakedPair(candGrid) ||
-           findPointingPairs(candGrid) ||
-           findClaimingLines(candGrid) ||
-           findNakedTriples(candGrid) ||
-           findXWing(candGrid) ||
-           findXYWing(candGrid) ||
-           findXYZWing(candGrid) ||
-           findUniqueRectangleType1(candGrid) ||
-           findSwordfish(candGrid);
+           (allowElims ? (
+               findNakedPair(candGrid) ||
+               findPointingPairs(candGrid) ||
+               findClaimingLines(candGrid) ||
+               findNakedTriples(candGrid) ||
+               findXWing(candGrid) ||
+               findXYWing(candGrid) ||
+               findXYZWing(candGrid) ||
+               findUniqueRectangleType1(candGrid) ||
+               findSwordfish(candGrid)
+           ) : null);
 }
 
 function ratePuzzleDifficulty(initialGrid) {
@@ -2120,7 +2120,7 @@ function ratePuzzleDifficulty(initialGrid) {
     return "unsolvable_without_guessing";
 }
 
-/* 3-TIER PROGRESSIVE HINT ENGINE */
+/* 3-TIER PROGRESSIVE HINT ENGINE (NOTE-AWARE) */
 function showHint() {
     if (gameWon) return;
 
@@ -2143,12 +2143,18 @@ function showHint() {
 
     let hasSubstantialPencils = boardPencilCount > 10;
     let pureCands = getCandidatesGrid(getCurrentGrid());
+    
     let candGrid = hasSubstantialPencils ? boardPencils : pureCands;
 
-    let hint = evaluateHintStack(candGrid);
+    let hint = evaluateHintStack(candGrid, hasSubstantialPencils);
 
     if (!hint && hasSubstantialPencils) {
-        hint = evaluateHintStack(pureCands);
+        hint = evaluateHintStack(pureCands, true);
+    }
+
+    if (!hint && !hasSubstantialPencils) {
+        highlightLeastUnfilled();
+        return;
     }
 
     if (!hint) {
@@ -2770,7 +2776,7 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                     }
                     if (emptyCount === 0) break;
 
-                    let hint = evaluateHintStack(simCands);
+                    let hint = evaluateHintStack(simCands, true);
 
                     if (hint) {
                         if (hint.val && hint.r !== undefined && hint.c !== undefined) {
