@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.33';
+            const CACHE_NAME = 'sudoku-v20.35';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -650,7 +650,7 @@ function deepCopyGrid(grid) {
 }
 
 function showGeneratingStatus(text = "Generating puzzle...") {
-    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
+    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
 }
 
@@ -1314,7 +1314,7 @@ function getBlockIndicesIfComplete(r, c) {
 }
 
 /* -----------------------------------------
-   ADVANCED HINT ENGINE & SOLVER TECHS
+   ADVANCED HINT ENGINE & MODULAR SOLVER TECHS
 ----------------------------------------- */
 function getCurrentGrid() {
     const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -1416,7 +1416,6 @@ function findHiddenSingleInBox(candGrid) {
                 if (spots.length === 1) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
-                        tier: 'easy',
                         cells: [spots[0]],
                         nudge: `Look in Box ${boxNum} — one missing digit has only a single valid cell left!`,
                         techName: `Hidden Single (Box ${boxNum})`,
@@ -1439,7 +1438,6 @@ function findHiddenSingleInLine(candGrid) {
             if (spots.length === 1) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
-                    tier: 'medium',
                     cells: [spots[0]],
                     nudge: `Scan Row ${r+1} — one missing digit has only a single open spot!`,
                     techName: `Hidden Single (Row ${r+1})`,
@@ -1458,7 +1456,6 @@ function findHiddenSingleInLine(candGrid) {
             if (spots.length === 1) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
-                    tier: 'medium',
                     cells: [spots[0]],
                     nudge: `Scan Column ${c+1} — one missing digit has only a single open spot!`,
                     techName: `Hidden Single (Column ${c+1})`,
@@ -1477,7 +1474,6 @@ function findNakedSingle(candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
-                    tier: 'easy',
                     cells: [{ r, c }],
                     nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 digit can legally fit here!`,
                     techName: `Naked Single Cell (${r+1}, ${c+1})`,
@@ -1526,7 +1522,6 @@ function findNakedPair(candGrid) {
 
                         return {
                             type: 'elim',
-                            tier: 'medium',
                             elimTargets,
                             cells: [{ r, c }, { r, c: cc }],
                             nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
@@ -1565,7 +1560,6 @@ function findNakedPair(candGrid) {
 
                         return {
                             type: 'elim',
-                            tier: 'medium',
                             elimTargets,
                             cells: [{ r, c }, { r: rr, c }],
                             nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
@@ -1634,7 +1628,6 @@ function findHiddenPairs(candGrid) {
                             if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                                 return {
                                     type: 'elim',
-                                    tier: 'hard',
                                     elimTargets,
                                     cells: [s1[0], s1[1]],
                                     nudge: `Examine the ${unit.type} — candidates ${d1} and ${d2} form a Hidden Pair!`,
@@ -1675,7 +1668,6 @@ function findPointingPairs(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
-                                tier: 'medium',
                                 elimTargets,
                                 cells: spots,
                                 nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Row ${targetRow + 1}!`,
@@ -1696,7 +1688,6 @@ function findPointingPairs(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
-                                tier: 'medium',
                                 elimTargets,
                                 cells: spots,
                                 nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Column ${targetCol + 1}!`,
@@ -1736,7 +1727,6 @@ function findClaimingLines(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
-                            tier: 'hard',
                             elimTargets,
                             cells: spots,
                             nudge: `Look at Row ${r + 1} and Box ${boxNum}!`,
@@ -1772,7 +1762,6 @@ function findClaimingLines(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
-                            tier: 'hard',
                             elimTargets,
                             cells: spots,
                             nudge: `Look at Column ${c + 1} and Box ${boxNum}!`,
@@ -1810,7 +1799,6 @@ function findNakedTriples(candGrid) {
                             if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                                 return {
                                     type: 'elim',
-                                    tier: 'hard',
                                     elimTargets,
                                     cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
                                     nudge: `Check Row ${r+1} — three cells form a pattern!`,
@@ -1855,7 +1843,6 @@ function findXWing(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
-                                tier: 'expert',
                                 elimTargets,
                                 cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
                                 nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1}!`,
@@ -1916,7 +1903,6 @@ function findXYWing(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
-                            tier: 'expert',
                             elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
                             nudge: `Look for a Y-shaped candidate relationship centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
@@ -1979,7 +1965,6 @@ function findXYZWing(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
-                            tier: 'expert',
                             elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: w1.r, c: w1.c }, { r: w2.r, c: w2.c }],
                             nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1})!`,
@@ -2022,7 +2007,6 @@ function findUniqueRectangleType1(candGrid) {
                                 if (hasEliminationsOnBoard(elimTargets, candGrid)) {
                                     return {
                                         type: 'elim',
-                                        tier: 'expert',
                                         elimTargets,
                                         cells: corners.map(k => ({ r: k.r, c: k.c })),
                                         nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1}!`,
@@ -2075,7 +2059,6 @@ function findSwordfish(candGrid) {
                                 });
                                 return {
                                     type: 'elim',
-                                    tier: 'expert',
                                     elimTargets,
                                     cells: activeCells,
                                     nudge: `Look for a 3-row grid pattern across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1}!`,
@@ -2092,7 +2075,7 @@ function findSwordfish(candGrid) {
     return null;
 }
 
-function findDirectRevealFallback(candGrid) {
+function findDirectRevealFallback(candGrid, targetSolution) {
     let minCandidates = 10;
     let target = null;
 
@@ -2108,9 +2091,8 @@ function findDirectRevealFallback(candGrid) {
     }
 
     if (target) {
-        const correctVal = solution[target.r][target.c];
+        const correctVal = targetSolution ? targetSolution[target.r][target.c] : solution[target.r][target.c];
         return {
-            tier: 'master',
             r: target.r,
             c: target.c,
             val: correctVal,
@@ -2123,30 +2105,56 @@ function findDirectRevealFallback(candGrid) {
     return null;
 }
 
-/* Evaluating Placement Steps First, Pattern Eliminations Second */
-function evaluateHintStack(candGrid, allowElims = true) {
-    return findHiddenSingleInBox(candGrid) || 
-           findHiddenSingleInLine(candGrid) || 
-           findNakedSingle(candGrid) || 
-           (allowElims ? (
-               findNakedPair(candGrid) ||
-               findPointingPairs(candGrid) ||
-               findHiddenPairs(candGrid) ||
-               findClaimingLines(candGrid) ||
-               findNakedTriples(candGrid) ||
-               findXWing(candGrid) ||
-               findXYWing(candGrid) ||
-               findXYZWing(candGrid) ||
-               findUniqueRectangleType1(candGrid) ||
-               findSwordfish(candGrid)
-           ) : null);
+/* MODULAR TIER MAPPING ENGINE */
+const TECHNIQUE_TIERS = {
+    easy: [
+        findNakedSingle,
+        findHiddenSingleInBox
+    ],
+    medium: [
+        findHiddenSingleInLine,
+        findNakedPair,
+        findPointingPairs
+    ],
+    hard: [
+        findHiddenPairs,
+        findClaimingLines,
+        findNakedTriples
+    ],
+    expert: [
+        findXWing,
+        findXYWing,
+        findXYZWing,
+        findUniqueRectangleType1,
+        findSwordfish
+    ]
+};
+
+function getNextHint(candGrid, maxTier = 'expert') {
+    const tierOrder = ['easy', 'medium', 'hard', 'expert'];
+    const maxIdx = tierOrder.indexOf(maxTier);
+
+    for (let i = 0; i <= maxIdx; i++) {
+        const currentTier = tierOrder[i];
+        const detectors = TECHNIQUE_TIERS[currentTier];
+
+        for (const detect of detectors) {
+            const result = detect(candGrid);
+            if (result) {
+                return { ...result, tier: currentTier };
+            }
+        }
+    }
+    return null;
 }
 
-function ratePuzzleDifficulty(initialGrid) {
-    const simGrid = deepCopyGrid(initialGrid);
+function analyzeBoardProfile(initialGrid, targetSolution) {
+    let simGrid = deepCopyGrid(initialGrid);
     let simCands = getCandidatesGrid(simGrid);
-    let maxTechniqueNeeded = "easy";
-    let progress = true;
+    
+    const techniquesUsed = new Set();
+    let hitMasterFallback = false;
+    let maxSteps = 150;
 
     function placeAndClean(r, c, val) {
         simGrid[r][c] = val;
@@ -2164,39 +2172,65 @@ function ratePuzzleDifficulty(initialGrid) {
         }
     }
 
-    const tierRank = { 'easy': 1, 'medium': 2, 'hard': 3, 'expert': 4, 'master': 5 };
-
-    while (progress) {
-        progress = false;
-
+    while (maxSteps-- > 0) {
         let emptyCount = 0;
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
         }
-        if (emptyCount === 0) return maxTechniqueNeeded;
+        if (emptyCount === 0) break;
 
-        const hint = evaluateHintStack(simCands, true);
-        if (hint) {
-            if (tierRank[hint.tier] > tierRank[maxTechniqueNeeded]) {
-                maxTechniqueNeeded = hint.tier;
+        let hint = getNextHint(simCands, 'expert');
+
+        if (!hint) {
+            hint = findDirectRevealFallback(simCands, targetSolution);
+            if (hint) {
+                hint.tier = 'master';
+                hitMasterFallback = true;
             }
+        }
 
-            if (hint.type === 'elim' && hint.elimTargets) {
-                hint.elimTargets.forEach(e => {
-                    simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                });
-                progress = true;
-            } else if (hint.val) {
-                placeAndClean(hint.r, hint.c, hint.val);
-                progress = true;
+        if (!hint) break;
+
+        techniquesUsed.add(hint.tier);
+
+        if (hint.type === 'elim' && hint.elimTargets) {
+            hint.elimTargets.forEach(e => {
+                simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
+            });
+        } else if (hint.cells && hint.cells.length === 1) {
+            const targetCell = hint.cells[0];
+            let fillVal = hint.val;
+            if (!fillVal && targetSolution) fillVal = targetSolution[targetCell.r][targetCell.c];
+            if (fillVal) {
+                placeAndClean(targetCell.r, targetCell.c, fillVal);
             }
         }
     }
 
-    return maxTechniqueNeeded;
+    let isSolved = true;
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) isSolved = false;
+    }
+
+    const tierRanks = ['easy', 'medium', 'hard', 'expert', 'master'];
+    let highestTier = 'easy';
+    tierRanks.forEach(tier => {
+        if (techniquesUsed.has(tier)) highestTier = tier;
+    });
+
+    return {
+        solved: isSolved,
+        highestTier,
+        techniquesUsed,
+        hitMasterFallback
+    };
 }
 
-/* 3-TIER PROGRESSIVE HINT ENGINE (INDEPENDENT FROM HIGHLIGHT FULLEST) */
+function ratePuzzleDifficulty(initialGrid) {
+    return analyzeBoardProfile(initialGrid).highestTier;
+}
+
+/* 3-TIER PROGRESSIVE HINT ENGINE */
 function showHint() {
     if (gameWon) return;
 
@@ -2219,17 +2253,17 @@ function showHint() {
 
     let hasSubstantialPencils = boardPencilCount > 10;
     let pureCands = getCandidatesGrid(getCurrentGrid());
-    
     let candGrid = hasSubstantialPencils ? boardPencils : pureCands;
 
-    let hint = evaluateHintStack(candGrid, hasSubstantialPencils);
+    let hint = getNextHint(candGrid, 'expert');
 
     if (!hint && !hasSubstantialPencils) {
-        hint = evaluateHintStack(pureCands, true);
+        hint = getNextHint(pureCands, 'expert');
     }
 
     if (!hint) {
-        hint = findDirectRevealFallback(pureCands);
+        hint = findDirectRevealFallback(pureCands, solution);
+        if (hint) hint.tier = 'master';
     }
 
     if (!hint) {
@@ -2797,71 +2831,6 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         if (!condition) throw new Error(message);
     }
 
-    function simulateSolve(initialPuzzle, targetSolution) {
-        let simGrid = deepCopyGrid(initialPuzzle);
-        let simCands = getCandidatesGrid(simGrid);
-        let usedTiers = new Set();
-        let hitFallback = false;
-
-        function placeAndClean(r, c, val) {
-            simGrid[r][c] = val;
-            simCands[r][c] = [];
-            for (let i = 0; i < 9; i++) {
-                simCands[r][i] = simCands[r][i].filter(v => v !== val);
-                simCands[i][c] = simCands[i][c].filter(v => v !== val);
-            }
-            const br = Math.floor(r / 3) * 3;
-            const bc = Math.floor(c / 3) * 3;
-            for (let rr = br; rr < br + 3; rr++) {
-                for (let cc = bc; cc < bc + 3; cc++) {
-                    simCands[rr][cc] = simCands[rr][cc].filter(v => v !== val);
-                }
-            }
-        }
-
-        let maxSteps = 150;
-        while (maxSteps-- > 0) {
-            let emptyCount = 0;
-            for (let r = 0; r < 9; r++) {
-                for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
-            }
-            if (emptyCount === 0) break;
-
-            let hint = evaluateHintStack(simCands, true);
-            if (!hint) {
-                hint = findDirectRevealFallback(simCands);
-            }
-
-            if (hint) {
-                usedTiers.add(hint.tier);
-                if (hint.tier === 'master') {
-                    hitFallback = true;
-                }
-
-                if (hint.type === 'elim' && hint.elimTargets) {
-                    hint.elimTargets.forEach(e => {
-                        simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                    });
-                } else if (hint.val) {
-                    let fillVal = hint.val;
-                    if (!fillVal && targetSolution) fillVal = targetSolution[hint.r][hint.c];
-                    if (fillVal) {
-                        placeAndClean(hint.r, hint.c, fillVal);
-                    }
-                }
-            } else {
-                break;
-            }
-        }
-
-        let isSolved = true;
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) isSolved = false;
-        }
-
-        return { isSolved, usedTiers, hitFallback };
-    }
-
     const tests = {
         testIsSafeEngine() {
             const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -2881,13 +2850,13 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                 [8,2,0,1,0,0,0,4,0],
                 [0,0,4,6,0,2,9,0,0],
                 [0,5,0,0,0,3,0,2,8],
-                [0,0,9,3,0,0,0,7,4],
                 [0,4,0,0,5,0,0,3,6],
                 [7,0,3,0,1,8,0,0,0]
             ];
-            const res = simulateSolve(easyBoard);
-            assert(res.isSolved, "Easy puzzle failed to solve.");
-            assert(!res.usedTiers.has('medium') && !res.usedTiers.has('hard') && !res.usedTiers.has('expert') && !res.usedTiers.has('master'), "Easy puzzle required higher-than-easy hints!");
+            const profile = analyzeBoardProfile(easyBoard);
+            assert(profile.solved, "Easy puzzle failed to solve.");
+            assert(profile.highestTier === 'easy', `Expected Easy tier max, got ${profile.highestTier}`);
+            assert(!profile.techniquesUsed.has('medium') && !profile.techniquesUsed.has('hard') && !profile.techniquesUsed.has('expert') && !profile.techniquesUsed.has('master'), "Easy puzzle required higher-than-easy hints!");
         },
 
         testMediumPuzzlesRequireMediumAndSolvable() {
@@ -2902,18 +2871,21 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                 [0,0,2,0,1,0,0,0,0],
                 [0,0,0,4,0,0,0,0,0]
             ];
-            const rated = ratePuzzleDifficulty(mediumBoard);
-            assert(rated === "medium" || rated === "easy", `Expected Easy/Medium rating, got ${rated}`);
+            const profile = analyzeBoardProfile(mediumBoard);
+            assert(profile.solved, "Medium puzzle failed to solve.");
+            assert(profile.techniquesUsed.has('medium'), "Medium puzzle must require at least one Medium-level hint.");
+            assert(!profile.techniquesUsed.has('hard') && !profile.techniquesUsed.has('expert') && !profile.techniquesUsed.has('master'), "Medium puzzle contained techniques above Medium tier!");
         },
 
         testExpertSeedPuzzlesDoNotRequireFallbackHint() {
             EXPERT_SEED_PUZZLES.forEach((seed, index) => {
                 const fullSolution = deepCopyGrid(seed);
                 solveSudoku(fullSolution);
-                const res = simulateSolve(seed, fullSolution);
-                assert(res.isSolved, `Expert Seed #${index + 1} was not solved.`);
-                assert(!res.hitFallback, `Expert Seed #${index + 1} stalled and required a direct reveal fallback hint!`);
-                assert(res.usedTiers.has('expert') || res.usedTiers.has('hard'), `Expert Seed #${index + 1} did not require Expert/Hard techniques.`);
+                const profile = analyzeBoardProfile(seed, fullSolution);
+                assert(profile.solved, `Expert Seed #${index + 1} was not solved.`);
+                assert(!profile.hitMasterFallback, `Expert Seed #${index + 1} stalled and required a direct reveal fallback hint!`);
+                assert(profile.techniquesUsed.has('expert'), `Expert Seed #${index + 1} did not contain an Expert-level hint.`);
+                assert(!profile.techniquesUsed.has('master'), `Expert Seed #${index + 1} used a Master-level hint.`);
             });
         },
 
@@ -2921,9 +2893,10 @@ document.getElementById("HintBtn").addEventListener("click", () => {
             MASTER_SEED_PUZZLES.forEach((seed, index) => {
                 const fullSolution = deepCopyGrid(seed);
                 solveSudoku(fullSolution);
-                const res = simulateSolve(seed, fullSolution);
-                assert(res.isSolved, `Master Seed #${index + 1} failed to solve.`);
-                assert(res.hitFallback, `Master Seed #${index + 1} was solved completely without ever hitting a fallback hint bottleneck!`);
+                const profile = analyzeBoardProfile(seed, fullSolution);
+                assert(profile.solved, `Master Seed #${index + 1} failed to solve.`);
+                assert(profile.hitMasterFallback, `Master Seed #${index + 1} was solved completely without ever hitting a master fallback hint!`);
+                assert(profile.techniquesUsed.has('master'), `Master Seed #${index + 1} missing master technique tag.`);
             });
         },
 
