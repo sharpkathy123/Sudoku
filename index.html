@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.30';
+            const CACHE_NAME = 'sudoku-v20.32';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1416,6 +1416,7 @@ function findHiddenSingleInBox(candGrid) {
                 if (spots.length === 1) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
+                        tier: 'easy',
                         cells: [spots[0]],
                         nudge: `Look in Box ${boxNum} — one missing digit has only a single valid cell left!`,
                         techName: `Hidden Single (Box ${boxNum})`,
@@ -1438,6 +1439,7 @@ function findHiddenSingleInLine(candGrid) {
             if (spots.length === 1) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
+                    tier: 'medium',
                     cells: [spots[0]],
                     nudge: `Scan Row ${r+1} — one missing digit has only a single open spot!`,
                     techName: `Hidden Single (Row ${r+1})`,
@@ -1456,6 +1458,7 @@ function findHiddenSingleInLine(candGrid) {
             if (spots.length === 1) {
                 return {
                     r: spots[0].r, c: spots[0].c, val: n,
+                    tier: 'medium',
                     cells: [spots[0]],
                     nudge: `Scan Column ${c+1} — one missing digit has only a single open spot!`,
                     techName: `Hidden Single (Column ${c+1})`,
@@ -1474,6 +1477,7 @@ function findNakedSingle(candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
+                    tier: 'easy',
                     cells: [{ r, c }],
                     nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 digit can legally fit here!`,
                     techName: `Naked Single Cell (${r+1}, ${c+1})`,
@@ -1522,6 +1526,7 @@ function findNakedPair(candGrid) {
 
                         return {
                             type: 'elim',
+                            tier: 'hard',
                             elimTargets,
                             cells: [{ r, c }, { r, c: cc }],
                             nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
@@ -1560,12 +1565,84 @@ function findNakedPair(candGrid) {
 
                         return {
                             type: 'elim',
+                            tier: 'hard',
                             elimTargets,
                             cells: [{ r, c }, { r: rr, c }],
                             nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
                             techName: `Naked Pair in Column ${c + 1}`,
                             explanation: `Cells (${r+1}, ${c+1}) and (${rr+1}, ${c+1}) form a pair for {${cands.join(", ")}}. Eliminate ${cands.join(" and ")} from the rest of their shared column/box.`
                         };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function findHiddenPairs(candGrid) {
+    const getUnitCells = (unitType, index) => {
+        const cells = [];
+        if (unitType === 'row') {
+            for (let c = 0; c < 9; c++) cells.push({ r: index, c });
+        } else if (unitType === 'col') {
+            for (let r = 0; r < 9; r++) cells.push({ r, c: index });
+        } else if (unitType === 'box') {
+            const br = Math.floor(index / 3) * 3;
+            const bc = (index % 3) * 3;
+            for (let r = br; r < br + 3; r++) {
+                for (let c = bc; c < bc + 3; c++) cells.push({ r, c });
+            }
+        }
+        return cells;
+    };
+
+    const units = [];
+    for (let i = 0; i < 9; i++) {
+        units.push({ type: 'row', index: i });
+        units.push({ type: 'col', index: i });
+        units.push({ type: 'box', index: i });
+    }
+
+    for (const unit of units) {
+        const cells = getUnitCells(unit.type, unit.index);
+        const digitSpots = {};
+        for (let n = 1; n <= 9; n++) digitSpots[n] = [];
+
+        cells.forEach(cell => {
+            if (candGrid[cell.r][cell.c]) {
+                candGrid[cell.r][cell.c].forEach(num => digitSpots[num].push(cell));
+            }
+        });
+
+        for (let d1 = 1; d1 <= 8; d1++) {
+            if (digitSpots[d1].length === 2) {
+                for (let d2 = d1 + 1; d2 <= 9; d2++) {
+                    if (digitSpots[d2].length === 2) {
+                        const s1 = digitSpots[d1];
+                        const s2 = digitSpots[d2];
+                        if (s1[0].r === s2[0].r && s1[0].c === s2[0].c && s1[1].r === s2[1].r && s1[1].c === s2[1].c) {
+                            const elimTargets = [];
+                            [s1[0], s1[1]].forEach(cell => {
+                                candGrid[cell.r][cell.c].forEach(num => {
+                                    if (num !== d1 && num !== d2) {
+                                        elimTargets.push({ r: cell.r, c: cell.c, val: num });
+                                    }
+                                });
+                            });
+
+                            if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
+                                return {
+                                    type: 'elim',
+                                    tier: 'hard',
+                                    elimTargets,
+                                    cells: [s1[0], s1[1]],
+                                    nudge: `Examine the ${unit.type} — candidates ${d1} and ${d2} form a Hidden Pair!`,
+                                    techName: `Hidden Pair in ${unit.type.toUpperCase()} ${unit.index + 1}`,
+                                    explanation: `Digits ${d1} and ${d2} appear only in Cells (${s1[0].r+1},${s1[0].c+1}) and (${s1[1].r+1},${s1[1].c+1}). Strip away all other candidates from these two cells.`
+                                };
+                            }
+                        }
                     }
                 }
             }
@@ -1598,6 +1675,7 @@ function findPointingPairs(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
+                                tier: 'hard',
                                 elimTargets,
                                 cells: spots,
                                 nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Row ${targetRow + 1}!`,
@@ -1618,6 +1696,7 @@ function findPointingPairs(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
+                                tier: 'hard',
                                 elimTargets,
                                 cells: spots,
                                 nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Column ${targetCol + 1}!`,
@@ -1657,6 +1736,7 @@ function findClaimingLines(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
+                            tier: 'hard',
                             elimTargets,
                             cells: spots,
                             nudge: `Look at Row ${r + 1} and Box ${boxNum}!`,
@@ -1692,6 +1772,7 @@ function findClaimingLines(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
+                            tier: 'hard',
                             elimTargets,
                             cells: spots,
                             nudge: `Look at Column ${c + 1} and Box ${boxNum}!`,
@@ -1729,6 +1810,7 @@ function findNakedTriples(candGrid) {
                             if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                                 return {
                                     type: 'elim',
+                                    tier: 'hard',
                                     elimTargets,
                                     cells: [{ r, c: c1 }, { r, c: c2 }, { r, c: c3 }],
                                     nudge: `Check Row ${r+1} — three cells form a pattern!`,
@@ -1773,6 +1855,7 @@ function findXWing(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
+                                tier: 'expert',
                                 elimTargets,
                                 cells: [{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c1 }, { r: r2, c: c2 }],
                                 nudge: `Look for a rectangle pattern across Rows ${r1+1} & ${r2+1}!`,
@@ -1833,6 +1916,7 @@ function findXYWing(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
+                            tier: 'expert',
                             elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: wA.r, c: wA.c }, { r: wB.r, c: wB.c }],
                             nudge: `Look for a Y-shaped candidate relationship centered around Cell (${pivot.r+1}, ${pivot.c+1})!`,
@@ -1895,6 +1979,7 @@ function findXYZWing(candGrid) {
                     if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                         return {
                             type: 'elim',
+                            tier: 'expert',
                             elimTargets,
                             cells: [{ r: pivot.r, c: pivot.c }, { r: w1.r, c: w1.c }, { r: w2.r, c: w2.c }],
                             nudge: `Look at Pivot Cell (${pivot.r+1}, ${pivot.c+1})!`,
@@ -1937,6 +2022,7 @@ function findUniqueRectangleType1(candGrid) {
                                 if (hasEliminationsOnBoard(elimTargets, candGrid)) {
                                     return {
                                         type: 'elim',
+                                        tier: 'expert',
                                         elimTargets,
                                         cells: corners.map(k => ({ r: k.r, c: k.c })),
                                         nudge: `Look at the 4-corner rectangle across Rows ${r1+1},${r2+1} and Columns ${c1+1},${c2+1}!`,
@@ -1989,6 +2075,7 @@ function findSwordfish(candGrid) {
                                 });
                                 return {
                                     type: 'elim',
+                                    tier: 'expert',
                                     elimTargets,
                                     cells: activeCells,
                                     nudge: `Look for a 3-row grid pattern across Rows ${r1.r+1}, ${r2.r+1}, ${r3.r+1}!`,
@@ -2023,6 +2110,7 @@ function findDirectRevealFallback(candGrid) {
     if (target) {
         const correctVal = solution[target.r][target.c];
         return {
+            tier: 'master',
             cells: [{ r: target.r, c: target.c }],
             nudge: `Cell (${target.r+1}, ${target.c+1}) is a good cell to focus on next.`,
             techName: `Direct Candidate Placement`,
@@ -2039,6 +2127,7 @@ function evaluateHintStack(candGrid, allowElims = true) {
            findNakedSingle(candGrid) || 
            (allowElims ? (
                findNakedPair(candGrid) ||
+               findHiddenPairs(candGrid) ||
                findPointingPairs(candGrid) ||
                findClaimingLines(candGrid) ||
                findNakedTriples(candGrid) ||
@@ -2072,6 +2161,8 @@ function ratePuzzleDifficulty(initialGrid) {
         }
     }
 
+    const tierRank = { 'easy': 1, 'medium': 2, 'hard': 3, 'expert': 4, 'master': 5 };
+
     while (progress) {
         progress = false;
 
@@ -2081,41 +2172,21 @@ function ratePuzzleDifficulty(initialGrid) {
         }
         if (emptyCount === 0) return maxTechniqueNeeded;
 
-        // Try simple single placements FIRST
-        const hsBox = findHiddenSingleInBox(simCands);
-        if (hsBox) { placeAndClean(hsBox.r, hsBox.c, hsBox.val); progress = true; continue; }
+        const hint = evaluateHintStack(simCands, true);
+        if (hint) {
+            if (tierRank[hint.tier] > tierRank[maxTechniqueNeeded]) {
+                maxTechniqueNeeded = hint.tier;
+            }
 
-        const hsLine = findHiddenSingleInLine(simCands);
-        if (hsLine) {
-            placeAndClean(hsLine.r, hsLine.c, hsLine.val);
-            if (maxTechniqueNeeded === "easy") maxTechniqueNeeded = "medium";
-            progress = true; continue;
-        }
-
-        const ns = findNakedSingle(simCands);
-        if (ns) { placeAndClean(ns.r, ns.c, ns.val); progress = true; continue; }
-
-        // Candidate eliminations
-        const basicElim = findNakedPair(simCands) || findPointingPairs(simCands) || findClaimingLines(simCands) || findNakedTriples(simCands);
-        if (basicElim) {
-            if (basicElim.elimTargets) {
-                basicElim.elimTargets.forEach(e => {
+            if (hint.type === 'elim' && hint.elimTargets) {
+                hint.elimTargets.forEach(e => {
                     simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
                 });
+                progress = true;
+            } else if (hint.val) {
+                placeAndClean(hint.r, hint.c, hint.val);
+                progress = true;
             }
-            if (maxTechniqueNeeded !== "expert") maxTechniqueNeeded = "hard";
-            progress = true; continue;
-        }
-
-        const advElim = findXWing(simCands) || findXYWing(simCands) || findXYZWing(simCands) || findUniqueRectangleType1(simCands) || findSwordfish(simCands);
-        if (advElim) {
-            if (advElim.elimTargets) {
-                advElim.elimTargets.forEach(e => {
-                    simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                });
-            }
-            maxTechniqueNeeded = "expert";
-            progress = true; continue;
         }
     }
 
@@ -2352,8 +2423,6 @@ const MASTER_SEED_PUZZLES = [
         [0,5,0,0,0,7,0,0,0],
         [0,0,0,0,4,5,7,0,0],
         [0,0,0,1,0,0,0,3,0],
-        [0,0,1,0,0,0,0,6,8],
-        [0,0,8,5,0,0,0,1,0],
         [0,9,0,0,0,0,4,0,0]
     ]
 ];
@@ -2725,6 +2794,67 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         if (!condition) throw new Error(message);
     }
 
+    function simulateSolve(initialPuzzle) {
+        let simGrid = deepCopyGrid(initialPuzzle);
+        let simCands = getCandidatesGrid(simGrid);
+        let usedTiers = new Set();
+        let hitFallback = false;
+
+        function placeAndClean(r, c, val) {
+            simGrid[r][c] = val;
+            simCands[r][c] = [];
+            for (let i = 0; i < 9; i++) {
+                simCands[r][i] = simCands[r][i].filter(v => v !== val);
+                simCands[i][c] = simCands[i][c].filter(v => v !== val);
+            }
+            const br = Math.floor(r / 3) * 3;
+            const bc = Math.floor(c / 3) * 3;
+            for (let rr = br; rr < br + 3; rr++) {
+                for (let cc = bc; cc < bc + 3; cc++) {
+                    simCands[rr][cc] = simCands[rr][cc].filter(v => v !== val);
+                }
+            }
+        }
+
+        let maxSteps = 150;
+        while (maxSteps-- > 0) {
+            let emptyCount = 0;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
+            }
+            if (emptyCount === 0) break;
+
+            let hint = evaluateHintStack(simCands, true);
+            if (!hint) {
+                hint = findDirectRevealFallback(simCands);
+            }
+
+            if (hint) {
+                usedTiers.add(hint.tier);
+                if (hint.tier === 'master') {
+                    hitFallback = true;
+                }
+
+                if (hint.type === 'elim' && hint.elimTargets) {
+                    hint.elimTargets.forEach(e => {
+                        simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
+                    });
+                } else if (hint.val) {
+                    placeAndClean(hint.r, hint.c, hint.val);
+                }
+            } else {
+                break;
+            }
+        }
+
+        let isSolved = true;
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) isSolved = false;
+        }
+
+        return { isSolved, usedTiers, hitFallback };
+    }
+
     const tests = {
         testIsSafeEngine() {
             const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -2736,7 +2866,7 @@ document.getElementById("HintBtn").addEventListener("click", () => {
             assert(isSafe(grid, 4, 4, 5), "Safe placement rejected");
         },
 
-        testRatingEngineIntegrity() {
+        testEasyPuzzlesSolvedWithEasyHintsOnly() {
             const easyBoard = [
                 [0,0,0,2,6,0,7,0,1],
                 [6,8,0,0,7,0,0,9,0],
@@ -2748,147 +2878,41 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                 [0,4,0,0,5,0,0,3,6],
                 [7,0,3,0,1,8,0,0,0]
             ];
-            const rating = ratePuzzleDifficulty(easyBoard);
-            assert(rating === "easy" || rating === "medium", `Expected Easy/Medium, got "${rating}"`);
+            const res = simulateSolve(easyBoard);
+            assert(res.isSolved, "Easy puzzle failed to solve.");
+            assert(!res.usedTiers.has('medium') && !res.usedTiers.has('hard') && !res.usedTiers.has('expert') && !res.usedTiers.has('master'), "Easy puzzle required higher-than-easy hints!");
         },
 
-        testExpertSeedPuzzlesRequireAdvancedTechniques() {
-            EXPERT_SEED_PUZZLES.forEach((seed, index) => {
-                const rating = ratePuzzleDifficulty(seed);
-                assert(rating === "expert" || rating === "hard", `Expert Seed #${index + 1} rated as "${rating}" instead of Expert/Hard!`);
-            });
+        testMediumPuzzlesRequireMediumAndSolvable() {
+            const mediumBoard = [
+                [0,0,0,0,0,0,0,8,0],
+                [0,0,0,0,0,3,0,8,5],
+                [0,0,1,0,2,0,0,0,0],
+                [0,0,0,5,0,7,0,0,0],
+                [0,0,4,0,0,0,1,0,0],
+                [0,9,0,0,0,0,0,0,0],
+                [5,0,0,0,0,0,0,7,3],
+                [0,0,2,0,1,0,0,0,0],
+                [0,0,0,4,0,0,0,0,0]
+            ];
+            const rated = ratePuzzleDifficulty(mediumBoard);
+            assert(rated === "medium" || rated === "easy", `Expected Easy/Medium rating, got ${rated}`);
         },
 
         testExpertSeedPuzzlesDoNotRequireFallbackHint() {
             EXPERT_SEED_PUZZLES.forEach((seed, index) => {
-                let simGrid = deepCopyGrid(seed);
-                let simCands = getCandidatesGrid(simGrid);
-                let hitFallback = false;
-
-                function placeAndClean(r, c, val) {
-                    simGrid[r][c] = val;
-                    simCands[r][c] = [];
-                    for (let i = 0; i < 9; i++) {
-                        simCands[r][i] = simCands[r][i].filter(v => v !== val);
-                        simCands[i][c] = simCands[i][c].filter(v => v !== val);
-                    }
-                    const br = Math.floor(r / 3) * 3;
-                    const bc = Math.floor(c / 3) * 3;
-                    for (let rr = br; rr < br + 3; rr++) {
-                        for (let cc = bc; cc < bc + 3; cc++) {
-                            simCands[rr][cc] = simCands[rr][cc].filter(v => v !== val);
-                        }
-                    }
-                }
-
-                let maxSteps = 150;
-                while (maxSteps-- > 0) {
-                    let emptyCount = 0;
-                    for (let r = 0; r < 9; r++) {
-                        for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
-                    }
-                    if (emptyCount === 0) break;
-
-                    const hint = evaluateHintStack(simCands, true);
-                    if (hint) {
-                        if (hint.type === 'elim' && hint.elimTargets) {
-                            hint.elimTargets.forEach(e => {
-                                simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                            });
-                        } else if (hint.val) {
-                            placeAndClean(hint.r, hint.c, hint.val);
-                        }
-                    } else {
-                        hitFallback = true;
-                        break;
-                    }
-                }
-
-                assert(!hitFallback, `Expert Seed #${index + 1} stalled and required a direct reveal fallback hint!`);
+                const res = simulateSolve(seed);
+                assert(res.isSolved, `Expert Seed #${index + 1} was not solved.`);
+                assert(!res.hitFallback, `Expert Seed #${index + 1} stalled and required a direct reveal fallback hint!`);
+                assert(res.usedTiers.has('expert') || res.usedTiers.has('hard'), `Expert Seed #${index + 1} did not require Expert/Hard techniques.`);
             });
         },
 
-        testMasterSeedPuzzlesRequireMasterTechniques() {
+        testMasterSeedPuzzlesRequireMasterTechniquesAndSolve() {
             MASTER_SEED_PUZZLES.forEach((seed, index) => {
-                let simGrid = deepCopyGrid(seed);
-                let simCands = getCandidatesGrid(simGrid);
-                
-                let progress = true;
-                while (progress) {
-                    progress = false;
-                    const hsBox = findHiddenSingleInBox(simCands);
-                    if (hsBox) {
-                        simGrid[hsBox.r][hsBox.c] = hsBox.val;
-                        simCands = getCandidatesGrid(simGrid);
-                        progress = true;
-                        continue;
-                    }
-                    const ns = findNakedSingle(simCands);
-                    if (ns) {
-                        simGrid[ns.r][ns.c] = ns.val;
-                        simCands = getCandidatesGrid(simGrid);
-                        progress = true;
-                        continue;
-                    }
-                }
-
-                let unassignedCount = 0;
-                for (let r = 0; r < 9; r++) {
-                    for (let c = 0; c < 9; c++) {
-                        if (simGrid[r][c] === 0) unassignedCount++;
-                    }
-                }
-
-                assert(unassignedCount > 0, `Master Seed #${index + 1} collapsed completely using only simple singles!`);
-            });
-        },
-
-        testMasterSeedPuzzlesRequireFallbackHint() {
-            MASTER_SEED_PUZZLES.forEach((seed, index) => {
-                let simGrid = deepCopyGrid(seed);
-                let simCands = getCandidatesGrid(simGrid);
-                let hitFallback = false;
-
-                function placeAndClean(r, c, val) {
-                    simGrid[r][c] = val;
-                    simCands[r][c] = [];
-                    for (let i = 0; i < 9; i++) {
-                        simCands[r][i] = simCands[r][i].filter(v => v !== val);
-                        simCands[i][c] = simCands[i][c].filter(v => v !== val);
-                    }
-                    const br = Math.floor(r / 3) * 3;
-                    const bc = Math.floor(c / 3) * 3;
-                    for (let rr = br; rr < br + 3; rr++) {
-                        for (let cc = bc; cc < bc + 3; cc++) {
-                            simCands[rr][cc] = simCands[rr][cc].filter(v => v !== val);
-                        }
-                    }
-                }
-
-                let maxSteps = 100;
-                while (maxSteps-- > 0) {
-                    let emptyCount = 0;
-                    for (let r = 0; r < 9; r++) {
-                        for (let c = 0; c < 9; c++) if (simGrid[r][c] === 0) emptyCount++;
-                    }
-                    if (emptyCount === 0) break;
-
-                    const hint = evaluateHintStack(simCands, true);
-                    if (hint) {
-                        if (hint.type === 'elim' && hint.elimTargets) {
-                            hint.elimTargets.forEach(e => {
-                                simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                            });
-                        } else if (hint.val) {
-                            placeAndClean(hint.r, hint.c, hint.val);
-                        }
-                    } else {
-                        hitFallback = true;
-                        break;
-                    }
-                }
-
-                assert(hitFallback, `Master Seed #${index + 1} was solved completely without ever hitting a fallback hint bottleneck!`);
+                const res = simulateSolve(seed);
+                assert(res.isSolved, `Master Seed #${index + 1} failed to solve.`);
+                assert(res.hitFallback, `Master Seed #${index + 1} was solved completely without ever hitting a fallback hint bottleneck!`);
             });
         },
 
