@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.32';
+            const CACHE_NAME = 'sudoku-v20.33';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -1526,7 +1526,7 @@ function findNakedPair(candGrid) {
 
                         return {
                             type: 'elim',
-                            tier: 'hard',
+                            tier: 'medium',
                             elimTargets,
                             cells: [{ r, c }, { r, c: cc }],
                             nudge: `Look at Row ${r + 1} — two cells form a Naked Pair!`,
@@ -1565,7 +1565,7 @@ function findNakedPair(candGrid) {
 
                         return {
                             type: 'elim',
-                            tier: 'hard',
+                            tier: 'medium',
                             elimTargets,
                             cells: [{ r, c }, { r: rr, c }],
                             nudge: `Look at Column ${c + 1} — two cells form a Naked Pair!`,
@@ -1675,7 +1675,7 @@ function findPointingPairs(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
-                                tier: 'hard',
+                                tier: 'medium',
                                 elimTargets,
                                 cells: spots,
                                 nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Row ${targetRow + 1}!`,
@@ -1696,7 +1696,7 @@ function findPointingPairs(candGrid) {
                         if (elimTargets.length > 0 && hasEliminationsOnBoard(elimTargets, candGrid)) {
                             return {
                                 type: 'elim',
-                                tier: 'hard',
+                                tier: 'medium',
                                 elimTargets,
                                 cells: spots,
                                 nudge: `Look in Box ${boxNum} — candidate ${num} is locked along Column ${targetCol + 1}!`,
@@ -2111,6 +2111,9 @@ function findDirectRevealFallback(candGrid) {
         const correctVal = solution[target.r][target.c];
         return {
             tier: 'master',
+            r: target.r,
+            c: target.c,
+            val: correctVal,
             cells: [{ r: target.r, c: target.c }],
             nudge: `Cell (${target.r+1}, ${target.c+1}) is a good cell to focus on next.`,
             techName: `Direct Candidate Placement`,
@@ -2127,8 +2130,8 @@ function evaluateHintStack(candGrid, allowElims = true) {
            findNakedSingle(candGrid) || 
            (allowElims ? (
                findNakedPair(candGrid) ||
-               findHiddenPairs(candGrid) ||
                findPointingPairs(candGrid) ||
+               findHiddenPairs(candGrid) ||
                findClaimingLines(candGrid) ||
                findNakedTriples(candGrid) ||
                findXWing(candGrid) ||
@@ -2794,7 +2797,7 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         if (!condition) throw new Error(message);
     }
 
-    function simulateSolve(initialPuzzle) {
+    function simulateSolve(initialPuzzle, targetSolution) {
         let simGrid = deepCopyGrid(initialPuzzle);
         let simCands = getCandidatesGrid(simGrid);
         let usedTiers = new Set();
@@ -2840,7 +2843,11 @@ document.getElementById("HintBtn").addEventListener("click", () => {
                         simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
                     });
                 } else if (hint.val) {
-                    placeAndClean(hint.r, hint.c, hint.val);
+                    let fillVal = hint.val;
+                    if (!fillVal && targetSolution) fillVal = targetSolution[hint.r][hint.c];
+                    if (fillVal) {
+                        placeAndClean(hint.r, hint.c, fillVal);
+                    }
                 }
             } else {
                 break;
@@ -2901,7 +2908,9 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 
         testExpertSeedPuzzlesDoNotRequireFallbackHint() {
             EXPERT_SEED_PUZZLES.forEach((seed, index) => {
-                const res = simulateSolve(seed);
+                const fullSolution = deepCopyGrid(seed);
+                solveSudoku(fullSolution);
+                const res = simulateSolve(seed, fullSolution);
                 assert(res.isSolved, `Expert Seed #${index + 1} was not solved.`);
                 assert(!res.hitFallback, `Expert Seed #${index + 1} stalled and required a direct reveal fallback hint!`);
                 assert(res.usedTiers.has('expert') || res.usedTiers.has('hard'), `Expert Seed #${index + 1} did not require Expert/Hard techniques.`);
@@ -2910,7 +2919,9 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 
         testMasterSeedPuzzlesRequireMasterTechniquesAndSolve() {
             MASTER_SEED_PUZZLES.forEach((seed, index) => {
-                const res = simulateSolve(seed);
+                const fullSolution = deepCopyGrid(seed);
+                solveSudoku(fullSolution);
+                const res = simulateSolve(seed, fullSolution);
                 assert(res.isSolved, `Master Seed #${index + 1} failed to solve.`);
                 assert(res.hitFallback, `Master Seed #${index + 1} was solved completely without ever hitting a fallback hint bottleneck!`);
             });
