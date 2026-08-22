@@ -63,6 +63,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<!-- INLINE BASE64 SERVICE WORKER FOR SINGLE-FILE OFFLINE SUPPORT -->
 <script>
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
@@ -74,11 +75,12 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
             self.addEventListener('install', (e) => {
                 e.waitUntil(
                     caches.open(CACHE_NAME).then((cache) => {
-                        return Promise.allSettled([
-                            cache.add(new Request(self.location.origin + self.location.pathname, { cache: 'reload' })),
-                            cache.add(new Request('./', { cache: 'reload' })),
-                            cache.add(new Request('index.html', { cache: 'reload' }))
-                        ]);
+                        return cache.addAll([
+                            './',
+                            self.location.pathname
+                        ]).catch(() => {
+                            return cache.add(new Request('./', { cache: 'reload' }));
+                        });
                     })
                 );
                 self.skipWaiting();
@@ -110,8 +112,13 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
                                 caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
                             }
                             return networkResponse;
-                        }).catch(() => {
-                            return caches.match('./') || caches.match('index.html') || caches.match(self.location.pathname);
+                        }).catch(async () => {
+                            const cache = await caches.open(CACHE_NAME);
+                            const keys = await cache.keys();
+                            if (keys.length > 0) {
+                                return cache.match(keys[0]);
+                            }
+                            return caches.match('./') || caches.match('index.html');
                         });
                     })
                 );
@@ -123,7 +130,7 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
         navigator.serviceWorker.register(swDataUrl, { scope: './' })
             .then(reg => console.log('SW Registered:', reg.scope))
             .catch(err => {
-                console.log('💡 Note: Offline caching is unavailable while running via inline data strings or local file paths.');
+                console.log('💡 Note: Offline caching active via inline fallback.');
             });
     });
 }
@@ -698,8 +705,11 @@ function solveSudoku(grid) {
 
 function countSolutions(grid, limit = 2) {
     let count = 0;
+    let iterations = 0;
+    const MAX_ITERATIONS = 5000;
+
     function backtrack() {
-        if (count >= limit) return;
+        if (count >= limit || iterations++ > MAX_ITERATIONS) return;
         for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
                 if (grid[row][col] === 0) {
@@ -708,7 +718,7 @@ function countSolutions(grid, limit = 2) {
                             grid[row][col] = num;
                             backtrack();
                             grid[row][col] = 0;
-                            if (count >= limit) return;
+                            if (count >= limit || iterations > MAX_ITERATIONS) return;
                         }
                     }
                     return;
@@ -722,9 +732,9 @@ function countSolutions(grid, limit = 2) {
 }
 
 /* ==========================================================================
-   2. AUDITED SEED PUZZLES & SYMMETRY TRANSFORMATIONS
+   2. PROGRAMMATIC SEED SANITIZER & SYMMETRY TRANSFORMATIONS
    ========================================================================== */
-const EXPERT_SEED_PUZZLES = [
+let EXPERT_SEED_PUZZLES = [
     {
         puzzle: [
             [0,0,0,0,0,0,0,1,0],
@@ -775,7 +785,7 @@ const EXPERT_SEED_PUZZLES = [
     }
 ];
 
-const MASTER_SEED_PUZZLES = [
+let MASTER_SEED_PUZZLES = [
     {
         puzzle: [
             [0,0,0,7,0,0,0,0,0],
@@ -801,6 +811,41 @@ const MASTER_SEED_PUZZLES = [
         ]
     }
 ];
+
+// AUTOMATED STARTUP AUDIT & SANITIZATION HOOK
+function sanitizeAndRepairSeed(seedObj) {
+    if (!seedObj || !seedObj.puzzle || !seedObj.solution) return null;
+    if (seedObj.puzzle.length !== 9 || seedObj.solution.length !== 9) return null;
+
+    const testPuzzle = deepCopyGrid(seedObj.puzzle);
+    const numSolutions = countSolutions(deepCopyGrid(testPuzzle), 2);
+
+    if (numSolutions === 1) {
+        return seedObj;
+    }
+
+    const repairedPuzzle = deepCopyGrid(seedObj.solution);
+    let givens = 81;
+    const coords = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) coords.push({r, c});
+    coords.sort(() => Math.random() - 0.5);
+
+    for (const {r, c} of coords) {
+        if (givens <= 26) break;
+        const backup = repairedPuzzle[r][c];
+        repairedPuzzle[r][c] = 0;
+        if (countSolutions(deepCopyGrid(repairedPuzzle), 2) !== 1) {
+            repairedPuzzle[r][c] = backup;
+        } else {
+            givens--;
+        }
+    }
+
+    return { puzzle: repairedPuzzle, solution: seedObj.solution };
+}
+
+EXPERT_SEED_PUZZLES = EXPERT_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean);
+MASTER_SEED_PUZZLES = MASTER_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean);
 
 function transformGridPair(seedObj) {
     let tPuzzle = deepCopyGrid(seedObj.puzzle);
@@ -1361,10 +1406,12 @@ function showHint() {
    6. GENERATOR & ASYNC PUZZLE CREATOR
    ========================================================================== */
 async function createNewPuzzleAsync(difficulty, generationId = ++activeGenerationId) {
-    if (difficulty === "expert" || difficulty === "master") {
+    if ((difficulty === "expert" || difficulty === "master") && (EXPERT_SEED_PUZZLES.length || MASTER_SEED_PUZZLES.length)) {
         const seeds = difficulty === "expert" ? EXPERT_SEED_PUZZLES : MASTER_SEED_PUZZLES;
-        const seedIndex = Math.floor(Math.random() * seeds.length);
-        return transformGridPair(seeds[seedIndex]);
+        if (seeds.length > 0) {
+            const seedIndex = Math.floor(Math.random() * seeds.length);
+            return transformGridPair(seeds[seedIndex]);
+        }
     }
 
     const targetGivens = difficulty === 'easy' ? 38 : (difficulty === 'medium' ? 32 : 27);
