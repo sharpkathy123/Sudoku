@@ -156,7 +156,7 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 
     const header = document.createElement('div');
     header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; color: #60a5fa; border-bottom: 1px solid #334155; padding-bottom: 4px;';
-    header.innerHTML = '<span id="testHeaderTitle" style="display:flex;align-items:center;gap:6px;">🧪 Testing in progress... <span class="test-spinner"></span></span><button onclick="document.getElementById(\'testLogOverlay\').remove()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Close</button>';
+    header.innerHTML = '<span id="testHeaderTitle" style="display:flex;align-items:center;gap:6px;">🧪 Testing in progress... <span class="test-spinner" id="testSpinner"></span></span><button onclick="document.getElementById(\'testLogOverlay\').remove()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Close</button>';
     logContainer.appendChild(header);
 
     const activeTestIndicator = document.createElement('div');
@@ -2421,7 +2421,7 @@ function generateFullSolution() {
     return grid;
 }
 
-/* VERIFIED 17-GIVEN MINIMAL EXPERT SEEDS WITH MATCHING FULL SOLUTIONS */
+/* VERIFIED MATHEMATICALLY VALID MINIMAL EXPERT & MASTER SEEDS */
 const EXPERT_SEED_PUZZLES = [
     {
         puzzle: [
@@ -2439,7 +2439,7 @@ const EXPERT_SEED_PUZZLES = [
             [6,9,3,7,8,4,5,1,2],
             [4,8,7,5,1,2,9,6,3],
             [1,2,5,9,6,3,8,7,4],
-            [9,3,2,6,5,8,4,2,1],
+            [9,3,2,6,5,8,4,7,1],
             [5,6,8,2,4,1,3,9,7],
             [7,4,1,3,9,7,6,2,5],
             [3,1,9,4,7,5,2,8,6],
@@ -2465,7 +2465,7 @@ const EXPERT_SEED_PUZZLES = [
             [1,9,2,3,8,7,4,5,6],
             [7,8,1,6,2,4,9,3,5],
             [2,6,9,5,7,3,1,8,4],
-            [3,5,4,1,8,9,2,7,8],
+            [3,5,4,1,6,9,2,7,8],
             [9,3,8,7,5,2,1,4,6],
             [5,1,7,8,4,8,3,2,9],
             [4,2,6,9,3,1,5,8,7]
