@@ -630,7 +630,7 @@ h2 {
 
 <script>
 /* ==========================================================================
-   1. CORE MATH, SOLVER & SEED REPOSITORY LAYER
+   1. CORE GLOBAL STATE & UTILITIES
    ========================================================================== */
 let puzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
 let solution = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -647,6 +647,15 @@ let currentHintLevel = 0;
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 const givenMask = [];
 const STORAGE_KEY = 'sudoku_active_game_v1';
+
+const board = document.getElementById("board");
+const numberBar = document.getElementById("numberBar");
+const statusEl = document.getElementById("status");
+const winMessage = document.getElementById("winMessage");
+const difficultySelect = document.getElementById("difficulty");
+const winOverlay = document.getElementById("winOverlay");
+const confettiCanvas = document.getElementById("confettiCanvas");
+const ctx = confettiCanvas.getContext("2d");
 
 function deepCopyGrid(grid) {
     if (!grid) return [];
@@ -712,7 +721,9 @@ function countSolutions(grid, limit = 2) {
     return count;
 }
 
-/* FULLY AUDITED & MATHEMATICALLY VALID EXPERT & MASTER SEED REPOSITORIES */
+/* ==========================================================================
+   2. AUDITED SEED PUZZLES & SYMMETRY TRANSFORMATIONS
+   ========================================================================== */
 const EXPERT_SEED_PUZZLES = [
     {
         puzzle: [
@@ -722,7 +733,7 @@ const EXPERT_SEED_PUZZLES = [
             [0,0,0,0,5,0,4,0,0],
             [0,0,8,0,0,0,3,0,0],
             [0,0,1,0,9,0,0,0,0],
-            [3,0,0,4,0,0,2,0,0],
+            [0,0,0,4,0,0,2,0,0],
             [0,5,0,1,0,0,0,0,0],
             [0,0,0,8,0,0,0,0,0]
         ],
@@ -794,11 +805,6 @@ const MASTER_SEED_PUZZLES = [
 function transformGridPair(seedObj) {
     let tPuzzle = deepCopyGrid(seedObj.puzzle);
     let tSolution = deepCopyGrid(seedObj.solution);
-    
-    if (!tSolution || tSolution.length === 0) {
-        tSolution = deepCopyGrid(tPuzzle);
-        solveSudoku(tSolution);
-    }
 
     const digits = [1,2,3,4,5,6,7,8,9];
     for (let i = digits.length - 1; i > 0; i--) {
@@ -814,43 +820,57 @@ function transformGridPair(seedObj) {
             if (tSolution[r][c] !== 0) tSolution[r][c] = map[tSolution[r][c]];
         }
     }
-
     return { puzzle: tPuzzle, solution: tSolution };
 }
 
 /* ==========================================================================
-   2. UI DOM & RENDERING LAYER
+   3. BOARD UI BUILDING & HIGHLIGHTING
    ========================================================================== */
-const board = document.getElementById("board");
-const numberBar = document.getElementById("numberBar");
-const statusEl = document.getElementById("status");
-const winMessage = document.getElementById("winMessage");
-const difficultySelect = document.getElementById("difficulty");
-const winOverlay = document.getElementById("winOverlay");
-const confettiCanvas = document.getElementById("confettiCanvas");
-const ctx = confettiCanvas.getContext("2d");
-
-let glowQueue = [];
-let glowActive = false;
-
-function stopBoardAnimations() {
-    glowQueue = [];
-    glowActive = false;
-    [...board.children].forEach(cell => cell.classList.remove("glow"));
-    board.classList.remove("board-win");
-    winOverlay.classList.remove("visible");
-    stopConfetti();
-}
-
-document.addEventListener("pointerdown", stopBoardAnimations);
-
 function setStatusText(text) {
     statusEl.textContent = text;
 }
 
 function showGeneratingStatus(text = "Generating puzzle...") {
-    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`;
+    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
+}
+
+function clearNumberHighlights() {
+    [...board.children].forEach(cell => {
+        cell.classList.remove("highlight-number", "highlight-least", "selected");
+        const digits = cell._pencilDigits;
+        if (digits) {
+            for (let n = 1; n <= 9; n++) digits[n].classList.remove("highlight-number-pencil");
+        }
+    });
+}
+
+function highlightSameNumbers(num) {
+    clearNumberHighlights();
+    [...board.children].forEach(cell => {
+        const val = cell.querySelector(".cell-value").textContent.trim();
+        const pencilSpan = cell._pencilDigits[num];
+        if (val && parseInt(val, 10) === num) cell.classList.add("highlight-number");
+        if (pencilSpan && pencilSpan.classList.contains("active")) cell._pencilDigits[num].classList.add("highlight-number-pencil");
+    });
+}
+
+function onCellClick(cell) {
+    if (gameWon) return;
+    if (selectedCell) selectedCell.classList.remove("selected");
+    clearNumberHighlights();
+
+    selectedCell = cell;
+    cell.classList.add("selected");
+
+    const val = cell.querySelector(".cell-value").textContent.trim();
+    if (val && !isNaN(val)) {
+        selectedNumber = parseInt(val, 10);
+        highlightSameNumbers(selectedNumber);
+    } else {
+        selectedNumber = null;
+    }
+    updateNumberTileStyles();
 }
 
 function buildBoard() {
@@ -916,7 +936,7 @@ function buildBoard() {
 }
 
 /* ==========================================================================
-   3. STATE PERSISTENCE & USER ACTIONS
+   4. STATE PERSISTENCE & USER INPUT
    ========================================================================== */
 function saveGameState() {
     if (gameWon) {
@@ -992,9 +1012,7 @@ function loadSavedGameState() {
         checkAndBoldCompletedNumbers();
         updateNumberTileStyles();
         setStatusText("Resumed saved game.");
-        setTimeout(() => {
-            if (statusEl.textContent === "Resumed saved game.") setStatusText("");
-        }, 2000);
+        setTimeout(() => { if (statusEl.textContent === "Resumed saved game.") setStatusText(""); }, 2000);
         return true;
     } catch (e) {
         console.error("Failed to restore game state", e);
@@ -1002,40 +1020,15 @@ function loadSavedGameState() {
     }
 }
 
-function clearSelectionAndHighlights() {
-    if (selectedCell) {
-        selectedCell.classList.remove("selected");
-        selectedCell = null;
-    }
-    selectedNumber = null;
-    clearNumberHighlights();
-    updateNumberTileStyles();
-}
-
-document.addEventListener("click", (e) => {
-    const isClickInsideGame = e.target.closest("#board") || 
-                              e.target.closest(".input-section") || 
-                              e.target.closest(".controls") || 
-                              e.target.closest(".top-bar");
-    if (!isClickInsideGame) clearSelectionAndHighlights();
-});
-
 function checkAndBoldCompletedNumbers() {
     for (let num = 1; num <= 9; num++) {
         if (placements[num].length === 9) {
-            placements[num].forEach(index => {
-                board.children[index].classList.add("completed-number");
-            });
-            if (numberBar.children[num - 1]) {
-                numberBar.children[num - 1].classList.add("completed-number");
-            }
+            placements[num].forEach(index => board.children[index].classList.add("completed-number"));
+            if (numberBar.children[num - 1]) numberBar.children[num - 1].classList.add("completed-number");
         }
     }
 }
 
-/* ==========================================================================
-   4. INTERACTIVE CONTROLS & NUMBER PAD
-   ========================================================================== */
 for (let n = 1; n <= 9; n++) {
     const tile = document.createElement("div");
     tile.className = "number-tile ink";
@@ -1046,9 +1039,7 @@ for (let n = 1; n <= 9; n++) {
 
         if (!selectedCell) {
             setStatusText("Select a cell first.");
-            setTimeout(() => {
-                if (statusEl.textContent === "Select a cell first.") setStatusText("");
-            }, 1500);
+            setTimeout(() => { if (statusEl.textContent === "Select a cell first.") setStatusText(""); }, 1500);
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
@@ -1060,9 +1051,7 @@ for (let n = 1; n <= 9; n++) {
 
         if (givenMask[r][c]) {
             setStatusText("You can't change a given cell.");
-            setTimeout(() => {
-                if (statusEl.textContent === "You can't change a given cell.") setStatusText("");
-            }, 1500);
+            setTimeout(() => { if (statusEl.textContent === "You can't change a given cell.") setStatusText(""); }, 1500);
             return;
         }
 
@@ -1075,19 +1064,15 @@ for (let n = 1; n <= 9; n++) {
 
                 if (isCurrentlyActive && n === correctValue) {
                     flashWrong(selectedCell);
-                    setStatusText(`Cannot erase ${n}—it is the correct digit for this cell!`);
-                    setTimeout(() => {
-                        if (statusEl.textContent.startsWith("Cannot erase")) setStatusText("");
-                    }, 1500);
+                    setStatusText(`Cannot erase ${n}—it is correct!`);
+                    setTimeout(() => { if (statusEl.textContent.startsWith("Cannot erase")) setStatusText(""); }, 1500);
                     return;
                 }
 
                 if (!isCurrentlyActive && n !== correctValue) {
                     flashWrong(selectedCell);
-                    setStatusText(`Candidate ${n} doesn't belong in this cell!`);
-                    setTimeout(() => {
-                        if (statusEl.textContent.startsWith("Candidate")) setStatusText("");
-                    }, 1500);
+                    setStatusText(`Candidate ${n} doesn't belong here!`);
+                    setTimeout(() => { if (statusEl.textContent.startsWith("Candidate")) setStatusText(""); }, 1500);
                     return;
                 }
             }
@@ -1164,25 +1149,6 @@ guardNotesToggle.addEventListener("click", () => {
     saveGameState();
 });
 
-function onCellClick(cell) {
-    if (gameWon) return;
-    if (selectedCell) selectedCell.classList.remove("selected");
-    clearNumberHighlights();
-
-    selectedCell = cell;
-    cell.classList.add("selected");
-
-    const valueSpan = cell.querySelector(".cell-value");
-    const val = valueSpan.textContent.trim();
-    if (val && !isNaN(val)) {
-        selectedNumber = parseInt(val, 10);
-        highlightSameNumbers(selectedNumber);
-    } else {
-        selectedNumber = null;
-    }
-    updateNumberTileStyles();
-}
-
 function togglePencilMark(cell, num) {
     const span = cell._pencilDigits[num];
     if (span) span.classList.toggle("active");
@@ -1234,23 +1200,6 @@ function autoFillAllPencils() {
     setTimeout(() => { if (statusEl.textContent.startsWith("Auto-Notes")) setStatusText(""); }, 2500);
 }
 
-function highlightSameNumbers(num) {
-    clearNumberHighlights();
-    [...board.children].forEach(cell => {
-        const val = cell.querySelector(".cell-value").textContent.trim();
-        const pencilSpan = cell._pencilDigits[num];
-        if (val && parseInt(val, 10) === num) cell.classList.add("highlight-number");
-        if (pencilSpan && pencilSpan.classList.contains("active")) pencilSpan.classList.add("highlight-number-pencil");
-    });
-}
-
-function clearNumberHighlights() {
-    [...board.children].forEach(cell => {
-        cell.classList.remove("highlight-number", "highlight-least", "selected");
-        for (let n = 1; n <= 9; n++) cell._pencilDigits[n].classList.remove("highlight-number-pencil");
-    });
-}
-
 function flashWrong(cell) {
     cell.classList.add("wrong");
     setTimeout(() => cell.classList.remove("wrong"), 400);
@@ -1277,7 +1226,7 @@ function getCurrentGrid() {
 }
 
 /* ==========================================================================
-   5. ADVANCED HINT ENGINE
+   5. COMPLETE & RESTORED HINT ENGINE
    ========================================================================== */
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -1293,6 +1242,32 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
+function findHiddenSingleInBox(candGrid) {
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            const boxNum = br * 3 + bc + 1;
+            for (let n = 1; n <= 9; n++) {
+                const spots = [];
+                for (let r = br * 3; r < br * 3 + 3; r++) {
+                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                        if (candGrid[r][c].includes(n)) spots.push({ r, c });
+                    }
+                }
+                if (spots.length === 1) {
+                    return {
+                        r: spots[0].r, c: spots[0].c, val: n,
+                        cells: [spots[0]],
+                        nudge: `Look in Box ${boxNum} — one missing digit has only a single valid cell left!`,
+                        techName: `Hidden Single (Box ${boxNum})`,
+                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
+                    };
+                }
+            }
+        }
+    }
+    return null;
+}
+
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1303,7 +1278,7 @@ function findNakedSingle(candGrid) {
                     cells: [{ r, c }],
                     nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 digit can legally fit here!`,
                     techName: `Naked Single Cell (${r+1}, ${c+1})`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val}.`
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — all other digits are blocked.`
                 };
             }
         }
@@ -1311,27 +1286,79 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
+function findDirectRevealFallback(candGrid, targetSolution) {
+    let minCandidates = 10;
+    let target = null;
+
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r] && candGrid[r][c] && candGrid[r][c].length > 0) {
+                if (candGrid[r][c].length < minCandidates) {
+                    minCandidates = candGrid[r][c].length;
+                    target = { r, c };
+                }
+            }
+        }
+    }
+
+    if (target) {
+        const correctVal = targetSolution[target.r][target.c];
+        return {
+            r: target.r,
+            c: target.c,
+            val: correctVal,
+            cells: [{ r: target.r, c: target.c }],
+            nudge: `Cell (${target.r+1}, ${target.c+1}) is a good cell to focus on next.`,
+            techName: `Direct Candidate Placement`,
+            explanation: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
+        };
+    }
+    return null;
+}
+
 function showHint() {
     if (gameWon) return;
-    clearNumberHighlights();
-    const pureCands = getCandidatesGrid(getCurrentGrid());
-    const hint = findNakedSingle(pureCands) || {
-        r: 0, c: 0, val: solution[0][0],
-        cells: [{ r: 0, c: 0 }],
-        nudge: "Look for open slots on the board.",
-        techName: "General Assistance",
-        explanation: "Keep scanning rows, columns, and boxes."
-    };
 
-    const cell = board.children[hint.r * 9 + hint.c];
+    if (selectedCell) selectedCell.classList.remove("selected");
+    selectedNumber = null;
+    clearNumberHighlights();
+
+    const currentGrid = getCurrentGrid();
+    const candGrid = getCandidatesGrid(currentGrid);
+
+    let hint = findNakedSingle(candGrid) || findHiddenSingleInBox(candGrid) || findDirectRevealFallback(candGrid, solution);
+
+    if (!hint) {
+        setStatusText("Board is complete!");
+        return;
+    }
+
+    const { r, c, nudge, techName, explanation } = hint;
+    const cell = board.children[r * 9 + c];
+
     cell.classList.add("highlight-least", "glow");
     setTimeout(() => cell.classList.remove("glow"), 2000);
     onCellClick(cell);
-    setStatusText(`💡 Hint: ${hint.nudge}`);
+
+    const hintKey = `${r}_${c}`;
+    if (currentHintState === hintKey) {
+        currentHintLevel = (currentHintLevel % 3) + 1;
+    } else {
+        currentHintState = hintKey;
+        currentHintLevel = 1;
+    }
+
+    if (currentHintLevel === 1) {
+        setStatusText(`💡 Tier 1 (Nudge): ${nudge}`);
+    } else if (currentHintLevel === 2) {
+        setStatusText(`💡 Tier 2 (Technique): ${techName}`);
+    } else {
+        setStatusText(`💡 Tier 3 (Solution): ${explanation}`);
+    }
 }
 
 /* ==========================================================================
-   6. GENERATOR & ASYNC TUNING WRAPPER
+   6. GENERATOR & ASYNC PUZZLE CREATOR
    ========================================================================== */
 async function createNewPuzzleAsync(difficulty, generationId = ++activeGenerationId) {
     if (difficulty === "expert" || difficulty === "master") {
@@ -1365,7 +1392,7 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
 }
 
 /* ==========================================================================
-   7. ANIMATION & WIN HANDLERS
+   7. CONFETTI & WIN HANDLER
    ========================================================================== */
 function resizeConfettiCanvas() {
     confettiCanvas.width = window.innerWidth;
@@ -1425,6 +1452,12 @@ function stopConfetti() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 }
 
+function stopBoardAnimations() {
+    winOverlay.classList.remove("visible");
+    board.classList.remove("board-win");
+    stopConfetti();
+}
+
 function onWin() {
     if (gameWon) return;
     gameWon = true;
@@ -1436,7 +1469,7 @@ function onWin() {
 }
 
 /* ==========================================================================
-   8. EVENT LISTENERS & APP INITIALIZATION
+   8. EVENT BINDINGS & INIT
    ========================================================================== */
 document.getElementById("newGameBtn").addEventListener("click", async () => {
     const diff = difficultySelect.value || "medium";
@@ -1512,7 +1545,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
 })();
 
 /* ==========================================================================
-   9. STREAMING NON-BLOCKING REGRESSION TEST HARNESS
+   9. ISOLATED NON-BLOCKING TEST HARNESS
    ========================================================================== */
 (function runAutomatedRegressionTests() {
     if (!new URLSearchParams(window.location.search).has('test')) return;
