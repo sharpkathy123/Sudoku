@@ -1518,7 +1518,7 @@ function findFullHouse(grid, candGrid) {
     return null;
 }
 
-// 2. Hidden Singles (Strict Priority Level 2: Visual Cross-Hatching)
+// 2. Hidden Singles (Strict Priority Level 2: Visual Cross-Hatching vs Candidate Uniqueness)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1532,13 +1532,29 @@ function findHiddenSingleInBox(candGrid) {
                 }
                 if (spots.length === 1) {
                     const { r, c } = spots[0];
-                    return {
-                        r, c, val: n,
-                        method: "Cross-Hatching (Hidden Single)",
-                        tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Cross-Hatching".`,
-                        tier2: `Trace filled numbers across intersecting rows and columns into Box ${boxNum}. Watch how they block empty spots until only one spot remains for a specific candidate.`,
-                        tier3: `The placed ${n}s in intersecting rows and columns block every spot in Box ${boxNum} except Row ${r+1}, Column ${c+1}. Place ${n} here!`
-                    };
+                    const currentGrid = getCurrentGrid();
+
+                    let blockedByPlacedDigits = true;
+                    for (let tr = br * 3; tr < br * 3 + 3; tr++) {
+                        for (let tc = bc * 3; tc < bc * 3 + 3; tc++) {
+                            if ((tr !== r || tc !== c) && currentGrid[tr][tc] === 0) {
+                                if (isSafe(currentGrid, tr, tc, n)) {
+                                    blockedByPlacedDigits = false;
+                                }
+                            }
+                        }
+                    }
+
+                    const method = blockedByPlacedDigits ? "Cross-Hatching" : "Hidden Single";
+                    const tier1 = `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "${method}".`;
+                    const tier2 = blockedByPlacedDigits
+                        ? `Trace filled numbers across intersecting rows and columns into Box ${boxNum}. Watch how they block empty spots until only one spot remains for a specific candidate.`
+                        : `Examine candidate notes in Box ${boxNum}. Only one open cell in this box can hold a specific candidate digit.`;
+                    const tier3 = blockedByPlacedDigits
+                        ? `The placed ${n}s in intersecting rows and columns block every spot in Box ${boxNum} except Row ${r+1}, Column ${c+1}. Place ${n} here!`
+                        : `Digit ${n} cannot go anywhere else in Box ${boxNum} based on candidate eliminations. Place ${n} in Row ${r+1}, Column ${c+1}!`;
+
+                    return { r, c, val: n, method, tier1, tier2, tier3 };
                 }
             }
         }
