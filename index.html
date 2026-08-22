@@ -1315,7 +1315,7 @@ function getCurrentGrid() {
 }
 
 /* ==========================================================================
-   5. PROGRESSIVE VALUE-NEUTRAL HINT ENGINE
+   5. BEGINNER-ACCESSIBLE VALUE-NEUTRAL HINT ENGINE
    ========================================================================== */
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -1340,10 +1340,10 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0];
             return {
                 r, c, val,
-                method: "Full House (Single Empty Cell)",
-                tier1: `Focus on Cell (${r+1}, ${c+1}) using Full House.`,
-                tier2: `Row ${r+1} has 8 numbers filled—count digits 1 through 9 across this row to find the missing one.`,
-                tier3: `Cell (${r+1}, ${c+1}) must be ${val} to complete Row ${r+1}.`
+                method: "Full House (Last Empty Cell)",
+                tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
+                tier2: `Row ${r+1} has 8 numbers filled—count 1 through 9 across this row to find the single missing number.`,
+                tier3: `Row ${r+1} is only missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
     }
@@ -1355,10 +1355,10 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0];
             return {
                 r, c, val,
-                method: "Full House (Single Empty Cell)",
-                tier1: `Focus on Cell (${r+1}, ${c+1}) using Full House.`,
-                tier2: `Column ${c+1} has 8 numbers filled—count digits 1 through 9 down this column to find the missing one.`,
-                tier3: `Cell (${r+1}, ${c+1}) must be ${val} to complete Column ${c+1}.`
+                method: "Full House (Last Empty Cell)",
+                tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
+                tier2: `Column ${c+1} has 8 numbers filled—count 1 through 9 down this column to find the single missing number.`,
+                tier3: `Column ${c+1} is only missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
     }
@@ -1376,10 +1376,10 @@ function findFullHouse(grid, candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
-                    method: "Full House (Single Empty Cell)",
-                    tier1: `Focus on Cell (${r+1}, ${c+1}) using Full House.`,
-                    tier2: `Box ${boxNum} has 8 numbers filled—count digits 1 through 9 inside this box to find the missing one.`,
-                    tier3: `Cell (${r+1}, ${c+1}) must be ${val} to complete Box ${boxNum}.`
+                    method: "Full House (Last Empty Cell)",
+                    tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Full House".`,
+                    tier2: `Box ${boxNum} has 8 numbers filled—count 1 through 9 inside this box to find the single missing number.`,
+                    tier3: `Box ${boxNum} is only missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
                 };
             }
         }
@@ -1399,12 +1399,13 @@ function findHiddenSingleInBox(candGrid) {
                     }
                 }
                 if (spots.length === 1) {
+                    const { r, c } = spots[0];
                     return {
-                        r: spots[0].r, c: spots[0].c, val: n,
-                        method: "Visual Cross-Hatching (Hidden Single)",
-                        tier1: `Focus on Cell (${spots[0].r+1}, ${spots[0].c+1}) using Visual Cross-Hatching.`,
-                        tier2: `Scan intersecting rows and columns across Box ${boxNum} to find a number blocked everywhere except this cell.`,
-                        tier3: `Digit ${n} cross-hatches into Box ${boxNum}, leaving only Cell (${spots[0].r+1}, ${spots[0].c+1}).`
+                        r, c, val: n,
+                        method: "Cross-Hatching (Scanning Lines)",
+                        tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Cross-Hatching".`,
+                        tier2: `Trace filled numbers across intersecting rows and columns into Box ${boxNum}. Watch how they block empty spots until only one spot remains.`,
+                        tier3: `The ${n}s in other rows and columns point into Box ${boxNum}, blocking every spot except Row ${r+1}, Column ${c+1}. Place ${n} here!`
                     };
                 }
             }
@@ -1418,12 +1419,13 @@ function findNakedSingle(candGrid) {
         for (let c = 0; c < 9; c++) {
             if (candGrid[r][c].length === 1) {
                 const val = candGrid[r][c][0];
+                const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
                 return {
                     r, c, val,
-                    method: "Intersection Reduction (Naked Single)",
-                    tier1: `Focus on Cell (${r+1}, ${c+1}) using Intersection Reduction.`,
-                    tier2: `Check all intersecting cells across Row ${r+1}, Column ${c+1}, and Box ${Math.floor(r/3)*3 + Math.floor(c/3) + 1} to eliminate 8 visible numbers.`,
-                    tier3: `Cell (${r+1}, ${c+1}) must be ${val}—all other 8 numbers are present in intersecting lines.`
+                    method: "Single Legal Candidate",
+                    tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Single Candidate Elimination".`,
+                    tier2: `Check Row ${r+1}, Column ${c+1}, and Box ${boxNum}. Together, they already contain 8 different numbers.`,
+                    tier3: `All digits except ${val} are already placed across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
                 };
             }
         }
@@ -1453,9 +1455,9 @@ function findDirectRevealFallback(candGrid, targetSolution) {
             c: target.c,
             val: correctVal,
             method: "Candidate Elimination",
-            tier1: `Focus on Cell (${target.r+1}, ${target.c+1}) using Candidate Elimination.`,
+            tier1: `Look at Row ${target.r+1}, Column ${target.c+1}.`,
             tier2: `Review intersecting numbers in Row ${target.r+1} and Column ${target.c+1} to narrow options down to a single choice.`,
-            tier3: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
+            tier3: `Place ${correctVal} in Row ${target.r+1}, Column ${target.c+1}.`
         };
     }
     return null;
