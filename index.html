@@ -1557,7 +1557,7 @@ function findNakedSingle(candGrid) {
                     r, c, val,
                     method: "Naked Single",
                     tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
-                    tier2: `Check Row ${r+1}, Column ${c+1}, and Box ${boxNum}. Together, they already contain 8 different numbers, leaving only 1 possible candidate (pencil mark).`,
+                    tier2: `Check Row ${r+1}, Column ${c+1}, and Box ${boxNum}. Together, their placed numbers eliminate 8 possibilities, leaving only 1 choice.`,
                     tier3: `All digits except ${val} are already placed across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
                 };
             }
