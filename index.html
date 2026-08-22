@@ -732,6 +732,44 @@ function isSafe(grid, row, col, num) {
     return true;
 }
 
+function isValidBoardState(grid) {
+    for (let r = 0; r < 9; r++) {
+        const seen = new Set();
+        for (let c = 0; c < 9; c++) {
+            const v = grid[r][c];
+            if (v !== 0) {
+                if (seen.has(v)) return false;
+                seen.add(v);
+            }
+        }
+    }
+    for (let c = 0; c < 9; c++) {
+        const seen = new Set();
+        for (let r = 0; r < 9; r++) {
+            const v = grid[r][c];
+            if (v !== 0) {
+                if (seen.has(v)) return false;
+                seen.add(v);
+            }
+        }
+    }
+    for (let b = 0; b < 9; b++) {
+        const seen = new Set();
+        const br = Math.floor(b / 3) * 3;
+        const bc = (b % 3) * 3;
+        for (let r = br; r < br + 3; r++) {
+            for (let c = bc; c < bc + 3; c++) {
+                const v = grid[r][c];
+                if (v !== 0) {
+                    if (seen.has(v)) return false;
+                    seen.add(v);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 function solveSudoku(grid) {
     for (let row = 0; row < 9; row++) {
         for (let col = 0; col < 9; col++) {
@@ -1604,32 +1642,43 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
         const seeds = difficulty === "expert" ? EXPERT_SEED_PUZZLES : MASTER_SEED_PUZZLES;
         if (seeds.length > 0) {
             const seedIndex = Math.floor(Math.random() * seeds.length);
-            return transformGridPair(seeds[seedIndex]);
+            const transformed = transformGridPair(seeds[seedIndex]);
+            
+            if (isValidBoardState(transformed.puzzle) && countSolutions(deepCopyGrid(transformed.puzzle), 2) === 1) {
+                return transformed;
+            }
         }
     }
 
     const targetGivens = difficulty === 'easy' ? 38 : (difficulty === 'medium' ? 32 : 27);
-    const fullSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
-    solveSudoku(fullSolution);
-    let puzzleGrid = deepCopyGrid(fullSolution);
+    
+    while (generationId === activeGenerationId) {
+        const fullSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
+        solveSudoku(fullSolution);
+        let puzzleGrid = deepCopyGrid(fullSolution);
 
-    const cells = [];
-    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) cells.push({ r, c });
-    cells.sort(() => Math.random() - 0.5);
+        const cells = [];
+        for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) cells.push({ r, c });
+        cells.sort(() => Math.random() - 0.5);
 
-    let currentGivens = 81;
-    for (const { r, c } of cells) {
-        if (generationId !== activeGenerationId) return null;
-        if (currentGivens <= targetGivens) break;
-        const backup = puzzleGrid[r][c];
-        puzzleGrid[r][c] = 0;
-        if (countSolutions(deepCopyGrid(puzzleGrid), 2) === 1) {
-            currentGivens--;
-        } else {
-            puzzleGrid[r][c] = backup;
+        let currentGivens = 81;
+        for (const { r, c } of cells) {
+            if (generationId !== activeGenerationId) return null;
+            if (currentGivens <= targetGivens) break;
+            const backup = puzzleGrid[r][c];
+            puzzleGrid[r][c] = 0;
+            if (countSolutions(deepCopyGrid(puzzleGrid), 2) === 1) {
+                currentGivens--;
+            } else {
+                puzzleGrid[r][c] = backup;
+            }
+        }
+
+        if (isValidBoardState(puzzleGrid) && countSolutions(deepCopyGrid(puzzleGrid), 2) === 1) {
+            return { puzzle: puzzleGrid, solution: fullSolution };
         }
     }
-    return { puzzle: puzzleGrid, solution: fullSolution };
+    return null;
 }
 
 /* ==========================================================================
@@ -1899,6 +1948,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
         async testEasyPuzzlesGenerator() {
             const res = await createNewPuzzleAsync("easy");
             assert(res !== null, "Generator returned null");
+            assert(isValidBoardState(res.puzzle), "Generated puzzle contains initial duplicates");
             assert(countSolutions(deepCopyGrid(res.puzzle), 2) === 1, "Easy puzzle lacks unique solution");
         },
 
@@ -1907,6 +1957,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
             for (const diff of difficulties) {
                 const res = await createNewPuzzleAsync(diff);
                 assert(res !== null, `${diff} generator returned null`);
+                assert(isValidBoardState(res.puzzle), `${diff} board generated with initial duplicate values`);
                 
                 const simGrid = deepCopyGrid(res.puzzle);
                 const candGrid = getCandidatesGrid(simGrid);
@@ -1925,6 +1976,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 const seed = EXPERT_SEED_PUZZLES[i];
                 const solCopy = deepCopyGrid(seed.solution);
                 assert(solveSudoku(solCopy), `Expert seed ${i} solution is invalid`);
+                assert(isValidBoardState(seed.puzzle), `Expert seed ${i} contains initial duplicate values`);
                 assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Expert seed ${i} puzzle lacks unique solution`);
             }
         },
@@ -1934,6 +1986,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 const seed = MASTER_SEED_PUZZLES[i];
                 const solCopy = deepCopyGrid(seed.solution);
                 assert(solveSudoku(solCopy), `Master seed ${i} solution is invalid`);
+                assert(isValidBoardState(seed.puzzle), `Master seed ${i} contains initial duplicate values`);
                 assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Master seed ${i} puzzle lacks unique solution`);
             }
         },
