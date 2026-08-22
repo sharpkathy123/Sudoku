@@ -308,15 +308,22 @@ h2 {
 }
 
 .top-bar,
-.controls {
+.controls-primary,
+.controls-secondary {
     display: flex;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
     width: 100%;
     max-width: 480px;
+}
+
+.controls-secondary {
+    margin-bottom: 10px;
+    padding-top: 4px;
+    border-top: 1px dashed #e2e8f0;
 }
 
 .panel-row {
@@ -332,7 +339,8 @@ h2 {
 }
 
 .top-bar select,
-.controls button,
+.controls-primary button,
+.controls-secondary button,
 #pencilToggle,
 #guardNotesToggle {
     padding: 6px 12px;
@@ -345,11 +353,28 @@ h2 {
     transition: background 0.18s, box-shadow 0.18s, transform 0.08s, border-color 0.18s;
 }
 
-.controls button:hover,
+.controls-primary button:hover,
+.controls-secondary button:hover,
 #pencilToggle:hover,
 #guardNotesToggle:hover {
     background: #eef2ff;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.btn-primary {
+    background: #eff6ff !important;
+    border-color: #93c5fd !important;
+    font-weight: 600;
+}
+
+.btn-danger {
+    color: #991b1b !important;
+    background: #fff5f5 !important;
+    border-color: #fca5a5 !important;
+}
+
+.btn-danger:hover {
+    background: #fee2e2 !important;
 }
 
 #pencilToggle {
@@ -604,14 +629,19 @@ h2 {
         </select>
     </div>
 
-   <div class="controls">
+   <!-- PRIMARY HIGH-FREQUENCY CONTROLS -->
+   <div class="controls-primary">
        <button id="newGameBtn">New Game</button>
-       <button id="restartBtn">Restart Game</button>
-       <button id="guardNotesToggle" class="active">Guard Notes: ON</button>
-       <button id="autoPencilBtn">Auto‑Notes</button>
-       <button id="clearNotesBtn">Clear Notes</button>
+       <button id="HintBtn" class="btn-primary">Hint</button>
        <button id="highlightLeastBtn">Highlight Fullest</button>
-       <button id="HintBtn">Hint</button>
+       <button id="autoPencilBtn" title="Automatically fills legal pencil notes for all empty cells">Auto‑Notes</button>
+       <button id="guardNotesToggle" class="active" title="Prevents adding invalid candidates or removing correct pencil notes">Guard Notes: ON</button>
+   </div>
+
+   <!-- ISOLATED DESTRUCTIVE CONTROLS -->
+   <div class="controls-secondary">
+       <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
+       <button id="restartBtn" class="btn-danger">Restart Game</button>
    </div>
 
     <div class="input-section">
@@ -1190,6 +1220,10 @@ guardNotesToggle.addEventListener("click", () => {
     guardNotesMode = !guardNotesMode;
     guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
+    
+    setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`);
+    setTimeout(() => { if (statusEl.textContent.startsWith("Guard Notes")) setStatusText(""); }, 3000);
+    
     saveGameState();
 });
 
@@ -1240,7 +1274,7 @@ function autoFillAllPencils() {
         }
     }
     saveGameState();
-    setStatusText(`Auto-Notes generated ${notesAdded} candidates.`);
+    setStatusText(`Auto-Notes: Calculated ${notesAdded} legal candidates.`);
     setTimeout(() => { if (statusEl.textContent.startsWith("Auto-Notes")) setStatusText(""); }, 2500);
 }
 
@@ -1286,9 +1320,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// TIER 1: FULL HOUSE (Unit with exactly 8 numbers filled)
 function findFullHouse(grid, candGrid) {
-    // Check Rows
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
         for (let c = 0; c < 9; c++) if (grid[r][c] === 0) emptyCols.push(c);
@@ -1303,7 +1335,6 @@ function findFullHouse(grid, candGrid) {
             };
         }
     }
-    // Check Columns
     for (let c = 0; c < 9; c++) {
         const emptyRows = [];
         for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyRows.push(r);
@@ -1318,7 +1349,6 @@ function findFullHouse(grid, candGrid) {
             };
         }
     }
-    // Check Boxes
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             const empty = [];
@@ -1343,7 +1373,6 @@ function findFullHouse(grid, candGrid) {
     return null;
 }
 
-// TIER 2: NAKED SINGLE (Cell with only 1 legal candidate remaining)
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1361,7 +1390,6 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// TIER 3: HIDDEN SINGLE (Digit that can only fit in one cell within a Box)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1387,7 +1415,6 @@ function findHiddenSingleInBox(candGrid) {
     return null;
 }
 
-// TIER 4: DIRECT PLACEMENT FALLBACK (Master/Expert Puzzles)
 function findDirectRevealFallback(candGrid, targetSolution) {
     let minCandidates = 10;
     let target = null;
@@ -1417,7 +1444,6 @@ function findDirectRevealFallback(candGrid, targetSolution) {
     return null;
 }
 
-// HUMAN LEARNING PROGRESSION HINT DISPATCHER
 function showHint() {
     if (gameWon) return;
 
@@ -1428,7 +1454,6 @@ function showHint() {
     const currentGrid = getCurrentGrid();
     const candGrid = getCandidatesGrid(currentGrid);
 
-    // Progression: Full House -> Naked Single -> Hidden Single -> Direct Placement
     let hint = findFullHouse(currentGrid, candGrid) || 
                findNakedSingle(candGrid) || 
                findHiddenSingleInBox(candGrid) || 
@@ -1610,7 +1635,7 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
         if (!givenMask[r][c]) clearAllPencilsInCell(cell);
     });
     saveGameState();
-    setStatusText("Cleared all pencil notes.");
+    setStatusText("Cleared all pencil notes across the board.");
     setTimeout(() => { if (statusEl.textContent.startsWith("Cleared")) setStatusText(""); }, 2000);
 });
 
