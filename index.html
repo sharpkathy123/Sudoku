@@ -1581,28 +1581,71 @@ function findLockedCandidates(candGrid) {
                     const sameRow = boxCells.every(cell => cell.r === boxCells[0].r);
                     if (sameRow) {
                         const r = boxCells[0].r;
-                        return {
-                            r: boxCells[0].r,
-                            c: boxCells[0].c,
-                            val: solution[boxCells[0].r][boxCells[0].c],
-                            method: "Pointing Pairs/Triples",
-                            tier1: `Look at Row ${r+1} inside Box ${br*3+bc+1}. Try using "Pointing Candidates".`,
-                            tier2: `All candidate (pencil mark) locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Row ${r+1}.`,
-                            tier3: `Since ${n} must go in Row ${r+1} within Box ${br*3+bc+1}, eliminate ${n} elsewhere along Row ${r+1}. Place ${solution[boxCells[0].r][boxCells[0].c]} in Row ${boxCells[0].r+1}, Column ${boxCells[0].c+1}!`
-                        };
+                        const boxNum = br * 3 + bc + 1;
+                        
+                        let affectsOtherCellsInRow = false;
+                        for (let c = 0; c < 9; c++) {
+                            if (c < bc * 3 || c >= bc * 3 + 3) {
+                                if (candGrid[r][c].includes(n)) {
+                                    affectsOtherCellsInRow = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (affectsOtherCellsInRow) {
+                            const targetR = boxCells[0].r;
+                            const targetC = boxCells[0].c;
+                            const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
+                            const makesSingle = targetCands.length === 1;
+
+                            return {
+                                r: targetR,
+                                c: targetC,
+                                val: solution[targetR][targetC],
+                                method: "Pointing Pairs/Triples",
+                                tier1: `Look at Row ${r+1} inside Box ${boxNum}. Try using "Pointing Candidates".`,
+                                tier2: `All candidate locations for digit ${n} inside Box ${boxNum} align strictly on Row ${r+1}.`,
+                                tier3: makesSingle 
+                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate ${n} elsewhere along Row ${r+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                    : `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil candidate ${n} from all other cells in Row ${r+1}.`
+                            };
+                        }
                     }
+
                     const sameCol = boxCells.every(cell => cell.c === boxCells[0].c);
                     if (sameCol) {
                         const c = boxCells[0].c;
-                        return {
-                            r: boxCells[0].r,
-                            c: boxCells[0].c,
-                            val: solution[boxCells[0].r][boxCells[0].c],
-                            method: "Pointing Pairs/Triples",
-                            tier1: `Look at Column ${c+1} inside Box ${br*3+bc+1}. Try using "Pointing Candidates".`,
-                            tier2: `All candidate (pencil mark) locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Column ${c+1}.`,
-                            tier3: `Since ${n} must go in Column ${c+1} within Box ${br*3+bc+1}, eliminate ${n} elsewhere along Column ${c+1}. Place ${solution[boxCells[0].r][boxCells[0].c]} in Row ${boxCells[0].r+1}, Column ${boxCells[0].c+1}!`
-                        };
+                        const boxNum = br * 3 + bc + 1;
+
+                        let affectsOtherCellsInCol = false;
+                        for (let r = 0; r < 9; r++) {
+                            if (r < br * 3 || r >= br * 3 + 3) {
+                                if (candGrid[r][c].includes(n)) {
+                                    affectsOtherCellsInCol = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (affectsOtherCellsInCol) {
+                            const targetR = boxCells[0].r;
+                            const targetC = boxCells[0].c;
+                            const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
+                            const makesSingle = targetCands.length === 1;
+
+                            return {
+                                r: targetR,
+                                c: targetC,
+                                val: solution[targetR][targetC],
+                                method: "Pointing Pairs/Triples",
+                                tier1: `Look at Column ${c+1} inside Box ${boxNum}. Try using "Pointing Candidates".`,
+                                tier2: `All candidate locations for digit ${n} inside Box ${boxNum} align strictly on Column ${c+1}.`,
+                                tier3: makesSingle
+                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate ${n} elsewhere along Column ${c+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                    : `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil candidate ${n} from all other cells in Column ${c+1}.`
+                            };
+                        }
                     }
                 }
             }
@@ -1625,7 +1668,7 @@ function findNakedPair(candGrid) {
                             method: "Naked Pair",
                             tier1: `Look at Row ${r+1}, Columns ${c1+1} & ${c2+1}. Try using "Naked Pair".`,
                             tier2: `Cells in Row ${r+1} at Columns ${c1+1} and ${c2+1} share the exact same candidate pair (pencil marks [${pair.join(', ')}]).`,
-                            tier3: `Since candidates ${pair.join(' and ')} are locked into Row ${r+1}, place ${solution[r][c1]} in Row ${r+1}, Column ${c1+1}!`
+                            tier3: `Since candidates ${pair.join(' and ')} are locked into Row ${r+1}, eliminate them from the rest of Row ${r+1}.`
                         };
                     }
                 }
@@ -1660,7 +1703,7 @@ function findXWing(candGrid) {
                             method: "X-Wing",
                             tier1: `Look at Rows ${r1+1} & ${r2+1} at Columns ${c1+1} & ${c2+1}. Try using "X-Wing".`,
                             tier2: `The candidate ${n} forms a rectangle across Rows ${r1+1} and ${r2+1} in Columns ${c1+1} and ${c2+1}.`,
-                            tier3: `Because ${n} must occupy two diagonal corners of this rectangle, eliminate candidate ${n} from all other cells in Columns ${c1+1} and ${c2+1}. Place ${solution[r1][c1]} in Row ${r1+1}, Column ${c1+1}!`
+                            tier3: `Because ${n} must occupy two diagonal corners of this rectangle, eliminate candidate ${n} from all other cells in Columns ${c1+1} and ${c2+1}.`
                         };
                     }
                 }
