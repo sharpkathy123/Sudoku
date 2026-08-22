@@ -636,12 +636,12 @@ h2 {
    <div class="controls-gameplay">
        <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
        <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
-       <button id="autoPencilBtn" title="Automatically fills pencil candidates into all open spaces">Auto‑Pencil</button>
-       <button id="guardNotesToggle" class="active" title="Prevents adding invalid pencil numbers or removing correct marks">Guard Pencil: ON</button>
+       <button id="autoPencilBtn" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
+       <button id="guardNotesToggle" class="active" title="Prevents adding invalid pencil marks or removing correct ones">Guard Pencil: ON</button>
    </div>
 
     <div class="input-section">
-        <button id="pencilToggle" title="Toggle writing small pencil numbers vs solid final answers">Pencil Mode: OFF</button>
+        <button id="pencilToggle" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
         <div class="number-bar" id="numberBar"></div>
     </div>
 
@@ -957,7 +957,7 @@ function transformGridPair(seedObj) {
    3. BOARD UI BUILDING & HIGHLIGHTING
    ========================================================================== */
 function showGeneratingStatus(text = "Generating puzzle...") {
-    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
+    const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0-.43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
 }
 
@@ -1399,7 +1399,7 @@ function autoFillAllPencils() {
         }
     }
     saveGameState();
-    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil candidates.`, 5000);
+    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil marks.`, 5000);
 }
 
 function flashWrong(cell) {
@@ -1461,7 +1461,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// 1. Full House (Strict Priority Level 1: Visual Counting)
+// 1. Full House (Visual Scanning)
 function findFullHouse(grid, candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1518,7 +1518,7 @@ function findFullHouse(grid, candGrid) {
     return null;
 }
 
-// 2. Hidden Singles (Strict Priority Level 2: Visual Cross-Hatching vs Candidate Uniqueness)
+// 2. Hidden Singles / Cross-Hatching (Visual Cross-Hatching vs Pencil Mark Uniqueness)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1549,7 +1549,7 @@ function findHiddenSingleInBox(candGrid) {
                     const tier1 = `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "${method}".`;
                     const tier2 = blockedByPlacedDigits
                         ? `Trace filled numbers across intersecting rows and columns into Box ${boxNum}. Watch how they block empty spots until only one spot remains for a specific candidate.`
-                        : `Examine candidate notes in Box ${boxNum}. Only one open cell in this box can hold a specific candidate digit.`;
+                        : `Examine pencil marks in Box ${boxNum}. Only one open cell in this box can hold a specific missing digit.`;
                     const tier3 = blockedByPlacedDigits
                         ? `The placed ${n}s in intersecting rows and columns block every spot in Box ${boxNum} except Row ${r+1}, Column ${c+1}. Place ${n} here!`
                         : `Digit ${n} cannot go anywhere else in Box ${boxNum} based on candidate eliminations. Place ${n} in Row ${r+1}, Column ${c+1}!`;
@@ -1562,7 +1562,7 @@ function findHiddenSingleInBox(candGrid) {
     return null;
 }
 
-// 3. Naked Singles (Strict Priority Level 3: Visual Intersection Check)
+// 3. Naked Singles (Visual Intersection Check)
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1573,7 +1573,7 @@ function findNakedSingle(candGrid) {
                     r, c, val,
                     method: "Naked Single",
                     tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
-                    tier2: `Look at the numbers already placed in Row ${r+1}, Column ${c+1}, and Box ${boxNum}. They eliminate 8 out of the 9 digits, leaving only 1 valid candidate for this cell.`,
+                    tier2: `Look at the numbers already placed in Row ${r+1}, Column ${c+1}, and Box ${boxNum}. They eliminate 8 out of the 9 digits, leaving only 1 valid choice for this cell.`,
                     tier3: `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
                 };
             }
@@ -1582,7 +1582,7 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// 4. Pointing Pairs / Triples & Claiming (Locked Candidates - Advanced Pencil Technique)
+// 4. Pointing Pairs/Triples & Claiming Candidates (Locked Candidates - Advanced Pencil Technique)
 function findLockedCandidates(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1614,17 +1614,18 @@ function findLockedCandidates(candGrid) {
                             const targetC = boxCells[0].c;
                             const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
                             const makesSingle = targetCands.length === 1;
+                            const methodName = boxCells.length === 2 ? "Pointing Pair" : "Pointing Triple";
 
                             return {
                                 r: targetR,
                                 c: targetC,
                                 val: solution[targetR][targetC],
-                                method: "Pointing Pairs/Triples",
-                                tier1: `Look at Row ${r+1} inside Box ${boxNum}. Try using "Pointing Candidates".`,
-                                tier2: `Inside Box ${boxNum}, all possible locations for one candidate digit align strictly on Row ${r+1}.`,
+                                method: methodName,
+                                tier1: `Look at Row ${r+1} inside Box ${boxNum}. Try using "${methodName}".`,
+                                tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Row ${r+1}.`,
                                 tier3: makesSingle 
-                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate candidate ${n} elsewhere along Row ${r+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
-                                    : `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil candidate ${n} from all other cells outside Box ${boxNum} along Row ${r+1}.`
+                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                    : `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} from all other cells outside Box ${boxNum} along Row ${r+1}.`
                             };
                         }
                     }
@@ -1649,17 +1650,18 @@ function findLockedCandidates(candGrid) {
                             const targetC = boxCells[0].c;
                             const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
                             const makesSingle = targetCands.length === 1;
+                            const methodName = boxCells.length === 2 ? "Pointing Pair" : "Pointing Triple";
 
                             return {
                                 r: targetR,
                                 c: targetC,
                                 val: solution[targetR][targetC],
-                                method: "Pointing Pairs/Triples",
-                                tier1: `Look at Column ${c+1} inside Box ${boxNum}. Try using "Pointing Candidates".`,
-                                tier2: `Inside Box ${boxNum}, all possible locations for one candidate digit align strictly on Column ${c+1}.`,
+                                method: methodName,
+                                tier1: `Look at Column ${c+1} inside Box ${boxNum}. Try using "${methodName}".`,
+                                tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Column ${c+1}.`,
                                 tier3: makesSingle
-                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate candidate ${n} elsewhere along Column ${c+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
-                                    : `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil candidate ${n} from all other cells outside Box ${boxNum} along Column ${c+1}.`
+                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                    : `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} from all other cells outside Box ${boxNum} along Column ${c+1}.`
                             };
                         }
                     }
@@ -1683,8 +1685,8 @@ function findNakedPair(candGrid) {
                             val: solution[r][c1],
                             method: "Naked Pair",
                             tier1: `Look at Row ${r+1}, Columns ${c1+1} & ${c2+1}. Try using "Naked Pair".`,
-                            tier2: `Row ${r+1} contains two cells (at Columns ${c1+1} and ${c2+1}) that share the exact same candidate pair.`,
-                            tier3: `Because ${pair.join(' and ')} must fill those two cells in Row ${r+1}, eliminate candidates ${pair.join(' and ')} from all other cells in Row ${r+1}.`
+                            tier2: `Row ${r+1} contains two cells (at Columns ${c1+1} and ${c2+1}) that share the exact same two candidate numbers.`,
+                            tier3: `Because ${pair.join(' and ')} must fill those two cells in Row ${r+1}, eliminate pencil marks ${pair.join(' and ')} from all other cells in Row ${r+1}.`
                         };
                     }
                 }
@@ -1719,7 +1721,7 @@ function findXWing(candGrid) {
                             method: "X-Wing",
                             tier1: `Look at Rows ${r1+1} & ${r2+1} at Columns ${c1+1} & ${c2+1}. Try using "X-Wing".`,
                             tier2: `A candidate digit appears in exactly two cells in Row ${r1+1} and two cells in Row ${r2+1}, sharing Columns ${c1+1} and ${c2+1} to form a rectangle.`,
-                            tier3: `Because digit ${n} must occupy two diagonal corners of this rectangle, candidate ${n} can be eliminated from all other cells in Columns ${c1+1} and ${c2+1}.`
+                            tier3: `Because digit ${n} must occupy two diagonal corners of this rectangle, pencil mark ${n} can be eliminated from all other cells in Columns ${c1+1} and ${c2+1}.`
                         };
                     }
                 }
@@ -1738,7 +1740,7 @@ function findDirectRevealFallback(currentGrid, targetSolution) {
                 const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
                 return {
                     r, c, val: correctVal,
-                    method: "Fallback Strategic Elimination",
+                    method: "Fallback Elimination",
                     tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}.`,
                     tier2: `Examine intersecting values across Row ${r+1}, Column ${c+1}, and Box ${boxNum} to narrow down the missing number.`,
                     tier3: `Place ${correctVal} in Row ${r+1}, Column ${c+1}.`
@@ -1774,7 +1776,7 @@ function showHint() {
                findDirectRevealFallback(currentGrid, solution);
 
     if (!hint) {
-        setStatusText("No logical step found. Try adjusting placed candidates.");
+        setStatusText("No more hints available.");
         return;
     }
 
