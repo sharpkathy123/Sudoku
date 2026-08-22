@@ -1451,7 +1451,7 @@ function findFullHouse(grid, candGrid) {
         for (let c = 0; c < 9; c++) if (grid[r][c] === 0) emptyCols.push(c);
         if (emptyCols.length === 1) {
             const c = emptyCols[0];
-            const val = candGrid[r][c][0];
+            const val = candGrid[r][c][0] || solution[r][c];
             return {
                 r, c, val,
                 method: "Full House (Last Empty Cell)",
@@ -1466,7 +1466,7 @@ function findFullHouse(grid, candGrid) {
         for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyRows.push(r);
         if (emptyRows.length === 1) {
             const r = emptyRows[0];
-            const val = candGrid[r][c][0];
+            const val = candGrid[r][c][0] || solution[r][c];
             return {
                 r, c, val,
                 method: "Full House (Last Empty Cell)",
@@ -1487,7 +1487,7 @@ function findFullHouse(grid, candGrid) {
             if (empty.length === 1) {
                 const { r, c } = empty[0];
                 const boxNum = br * 3 + bc + 1;
-                const val = candGrid[r][c][0];
+                const val = candGrid[r][c][0] || solution[r][c];
                 return {
                     r, c, val,
                     method: "Full House (Last Empty Cell)",
@@ -1547,32 +1547,22 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-function findDirectRevealFallback(candGrid, targetSolution) {
-    let minCandidates = 10;
-    let target = null;
-
+function findDirectRevealFallback(currentGrid, targetSolution) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            if (candGrid[r] && candGrid[r][c] && candGrid[r][c].length > 0) {
-                if (candGrid[r][c].length < minCandidates) {
-                    minCandidates = candGrid[r][c].length;
-                    target = { r, c };
-                }
+            if (currentGrid[r][c] === 0) {
+                const correctVal = targetSolution[r][c];
+                return {
+                    r,
+                    c,
+                    val: correctVal,
+                    method: "Candidate Elimination",
+                    tier1: `Look at Row ${r+1}, Column ${c+1}.`,
+                    tier2: `Review intersecting numbers in Row ${r+1} and Column ${c+1} to narrow options down to a single choice.`,
+                    tier3: `Place ${correctVal} in Row ${r+1}, Column ${c+1}.`
+                };
             }
         }
-    }
-
-    if (target) {
-        const correctVal = targetSolution[target.r][target.c];
-        return {
-            r: target.r,
-            c: target.c,
-            val: correctVal,
-            method: "Candidate Elimination",
-            tier1: `Look at Row ${target.r+1}, Column ${target.c+1}.`,
-            tier2: `Review intersecting numbers in Row ${target.r+1} and Column ${target.c+1} to narrow options down to a single choice.`,
-            tier3: `Place ${correctVal} in Row ${target.r+1}, Column ${target.c+1}.`
-        };
     }
     return null;
 }
@@ -1808,14 +1798,19 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
 
     const grid = getCurrentGrid();
     let minEmpty = 10;
-    let bestUnit = null; // { type: 'row'|'col'|'box'|'digit', index: number, emptyCount: number }
+    const bestUnits = []; // Holds all units tied for min empty count
 
     // 1. Scan Rows
     for (let r = 0; r < 9; r++) {
         const emptyCount = grid[r].filter(val => val === 0).length;
-        if (emptyCount > 0 && emptyCount < minEmpty) {
-            minEmpty = emptyCount;
-            bestUnit = { type: 'row', index: r, emptyCount };
+        if (emptyCount > 0) {
+            if (emptyCount < minEmpty) {
+                minEmpty = emptyCount;
+                bestUnits.length = 0;
+                bestUnits.push({ type: 'row', index: r, emptyCount });
+            } else if (emptyCount === minEmpty) {
+                bestUnits.push({ type: 'row', index: r, emptyCount });
+            }
         }
     }
 
@@ -1823,9 +1818,14 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     for (let c = 0; c < 9; c++) {
         let emptyCount = 0;
         for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyCount++;
-        if (emptyCount > 0 && emptyCount < minEmpty) {
-            minEmpty = emptyCount;
-            bestUnit = { type: 'col', index: c, emptyCount };
+        if (emptyCount > 0) {
+            if (emptyCount < minEmpty) {
+                minEmpty = emptyCount;
+                bestUnits.length = 0;
+                bestUnits.push({ type: 'col', index: c, emptyCount });
+            } else if (emptyCount === minEmpty) {
+                bestUnits.push({ type: 'col', index: c, emptyCount });
+            }
         }
     }
 
@@ -1837,9 +1837,14 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
         for (let r = br; r < br + 3; r++) {
             for (let c = bc; c < bc + 3; c++) if (grid[r][c] === 0) emptyCount++;
         }
-        if (emptyCount > 0 && emptyCount < minEmpty) {
-            minEmpty = emptyCount;
-            bestUnit = { type: 'box', index: b, emptyCount };
+        if (emptyCount > 0) {
+            if (emptyCount < minEmpty) {
+                minEmpty = emptyCount;
+                bestUnits.length = 0;
+                bestUnits.push({ type: 'box', index: b, emptyCount });
+            } else if (emptyCount === minEmpty) {
+                bestUnits.push({ type: 'box', index: b, emptyCount });
+            }
         }
     }
 
@@ -1847,45 +1852,54 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     for (let n = 1; n <= 9; n++) {
         const placedCount = placements[n] ? placements[n].length : 0;
         const emptyCount = 9 - placedCount;
-        if (emptyCount > 0 && emptyCount < minEmpty) {
-            minEmpty = emptyCount;
-            bestUnit = { type: 'digit', index: n, emptyCount };
+        if (emptyCount > 0) {
+            if (emptyCount < minEmpty) {
+                minEmpty = emptyCount;
+                bestUnits.length = 0;
+                bestUnits.push({ type: 'digit', index: n, emptyCount });
+            } else if (emptyCount === minEmpty) {
+                bestUnits.push({ type: 'digit', index: n, emptyCount });
+            }
         }
     }
 
-    if (!bestUnit) {
+    if (bestUnits.length === 0) {
         setStatusText("All units are completely filled!", 3000);
         return;
     }
 
-    // Highlight target unit cells
-    const cellsToHighlight = [];
-    if (bestUnit.type === 'row') {
-        const r = bestUnit.index;
-        for (let c = 0; c < 9; c++) cellsToHighlight.push(r * 9 + c);
-        setStatusText(`Highlighting Row ${r+1}—only ${bestUnit.emptyCount} empty cell${bestUnit.emptyCount > 1 ? 's' : ''} remaining!`, 4000);
-    } else if (bestUnit.type === 'col') {
-        const c = bestUnit.index;
-        for (let r = 0; r < 9; r++) cellsToHighlight.push(r * 9 + c);
-        setStatusText(`Highlighting Column ${c+1}—only ${bestUnit.emptyCount} empty cell${bestUnit.emptyCount > 1 ? 's' : ''} remaining!`, 4000);
-    } else if (bestUnit.type === 'box') {
-        const b = bestUnit.index;
-        const br = Math.floor(b / 3) * 3;
-        const bc = (b % 3) * 3;
-        for (let r = br; r < br + 3; r++) {
-            for (let c = bc; c < bc + 3; c++) cellsToHighlight.push(r * 9 + c);
+    // Highlight target unit cells across all matching units
+    const cellsToHighlight = new Set();
+    const unitDescriptions = [];
+
+    bestUnits.forEach(unit => {
+        if (unit.type === 'row') {
+            const r = unit.index;
+            for (let c = 0; c < 9; c++) cellsToHighlight.add(r * 9 + c);
+            unitDescriptions.push(`Row ${r+1}`);
+        } else if (unit.type === 'col') {
+            const c = unit.index;
+            for (let r = 0; r < 9; r++) cellsToHighlight.add(r * 9 + c);
+            unitDescriptions.push(`Col ${c+1}`);
+        } else if (unit.type === 'box') {
+            const b = unit.index;
+            const br = Math.floor(b / 3) * 3;
+            const bc = (b % 3) * 3;
+            for (let r = br; r < br + 3; r++) {
+                for (let c = bc; c < bc + 3; c++) cellsToHighlight.add(r * 9 + c);
+            }
+            unitDescriptions.push(`Box ${b+1}`);
+        } else if (unit.type === 'digit') {
+            const n = unit.index;
+            if (placements[n]) {
+                placements[n].forEach(idx => cellsToHighlight.add(idx));
+            }
+            unitDescriptions.push(`Digit ${n}`);
         }
-        setStatusText(`Highlighting Box ${b+1}—only ${bestUnit.emptyCount} empty cell${bestUnit.emptyCount > 1 ? 's' : ''} remaining!`, 4000);
-    } else if (bestUnit.type === 'digit') {
-        const n = bestUnit.index;
-        selectedNumber = n;
-        updateNumberTileStyles();
-        highlightSameNumbers(n);
-        setStatusText(`Highlighting Digit ${n}—only ${bestUnit.emptyCount} left to place!`, 4000);
-        return;
-    }
+    });
 
     cellsToHighlight.forEach(idx => board.children[idx].classList.add("highlight-least"));
+    setStatusText(`Highlighting fullest area(s) [${unitDescriptions.join(", ")}] — only ${minEmpty} empty space(s) remaining!`, 4000);
 });
 
 difficultySelect.addEventListener("change", async () => {
