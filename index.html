@@ -902,9 +902,7 @@ function sanitizeAndRepairSeed(seedObj) {
     if (seedObj.puzzle.length !== 9 || seedObj.solution.length !== 9) return null;
 
     const testPuzzle = deepCopyGrid(seedObj.puzzle);
-    const numSolutions = countSolutions(deepCopyGrid(testPuzzle), 2);
-
-    if (numSolutions === 1) {
+    if (isValidBoardState(testPuzzle) && countSolutions(deepCopyGrid(testPuzzle), 2) === 1) {
         return seedObj;
     }
 
@@ -918,11 +916,15 @@ function sanitizeAndRepairSeed(seedObj) {
         if (givens <= 26) break;
         const backup = repairedPuzzle[r][c];
         repairedPuzzle[r][c] = 0;
-        if (countSolutions(deepCopyGrid(repairedPuzzle), 2) !== 1) {
+        if (countSolutions(deepCopyGrid(repairedPuzzle), 2) !== 1 || !isValidBoardState(repairedPuzzle)) {
             repairedPuzzle[r][c] = backup;
         } else {
             givens--;
         }
+    }
+
+    if (!isValidBoardState(repairedPuzzle) || countSolutions(deepCopyGrid(repairedPuzzle), 2) !== 1) {
+        return null;
     }
 
     return { puzzle: repairedPuzzle, solution: seedObj.solution };
