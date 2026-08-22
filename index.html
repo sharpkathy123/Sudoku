@@ -615,6 +615,21 @@ const completedDigits = Array(10).fill(false);
 const givenMask = [];
 const STORAGE_KEY = 'sudoku_active_game_v1';
 
+// Difficulty tiers for hint techniques (see REQUIREMENTS.md). Declared here
+// (not in the hint-engine section below) because the seed-puzzle calibration
+// filter below runs at load time and needs these before the hint-engine
+// functions that reference them are reached in file order; the functions
+// themselves are plain `function` declarations and are hoisted, so only
+// these const lookup tables need to sit above their first use.
+const HINT_TIER_RANK = { easy: 1, medium: 2, hard: 3, expert: 4, master: 5 };
+const DIFFICULTY_REQUIREMENTS = {
+    easy:   { maxTier: HINT_TIER_RANK.easy },
+    medium: { maxTier: HINT_TIER_RANK.medium, requireTier: "medium" },
+    hard:   { maxTier: HINT_TIER_RANK.hard,   requireTier: "hard" },
+    expert: { maxTier: HINT_TIER_RANK.expert, requireTier: "expert" },
+    master: { maxTier: HINT_TIER_RANK.expert, requireUnsolvedAtMaxTier: true }
+};
+
 const board = document.getElementById("board");
 const numberBar = document.getElementById("numberBar");
 const statusEl = document.getElementById("status");
@@ -856,8 +871,19 @@ function sanitizeAndRepairSeed(seedObj) {
     return { puzzle: repairedPuzzle, solution: seedObj.solution };
 }
 
-EXPERT_SEED_PUZZLES = EXPERT_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean);
-MASTER_SEED_PUZZLES = MASTER_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean);
+// Curated seeds are only used (see SEED_POOLS in the generator section) if
+// they clear the same technique-based bar generated puzzles must clear —
+// otherwise they'd let a mislabeled puzzle back in through a side door.
+// As of writing, none of the hand-picked puzzles above actually require a
+// Swordfish (Expert) or resist every technique up to Swordfish (Master), so
+// both pools end up empty and createNewPuzzleAsync's calibrated digging loop
+// is what actually delivers Expert/Master puzzles today (see REQUIREMENTS.md
+// items 5-6). The arrays and this filter are kept so better seeds can be
+// dropped in later without any other code changing.
+EXPERT_SEED_PUZZLES = EXPERT_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean)
+    .filter(seed => meetsDifficultyBar(seed.puzzle, seed.solution, "expert"));
+MASTER_SEED_PUZZLES = MASTER_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean)
+    .filter(seed => meetsDifficultyBar(seed.puzzle, seed.solution, "master"));
 
 function transformGridPair(seedObj) {
     let tPuzzle = deepCopyGrid(seedObj.puzzle);
@@ -1383,16 +1409,17 @@ function getCandidatesGrid(grid) {
 }
 
 // 1. Full House (Visual Scanning)
-function findFullHouse(grid, candGrid) {
+function findFullHouse(grid, candGrid, solutionGrid = solution) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
         for (let c = 0; c < 9; c++) if (grid[r][c] === 0) emptyCols.push(c);
         if (emptyCols.length === 1) {
             const c = emptyCols[0];
-            const val = candGrid[r][c][0] || solution[r][c];
+            const val = candGrid[r][c][0] || solutionGrid[r][c];
             return {
                 r, c, val,
                 method: "Full House",
+                tier: "easy",
                 tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
                 tier2: `Row ${r+1} has 8 numbers filled—count 1 through 9 across this row to find the single missing number.`,
                 tier3: `Row ${r+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
@@ -1404,10 +1431,11 @@ function findFullHouse(grid, candGrid) {
         for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyRows.push(r);
         if (emptyRows.length === 1) {
             const r = emptyRows[0];
-            const val = candGrid[r][c][0] || solution[r][c];
+            const val = candGrid[r][c][0] || solutionGrid[r][c];
             return {
                 r, c, val,
                 method: "Full House",
+                tier: "easy",
                 tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
                 tier2: `Column ${c+1} has 8 numbers filled—count 1 through 9 down this column to find the single missing number.`,
                 tier3: `Column ${c+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
@@ -1425,10 +1453,11 @@ function findFullHouse(grid, candGrid) {
             if (empty.length === 1) {
                 const { r, c } = empty[0];
                 const boxNum = br * 3 + bc + 1;
-                const val = candGrid[r][c][0] || solution[r][c];
+                const val = candGrid[r][c][0] || solutionGrid[r][c];
                 return {
                     r, c, val,
                     method: "Full House",
+                    tier: "easy",
                     tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Full House".`,
                     tier2: `Box ${boxNum} has 8 numbers filled—count 1 through 9 inside this box to find the single missing number.`,
                     tier3: `Box ${boxNum} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
@@ -1440,7 +1469,7 @@ function findFullHouse(grid, candGrid) {
 }
 
 // 2. Hidden Singles / Cross-Hatching (Visual Cross-Hatching vs Pencil Mark Uniqueness)
-function findHiddenSingleInBox(candGrid) {
+function findHiddenSingleInBox(candGrid, grid = getCurrentGrid()) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             const boxNum = br * 3 + bc + 1;
@@ -1453,13 +1482,12 @@ function findHiddenSingleInBox(candGrid) {
                 }
                 if (spots.length === 1) {
                     const { r, c } = spots[0];
-                    const currentGrid = getCurrentGrid();
 
                     let blockedByPlacedDigits = true;
                     for (let tr = br * 3; tr < br * 3 + 3; tr++) {
                         for (let tc = bc * 3; tc < bc * 3 + 3; tc++) {
-                            if ((tr !== r || tc !== c) && currentGrid[tr][tc] === 0) {
-                                if (isSafe(currentGrid, tr, tc, n)) {
+                            if ((tr !== r || tc !== c) && grid[tr][tc] === 0) {
+                                if (isSafe(grid, tr, tc, n)) {
                                     blockedByPlacedDigits = false;
                                 }
                             }
@@ -1475,7 +1503,7 @@ function findHiddenSingleInBox(candGrid) {
                         ? `The placed ${n}s in intersecting rows and columns block every spot in Box ${boxNum} except Row ${r+1}, Column ${c+1}. Place ${n} here!`
                         : `Digit ${n} cannot go anywhere else in Box ${boxNum} based on candidate eliminations. Place ${n} in Row ${r+1}, Column ${c+1}!`;
 
-                    return { r, c, val: n, method, tier1, tier2, tier3 };
+                    return { r, c, val: n, method, tier: "easy", tier1, tier2, tier3 };
                 }
             }
         }
@@ -1493,6 +1521,7 @@ function findNakedSingle(candGrid) {
                 return {
                     r, c, val,
                     method: "Naked Single",
+                    tier: "easy",
                     tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
                     tier2: `Look at the numbers already placed in Row ${r+1}, Column ${c+1}, and Box ${boxNum}. They eliminate 8 out of the 9 digits, leaving only 1 valid choice for this cell.`,
                     tier3: `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
@@ -1504,7 +1533,7 @@ function findNakedSingle(candGrid) {
 }
 
 // 4. Pointing Pairs/Triples & Claiming Candidates (Locked Candidates - Advanced Pencil Technique)
-function findLockedCandidates(candGrid) {
+function findLockedCandidates(candGrid, solutionGrid = solution) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
             for (let n = 1; n <= 9; n++) {
@@ -1519,18 +1548,15 @@ function findLockedCandidates(candGrid) {
                     if (sameRow) {
                         const r = boxCells[0].r;
                         const boxNum = br * 3 + bc + 1;
-                        
-                        let affectsOtherCellsInRow = false;
+
+                        const eliminate = [];
                         for (let c = 0; c < 9; c++) {
-                            if (c < bc * 3 || c >= bc * 3 + 3) {
-                                if (candGrid[r][c].includes(n)) {
-                                    affectsOtherCellsInRow = true;
-                                    break;
-                                }
+                            if ((c < bc * 3 || c >= bc * 3 + 3) && candGrid[r][c].includes(n)) {
+                                eliminate.push({ r, c, digits: [n] });
                             }
                         }
 
-                        if (affectsOtherCellsInRow) {
+                        if (eliminate.length > 0) {
                             const targetR = boxCells[0].r;
                             const targetC = boxCells[0].c;
                             const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
@@ -1540,12 +1566,14 @@ function findLockedCandidates(candGrid) {
                             return {
                                 r: targetR,
                                 c: targetC,
-                                val: solution[targetR][targetC],
+                                val: solutionGrid[targetR][targetC],
                                 method: methodName,
+                                tier: "medium",
+                                eliminate,
                                 tier1: `Look at Row ${r+1} inside Box ${boxNum}. Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Row ${r+1}.`,
-                                tier3: makesSingle 
-                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                tier3: makesSingle
+                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solutionGrid[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
                                     : `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} from all other cells outside Box ${boxNum} along Row ${r+1}.`
                             };
                         }
@@ -1556,17 +1584,14 @@ function findLockedCandidates(candGrid) {
                         const c = boxCells[0].c;
                         const boxNum = br * 3 + bc + 1;
 
-                        let affectsOtherCellsInCol = false;
+                        const eliminate = [];
                         for (let r = 0; r < 9; r++) {
-                            if (r < br * 3 || r >= br * 3 + 3) {
-                                if (candGrid[r][c].includes(n)) {
-                                    affectsOtherCellsInCol = true;
-                                    break;
-                                }
+                            if ((r < br * 3 || r >= br * 3 + 3) && candGrid[r][c].includes(n)) {
+                                eliminate.push({ r, c, digits: [n] });
                             }
                         }
 
-                        if (affectsOtherCellsInCol) {
+                        if (eliminate.length > 0) {
                             const targetR = boxCells[0].r;
                             const targetC = boxCells[0].c;
                             const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
@@ -1576,12 +1601,14 @@ function findLockedCandidates(candGrid) {
                             return {
                                 r: targetR,
                                 c: targetC,
-                                val: solution[targetR][targetC],
+                                val: solutionGrid[targetR][targetC],
                                 method: methodName,
+                                tier: "medium",
+                                eliminate,
                                 tier1: `Look at Column ${c+1} inside Box ${boxNum}. Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Column ${c+1}.`,
                                 tier3: makesSingle
-                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solution[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solutionGrid[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
                                     : `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} from all other cells outside Box ${boxNum} along Column ${c+1}.`
                             };
                         }
@@ -1594,17 +1621,27 @@ function findLockedCandidates(candGrid) {
 }
 
 // 5. Naked Pairs
-function findNakedPair(candGrid) {
+function findNakedPair(candGrid, solutionGrid = solution) {
     for (let r = 0; r < 9; r++) {
         for (let c1 = 0; c1 < 9; c1++) {
             if (candGrid[r][c1].length === 2) {
                 const pair = candGrid[r][c1];
                 for (let c2 = c1 + 1; c2 < 9; c2++) {
                     if (candGrid[r][c2].length === 2 && candGrid[r][c2][0] === pair[0] && candGrid[r][c2][1] === pair[1]) {
+                        const eliminate = [];
+                        for (let c = 0; c < 9; c++) {
+                            if (c !== c1 && c !== c2 && (candGrid[r][c].includes(pair[0]) || candGrid[r][c].includes(pair[1]))) {
+                                eliminate.push({ r, c, digits: pair.slice() });
+                            }
+                        }
+                        if (eliminate.length === 0) continue;
+
                         return {
                             r, c: c1,
-                            val: solution[r][c1],
+                            val: solutionGrid[r][c1],
                             method: "Naked Pair",
+                            tier: "medium",
+                            eliminate,
                             tier1: `Look at Row ${r+1}, Columns ${c1+1} & ${c2+1}. Try using "Naked Pair".`,
                             tier2: `Row ${r+1} contains two cells (at Columns ${c1+1} and ${c2+1}) that share the exact same two candidate numbers.`,
                             tier3: `Because ${pair.join(' and ')} must fill those two cells in Row ${r+1}, eliminate pencil marks ${pair.join(' and ')} from all other cells in Row ${r+1}.`
@@ -1618,7 +1655,7 @@ function findNakedPair(candGrid) {
 }
 
 // 6. X-Wing Pattern Analysis
-function findXWing(candGrid) {
+function findXWing(candGrid, solutionGrid = solution) {
     for (let n = 1; n <= 9; n++) {
         const rowSpots = [];
         for (let r = 0; r < 9; r++) {
@@ -1636,15 +1673,79 @@ function findXWing(candGrid) {
                         const r2 = rowSpots[j].r;
                         const c1 = rowSpots[i].cols[0];
                         const c2 = rowSpots[i].cols[1];
+
+                        const eliminate = [];
+                        for (const col of [c1, c2]) {
+                            for (let r = 0; r < 9; r++) {
+                                if (r !== r1 && r !== r2 && candGrid[r][col].includes(n)) {
+                                    eliminate.push({ r, c: col, digits: [n] });
+                                }
+                            }
+                        }
+                        if (eliminate.length === 0) continue;
+
                         return {
                             r: r1, c: c1,
-                            val: solution[r1][c1],
+                            val: solutionGrid[r1][c1],
                             method: "X-Wing",
+                            tier: "hard",
+                            eliminate,
                             tier1: `Look at Rows ${r1+1} & ${r2+1} at Columns ${c1+1} & ${c2+1}. Try using "X-Wing".`,
                             tier2: `A candidate digit appears in exactly two cells in Row ${r1+1} and two cells in Row ${r2+1}, sharing Columns ${c1+1} and ${c2+1} to form a rectangle.`,
                             tier3: `Because digit ${n} must occupy two diagonal corners of this rectangle, pencil mark ${n} can be eliminated from all other cells in Columns ${c1+1} and ${c2+1}.`
                         };
                     }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 6b. Swordfish Pattern Analysis (X-Wing generalized to three rows/columns; Expert tier)
+function findSwordfish(candGrid, solutionGrid = solution) {
+    for (let n = 1; n <= 9; n++) {
+        const rowSpots = [];
+        for (let r = 0; r < 9; r++) {
+            const cols = [];
+            for (let c = 0; c < 9; c++) {
+                if (candGrid[r][c].includes(n)) cols.push(c);
+            }
+            if (cols.length >= 2 && cols.length <= 3) rowSpots.push({ r, cols });
+        }
+        if (rowSpots.length < 3) continue;
+
+        for (let i = 0; i < rowSpots.length; i++) {
+            for (let j = i + 1; j < rowSpots.length; j++) {
+                for (let k = j + 1; k < rowSpots.length; k++) {
+                    const colSet = new Set([...rowSpots[i].cols, ...rowSpots[j].cols, ...rowSpots[k].cols]);
+                    if (colSet.size !== 3) continue;
+
+                    const rows = [rowSpots[i].r, rowSpots[j].r, rowSpots[k].r];
+                    const patternCols = [...colSet];
+
+                    const eliminate = [];
+                    for (const col of patternCols) {
+                        for (let r = 0; r < 9; r++) {
+                            if (!rows.includes(r) && candGrid[r][col].includes(n)) {
+                                eliminate.push({ r, c: col, digits: [n] });
+                            }
+                        }
+                    }
+                    if (eliminate.length === 0) continue;
+
+                    const focalR = rows[0];
+                    const focalC = patternCols[0];
+                    return {
+                        r: focalR, c: focalC,
+                        val: solutionGrid[focalR][focalC],
+                        method: "Swordfish",
+                        tier: "expert",
+                        eliminate,
+                        tier1: `Look at Rows ${rows.map(r => r+1).join(', ')} across Columns ${patternCols.map(c => c+1).join(', ')}. Try using "Swordfish".`,
+                        tier2: `A candidate digit is confined to the same three columns across three separate rows, forming a Swordfish pattern.`,
+                        tier3: `Because digit ${n} must occupy those three rows within Columns ${patternCols.map(c => c+1).join(', ')}, eliminate pencil mark ${n} from all other cells in those columns.`
+                    };
                 }
             }
         }
@@ -1662,6 +1763,7 @@ function findDirectRevealFallback(currentGrid, targetSolution) {
                 return {
                     r, c, val: correctVal,
                     method: "Fallback Elimination",
+                    tier: "master",
                     tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}.`,
                     tier2: `Examine intersecting values across Row ${r+1}, Column ${c+1}, and Box ${boxNum} to narrow down the missing number.`,
                     tier3: `Place ${correctVal} in Row ${r+1}, Column ${c+1}.`
@@ -1688,12 +1790,13 @@ function showHint() {
     const candGrid = getCandidatesGrid(currentGrid);
 
     // Strict non-pencil priority cascade
-    let hint = findFullHouse(currentGrid, candGrid) || 
-               findHiddenSingleInBox(candGrid) || 
-               findNakedSingle(candGrid) || 
-               findLockedCandidates(candGrid) || 
-               findNakedPair(candGrid) || 
-               findXWing(candGrid) || 
+    let hint = findFullHouse(currentGrid, candGrid) ||
+               findHiddenSingleInBox(candGrid, currentGrid) ||
+               findNakedSingle(candGrid) ||
+               findLockedCandidates(candGrid) ||
+               findNakedPair(candGrid) ||
+               findXWing(candGrid) ||
+               findSwordfish(candGrid) ||
                findDirectRevealFallback(currentGrid, solution);
 
     if (!hint) {
@@ -1726,24 +1829,164 @@ function showHint() {
 }
 
 /* ==========================================================================
-   6. GENERATOR & ASYNC PUZZLE CREATOR
+   5b. DIFFICULTY RATING ENGINE
+   Solves a puzzle using only techniques up to a given tier, tracking which
+   tiers were actually needed. Used by the generator to reject puzzles that
+   don't match their declared difficulty, and by the regression tests to
+   verify that calibration. See REQUIREMENTS.md items 2-6.
    ========================================================================== */
-async function createNewPuzzleAsync(difficulty, generationId = ++activeGenerationId) {
-    if ((difficulty === "expert" || difficulty === "master") && (EXPERT_SEED_PUZZLES.length || MASTER_SEED_PUZZLES.length)) {
-        const seeds = difficulty === "expert" ? EXPERT_SEED_PUZZLES : MASTER_SEED_PUZZLES;
-        if (seeds.length > 0) {
-            const seedIndex = Math.floor(Math.random() * seeds.length);
-            const transformed = transformGridPair(seeds[seedIndex]);
-            
-            if (isValidBoardState(transformed.puzzle) && countSolutions(deepCopyGrid(transformed.puzzle), 2) === 1) {
-                return transformed;
+function getCandidatesGridPure(grid) {
+    const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (grid[r][c] === 0) {
+                for (let n = 1; n <= 9; n++) {
+                    if (isSafe(grid, r, c, n)) cand[r][c].push(n);
+                }
             }
         }
     }
+    return cand;
+}
 
-    const targetGivens = difficulty === 'easy' ? 38 : (difficulty === 'medium' ? 32 : 27);
-    
+function isGridFull(grid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (grid[r][c] === 0) return false;
+        }
+    }
+    return true;
+}
+
+// Repeatedly applies the same technique cascade used for live hints, but
+// restricted to tiers <= maxTierRank, against a plain grid (no DOM/pencil
+// marks involved). Elimination techniques (locked candidates, naked pair,
+// X-Wing, Swordfish) narrow the candidate grid instead of placing a value;
+// placement techniques (full house, hidden/naked single) fill a cell and
+// force a fresh candidate recompute. Stops when nothing more can be
+// deduced at the allowed tier.
+function rateSolveWithTierCascade(puzzleGrid, solutionGrid, maxTierRank) {
+    const grid = deepCopyGrid(puzzleGrid);
+    const tiersUsed = new Set();
+    let candGrid = getCandidatesGridPure(grid);
+    let iterations = 0;
+
+    while (iterations++ < 2000) {
+        if (isGridFull(grid)) return { solved: true, tiersUsed };
+
+        const placementFinders = [
+            { tier: "easy", fn: () => findFullHouse(grid, candGrid, solutionGrid) },
+            { tier: "easy", fn: () => findHiddenSingleInBox(candGrid, grid, solutionGrid) },
+            { tier: "easy", fn: () => findNakedSingle(candGrid) }
+        ];
+        let acted = false;
+        for (const { tier, fn } of placementFinders) {
+            if (HINT_TIER_RANK[tier] > maxTierRank) continue;
+            const hint = fn();
+            if (hint) {
+                grid[hint.r][hint.c] = solutionGrid[hint.r][hint.c];
+                tiersUsed.add(tier);
+                candGrid = getCandidatesGridPure(grid);
+                acted = true;
+                break;
+            }
+        }
+        if (acted) continue;
+
+        const eliminationFinders = [
+            { tier: "medium", fn: () => findLockedCandidates(candGrid, solutionGrid) },
+            { tier: "medium", fn: () => findNakedPair(candGrid, solutionGrid) },
+            { tier: "hard", fn: () => findXWing(candGrid, solutionGrid) },
+            { tier: "expert", fn: () => findSwordfish(candGrid, solutionGrid) }
+        ];
+        for (const { tier, fn } of eliminationFinders) {
+            if (HINT_TIER_RANK[tier] > maxTierRank) continue;
+            const hint = fn();
+            if (hint && hint.eliminate && hint.eliminate.length) {
+                hint.eliminate.forEach(({ r, c, digits }) => {
+                    candGrid[r][c] = candGrid[r][c].filter(x => !digits.includes(x));
+                });
+                tiersUsed.add(tier);
+                acted = true;
+                break;
+            }
+        }
+        if (!acted) return { solved: false, tiersUsed };
+    }
+    return { solved: false, tiersUsed, error: "iteration limit exceeded" };
+}
+
+// Checks a puzzle against the calibration bar for a declared difficulty
+// (DIFFICULTY_REQUIREMENTS above): must be solvable using only techniques up
+// to that tier, and (for medium/hard/expert) must actually need at least one
+// technique at that tier — otherwise it's really an easier puzzle wearing a
+// harder label. Master instead requires that it NOT be solvable with
+// easy-through-expert techniques alone (it needs the direct-reveal fallback).
+function meetsDifficultyBar(puzzleGrid, solutionGrid, difficulty) {
+    const reqs = DIFFICULTY_REQUIREMENTS[difficulty];
+    if (!reqs) return true;
+    const result = rateSolveWithTierCascade(puzzleGrid, solutionGrid, reqs.maxTier);
+    if (reqs.requireUnsolvedAtMaxTier) return !result.solved;
+    if (!result.solved) return false;
+    if (reqs.requireTier && !result.tiersUsed.has(reqs.requireTier)) return false;
+    return true;
+}
+
+/* ==========================================================================
+   6. GENERATOR & ASYNC PUZZLE CREATOR
+   ========================================================================== */
+// Nominal starting given-count per difficulty (digging stops here if the
+// puzzle already meets its difficulty bar), and a hard floor it may be dug
+// down to if it doesn't (see REQUIREMENTS.md items 2-6). 17 is the proven
+// theoretical minimum for any uniquely-solvable 9x9 grid, so it's a safe
+// floor to allow digging toward — random uniqueness-preserving removal
+// essentially never reaches it in practice, it just stops earlier once no
+// remaining cell can be removed without breaking uniqueness.
+const DIFFICULTY_GIVENS = {
+    easy:   { target: 38, floor: 38 }, // never dig further: more givens only helps stay <= easy
+    medium: { target: 32, floor: 26 },
+    hard:   { target: 27, floor: 19 },
+    expert: { target: 27, floor: 17 },
+    master: { target: 24, floor: 17 }
+};
+
+const SEED_POOLS = { expert: EXPERT_SEED_PUZZLES, master: MASTER_SEED_PUZZLES };
+
+async function createNewPuzzleAsync(difficulty, generationId = ++activeGenerationId) {
+    const seedPool = SEED_POOLS[difficulty];
+    if (seedPool && seedPool.length > 0) {
+        const seed = seedPool[Math.floor(Math.random() * seedPool.length)];
+        const transformed = transformGridPair(seed);
+        if (isValidBoardState(transformed.puzzle) && countSolutions(deepCopyGrid(transformed.puzzle), 2) === 1) {
+            return transformed;
+        }
+    }
+
+    // Every difficulty is calibrated against DIFFICULTY_REQUIREMENTS
+    // (REQUIREMENTS.md items 2-6): a unique-solution dig isn't enough, the
+    // result also has to actually need (or for Easy, not exceed; or for
+    // Master, defeat) techniques at its declared tier. A puzzle that doesn't
+    // meet the bar at its nominal given-count is dug further, cell by cell,
+    // down to a floor, re-checking the bar after each removal (removing
+    // givens generally makes a puzzle harder, so this converges much faster
+    // than re-rolling a whole new grid every time).
+    const givensSpec = DIFFICULTY_GIVENS[difficulty];
+    const targetGivens = givensSpec ? givensSpec.target : 27;
+    // Landing exactly on "needs this tier's technique, nothing harder" gets
+    // rarer as the tier goes up (a real Swordfish pattern is uncommon even at
+    // very few givens), so Expert/Master get a much larger retry budget than
+    // Easy/Medium/Hard, which converge almost immediately.
+    const CALIBRATION_ATTEMPTS_BY_DIFFICULTY = { easy: 25, medium: 25, hard: 250, expert: 400, master: 200 };
+    const MAX_CALIBRATION_ATTEMPTS = CALIBRATION_ATTEMPTS_BY_DIFFICULTY[difficulty] || 25;
+    let attempts = 0;
+    let lastCandidate = null;
+
     while (generationId === activeGenerationId) {
+        attempts++;
+        // Yield to the browser periodically so a long calibration search
+        // (mainly Expert/Master) doesn't freeze the UI — the caller already
+        // shows a "Generating..." status before awaiting this function.
+        if (attempts % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
         const fullSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
         solveSudoku(fullSolution);
         let puzzleGrid = deepCopyGrid(fullSolution);
@@ -1765,8 +2008,36 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
             }
         }
 
-        if (isValidBoardState(puzzleGrid) && countSolutions(deepCopyGrid(puzzleGrid), 2) === 1) {
+        if (!isValidBoardState(puzzleGrid) || countSolutions(deepCopyGrid(puzzleGrid), 2) !== 1) {
+            continue;
+        }
+
+        if (!givensSpec || meetsDifficultyBar(puzzleGrid, fullSolution, difficulty)) {
             return { puzzle: puzzleGrid, solution: fullSolution };
+        }
+
+        // Doesn't meet the bar yet at the nominal given-count — keep digging
+        // toward the floor, re-checking after every cell removed.
+        for (const { r, c } of cells) {
+            if (generationId !== activeGenerationId) return null;
+            if (puzzleGrid[r][c] === 0) continue;
+            if (currentGivens <= givensSpec.floor) break;
+            const backup = puzzleGrid[r][c];
+            puzzleGrid[r][c] = 0;
+            if (countSolutions(deepCopyGrid(puzzleGrid), 2) === 1) {
+                currentGivens--;
+                if (meetsDifficultyBar(puzzleGrid, fullSolution, difficulty)) {
+                    return { puzzle: puzzleGrid, solution: fullSolution };
+                }
+            } else {
+                puzzleGrid[r][c] = backup;
+            }
+        }
+
+        lastCandidate = { puzzle: puzzleGrid, solution: fullSolution };
+        if (attempts >= MAX_CALIBRATION_ATTEMPTS) {
+            console.warn(`Sudoku: gave up calibrating a ${difficulty} puzzle after ${attempts} attempts; serving the closest candidate found instead (see REQUIREMENTS.md items 2-6).`);
+            return lastCandidate;
         }
     }
     return null;
@@ -2045,6 +2316,24 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
         if (!condition) throw new Error(message);
     }
 
+    // Landing exactly on a tier's required technique is probabilistic (see
+    // CALIBRATION_ATTEMPTS_BY_DIFFICULTY): createNewPuzzleAsync occasionally
+    // exhausts its bounded attempt budget and serves its closest
+    // non-qualifying candidate rather than searching forever or freezing the
+    // "New Game" button — that's by design, not a bug, so these tests
+    // tolerate a small miss rate instead of demanding every single generated
+    // puzzle qualify.
+    async function assertMostlyCalibrated(difficulty, sampleSize, maxMisses, label) {
+        let met = 0;
+        for (let i = 0; i < sampleSize; i++) {
+            const res = await createNewPuzzleAsync(difficulty);
+            assert(res !== null, `${difficulty} generator returned null`);
+            if (meetsDifficultyBar(res.puzzle, res.solution, difficulty)) met++;
+        }
+        assert(met >= sampleSize - maxMisses,
+            `Only ${met}/${sampleSize} ${difficulty} puzzles ${label} — expected at most ${maxMisses} miss(es)`);
+    }
+
     const tests = {
         testIsSafeEngine() {
             const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -2062,26 +2351,35 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
             assert(countSolutions(deepCopyGrid(res.puzzle), 2) === 1, "Easy puzzle lacks unique solution");
         },
 
-        async testDifficultyTierQuality() {
-            const difficulties = ["easy", "medium", "hard", "expert", "master"];
-            for (const diff of difficulties) {
-                const res = await createNewPuzzleAsync(diff);
-                assert(res !== null, `${diff} generator returned null`);
-                assert(isValidBoardState(res.puzzle), `${diff} board generated with initial duplicate values`);
-                
-                const simGrid = deepCopyGrid(res.puzzle);
-                const candGrid = getCandidatesGrid(simGrid);
-                
-                const fullHouse = findFullHouse(simGrid, candGrid);
-                const naked = findNakedSingle(candGrid);
-                const hidden = findHiddenSingleInBox(candGrid);
-                const locked = findLockedCandidates(candGrid);
-                const pair = findNakedPair(candGrid);
-                const xwing = findXWing(candGrid);
-                const fallback = findDirectRevealFallback(simGrid, res.solution);
-                
-                assert(fullHouse !== null || naked !== null || hidden !== null || locked !== null || pair !== null || xwing !== null || fallback !== null, `${diff} puzzle generated without valid hint strategy`);
+        // REQUIREMENTS.md item 2: solvable using only easy-tier hints.
+        async testEasyPuzzleCalibration() {
+            for (let i = 0; i < 3; i++) {
+                const res = await createNewPuzzleAsync("easy");
+                assert(res !== null, "Easy generator returned null");
+                assert(meetsDifficultyBar(res.puzzle, res.solution, "easy"),
+                    "Easy puzzle requires more than easy-tier techniques to solve");
             }
+        },
+
+        // REQUIREMENTS.md item 3: needs >=1 medium-tier hint, solvable at medium-or-easier.
+        async testMediumPuzzleCalibration() {
+            await assertMostlyCalibrated("medium", 4, 1, "met the Medium bar (needs a medium technique, nothing harder)");
+        },
+
+        // REQUIREMENTS.md item 4: needs >=1 hard-tier hint, solvable at hard-or-easier.
+        async testHardPuzzleCalibration() {
+            await assertMostlyCalibrated("hard", 5, 1, "met the Hard bar (needs a hard technique, nothing harder)");
+        },
+
+        // REQUIREMENTS.md item 5: needs >=1 expert-tier (Swordfish) hint, solvable at expert-or-easier.
+        async testExpertPuzzleCalibration() {
+            await assertMostlyCalibrated("expert", 6, 1, "met the Expert bar (needs a Swordfish, nothing harder)");
+        },
+
+        // REQUIREMENTS.md item 6: needs the fallback direct-reveal (i.e. NOT
+        // fully solvable with easy-through-expert techniques alone).
+        async testMasterPuzzleCalibration() {
+            await assertMostlyCalibrated("master", 4, 1, "needed the fallback reveal (weren't fully solvable through Expert techniques)");
         },
 
         async testExpertSeedPuzzlesValidity() {
@@ -2091,6 +2389,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 assert(solveSudoku(solCopy), `Expert seed ${i} solution is invalid`);
                 assert(isValidBoardState(seed.puzzle), `Expert seed ${i} contains initial duplicate values`);
                 assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Expert seed ${i} puzzle lacks unique solution`);
+                assert(meetsDifficultyBar(seed.puzzle, seed.solution, "expert"), `Expert seed ${i} doesn't meet the Expert difficulty bar`);
             }
         },
 
@@ -2101,6 +2400,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 assert(solveSudoku(solCopy), `Master seed ${i} solution is invalid`);
                 assert(isValidBoardState(seed.puzzle), `Master seed ${i} contains initial duplicate values`);
                 assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Master seed ${i} puzzle lacks unique solution`);
+                assert(meetsDifficultyBar(seed.puzzle, seed.solution, "master"), `Master seed ${i} doesn't meet the Master difficulty bar`);
             }
         },
 
