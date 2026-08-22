@@ -1270,7 +1270,7 @@ function getCurrentGrid() {
 }
 
 /* ==========================================================================
-   5. COMPLETE & RESTORED HINT ENGINE
+   5. HUMAN LEARNING PROGRESSION HINT ENGINE
    ========================================================================== */
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -1286,6 +1286,82 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
+// TIER 1: FULL HOUSE (Unit with exactly 8 numbers filled)
+function findFullHouse(grid, candGrid) {
+    // Check Rows
+    for (let r = 0; r < 9; r++) {
+        const emptyCols = [];
+        for (let c = 0; c < 9; c++) if (grid[r][c] === 0) emptyCols.push(c);
+        if (emptyCols.length === 1) {
+            const c = emptyCols[0];
+            const val = candGrid[r][c][0];
+            return {
+                r, c, val,
+                nudge: `Look at Row ${r+1}—8 numbers are already filled!`,
+                techName: `Full House (Row ${r+1})`,
+                explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Row ${r+1} and must be ${val}.`
+            };
+        }
+    }
+    // Check Columns
+    for (let c = 0; c < 9; c++) {
+        const emptyRows = [];
+        for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyRows.push(r);
+        if (emptyRows.length === 1) {
+            const r = emptyRows[0];
+            const val = candGrid[r][c][0];
+            return {
+                r, c, val,
+                nudge: `Look at Column ${c+1}—8 numbers are already filled!`,
+                techName: `Full House (Column ${c+1})`,
+                explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Column ${c+1} and must be ${val}.`
+            };
+        }
+    }
+    // Check Boxes
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            const empty = [];
+            for (let r = br * 3; r < br * 3 + 3; r++) {
+                for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                    if (grid[r][c] === 0) empty.push({ r, c });
+                }
+            }
+            if (empty.length === 1) {
+                const { r, c } = empty[0];
+                const boxNum = br * 3 + bc + 1;
+                const val = candGrid[r][c][0];
+                return {
+                    r, c, val,
+                    nudge: `Look at Box ${boxNum}—8 numbers are already filled!`,
+                    techName: `Full House (Box ${boxNum})`,
+                    explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Box ${boxNum} and must be ${val}.`
+                };
+            }
+        }
+    }
+    return null;
+}
+
+// TIER 2: NAKED SINGLE (Cell with only 1 legal candidate remaining)
+function findNakedSingle(candGrid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length === 1) {
+                const val = candGrid[r][c][0];
+                return {
+                    r, c, val,
+                    nudge: `Focus on Cell (${r+1}, ${c+1})—only 1 digit can legally fit here!`,
+                    techName: `Naked Single Cell (${r+1}, ${c+1})`,
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val}—all other digits are blocked by intersecting lines.`
+                };
+            }
+        }
+    }
+    return null;
+}
+
+// TIER 3: HIDDEN SINGLE (Digit that can only fit in one cell within a Box)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1300,10 +1376,9 @@ function findHiddenSingleInBox(candGrid) {
                 if (spots.length === 1) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
-                        cells: [spots[0]],
-                        nudge: `Look in Box ${boxNum} — one missing digit has only a single valid cell left!`,
+                        nudge: `Look in Box ${boxNum}—one missing digit has only a single valid cell left!`,
                         techName: `Hidden Single (Box ${boxNum})`,
-                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1}) — nowhere else in Box ${boxNum} can hold it.`
+                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1})—nowhere else in Box ${boxNum} can hold it.`
                     };
                 }
             }
@@ -1312,24 +1387,7 @@ function findHiddenSingleInBox(candGrid) {
     return null;
 }
 
-function findNakedSingle(candGrid) {
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            if (candGrid[r][c].length === 1) {
-                const val = candGrid[r][c][0];
-                return {
-                    r, c, val,
-                    cells: [{ r, c }],
-                    nudge: `Focus on Cell (${r+1}, ${c+1}) — only 1 digit can legally fit here!`,
-                    techName: `Naked Single Cell (${r+1}, ${c+1})`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val} — all other digits are blocked.`
-                };
-            }
-        }
-    }
-    return null;
-}
-
+// TIER 4: DIRECT PLACEMENT FALLBACK (Master/Expert Puzzles)
 function findDirectRevealFallback(candGrid, targetSolution) {
     let minCandidates = 10;
     let target = null;
@@ -1351,7 +1409,6 @@ function findDirectRevealFallback(candGrid, targetSolution) {
             r: target.r,
             c: target.c,
             val: correctVal,
-            cells: [{ r: target.r, c: target.c }],
             nudge: `Cell (${target.r+1}, ${target.c+1}) is a good cell to focus on next.`,
             techName: `Direct Candidate Placement`,
             explanation: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
@@ -1360,6 +1417,7 @@ function findDirectRevealFallback(candGrid, targetSolution) {
     return null;
 }
 
+// HUMAN LEARNING PROGRESSION HINT DISPATCHER
 function showHint() {
     if (gameWon) return;
 
@@ -1370,7 +1428,11 @@ function showHint() {
     const currentGrid = getCurrentGrid();
     const candGrid = getCandidatesGrid(currentGrid);
 
-    let hint = findNakedSingle(candGrid) || findHiddenSingleInBox(candGrid) || findDirectRevealFallback(candGrid, solution);
+    // Progression: Full House -> Naked Single -> Hidden Single -> Direct Placement
+    let hint = findFullHouse(currentGrid, candGrid) || 
+               findNakedSingle(candGrid) || 
+               findHiddenSingleInBox(candGrid) || 
+               findDirectRevealFallback(candGrid, solution);
 
     if (!hint) {
         setStatusText("Board is complete!");
@@ -1630,11 +1692,12 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 const simGrid = deepCopyGrid(res.puzzle);
                 const candGrid = getCandidatesGrid(simGrid);
                 
+                const fullHouse = findFullHouse(simGrid, candGrid);
                 const naked = findNakedSingle(candGrid);
                 const hidden = findHiddenSingleInBox(candGrid);
                 const direct = findDirectRevealFallback(candGrid, res.solution);
                 
-                assert(naked !== null || hidden !== null || direct !== null, `${diff} puzzle generated without valid hint strategy`);
+                assert(fullHouse !== null || naked !== null || hidden !== null || direct !== null, `${diff} puzzle generated without valid hint strategy`);
             }
         },
 
