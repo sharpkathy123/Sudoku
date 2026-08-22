@@ -680,7 +680,6 @@ let statusTimeoutId = null;
 
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 
-// Completion tracking for celebration glows across all 4 unit types
 const completedRows = Array(9).fill(false);
 const completedCols = Array(9).fill(false);
 const completedBoxes = Array(9).fill(false);
@@ -1429,7 +1428,7 @@ function getCurrentGrid() {
 }
 
 /* ==========================================================================
-   5. BEGINNER-ACCESSIBLE VALUE-NEUTRAL HINT ENGINE
+   5. COMPLETE MULTI-TIER HINT & SOLVING ENGINE
    ========================================================================== */
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -1445,6 +1444,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
+// 1. Full House
 function findFullHouse(grid, candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1454,10 +1454,10 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0] || solution[r][c];
             return {
                 r, c, val,
-                method: "Full House (Last Empty Cell)",
+                method: "Full House",
                 tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
                 tier2: `Row ${r+1} has 8 numbers filled—count 1 through 9 across this row to find the single missing number.`,
-                tier3: `Row ${r+1} is only missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
+                tier3: `Row ${r+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
     }
@@ -1469,10 +1469,10 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0] || solution[r][c];
             return {
                 r, c, val,
-                method: "Full House (Last Empty Cell)",
+                method: "Full House",
                 tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
                 tier2: `Column ${c+1} has 8 numbers filled—count 1 through 9 down this column to find the single missing number.`,
-                tier3: `Column ${c+1} is only missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
+                tier3: `Column ${c+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
     }
@@ -1490,10 +1490,10 @@ function findFullHouse(grid, candGrid) {
                 const val = candGrid[r][c][0] || solution[r][c];
                 return {
                     r, c, val,
-                    method: "Full House (Last Empty Cell)",
+                    method: "Full House",
                     tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Full House".`,
                     tier2: `Box ${boxNum} has 8 numbers filled—count 1 through 9 inside this box to find the single missing number.`,
-                    tier3: `Box ${boxNum} is only missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
+                    tier3: `Box ${boxNum} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
                 };
             }
         }
@@ -1501,6 +1501,7 @@ function findFullHouse(grid, candGrid) {
     return null;
 }
 
+// 2. Hidden Singles
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1516,10 +1517,10 @@ function findHiddenSingleInBox(candGrid) {
                     const { r, c } = spots[0];
                     return {
                         r, c, val: n,
-                        method: "Cross-Hatching (Scanning Lines)",
+                        method: "Cross-Hatching (Hidden Single)",
                         tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Cross-Hatching".`,
-                        tier2: `Trace filled numbers across intersecting rows and columns into Box ${boxNum}. Watch how they block empty spots until only one spot remains.`,
-                        tier3: `The ${n}s in other rows and columns point into Box ${boxNum}, blocking every spot except Row ${r+1}, Column ${c+1}. Place ${n} here!`
+                        tier2: `Trace filled numbers across intersecting rows and columns into Box ${boxNum}. Watch how they block empty spots until only one spot remains for ${n}.`,
+                        tier3: `The ${n}s in intersecting rows and columns point into Box ${boxNum}, blocking every spot except Row ${r+1}, Column ${c+1}. Place ${n} here!`
                     };
                 }
             }
@@ -1528,6 +1529,7 @@ function findHiddenSingleInBox(candGrid) {
     return null;
 }
 
+// 3. Naked Singles
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1536,8 +1538,8 @@ function findNakedSingle(candGrid) {
                 const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
                 return {
                     r, c, val,
-                    method: "Single Legal Candidate",
-                    tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Single Candidate Elimination".`,
+                    method: "Naked Single",
+                    tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
                     tier2: `Check Row ${r+1}, Column ${c+1}, and Box ${boxNum}. Together, they already contain 8 different numbers.`,
                     tier3: `All digits except ${val} are already placed across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
                 };
@@ -1547,18 +1549,122 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
+// 4. Pointing Pairs / Triples & Claiming (Locked Candidates)
+function findLockedCandidates(candGrid) {
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+            for (let n = 1; n <= 9; n++) {
+                const boxCells = [];
+                for (let r = br * 3; r < br * 3 + 3; r++) {
+                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                        if (candGrid[r][c].includes(n)) boxCells.push({ r, c });
+                    }
+                }
+                if (boxCells.length >= 2 && boxCells.length <= 3) {
+                    const sameRow = boxCells.every(cell => cell.r === boxCells[0].r);
+                    if (sameRow) {
+                        const r = boxCells[0].r;
+                        return {
+                            r: boxCells[0].r,
+                            c: boxCells[0].c,
+                            val: solution[boxCells[0].r][boxCells[0].c],
+                            method: "Pointing Pairs/Triples",
+                            tier1: `Look at Row ${r+1} inside Box ${br*3+bc+1}. Try using "Pointing Candidates".`,
+                            tier2: `All candidate locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Row ${r+1}.`,
+                            tier3: `Since ${n} must go in Row ${r+1} within Box ${br*3+bc+1}, eliminate ${n} elsewhere along Row ${r+1}. Place ${solution[boxCells[0].r][boxCells[0].c]} in Row ${boxCells[0].r+1}, Column ${boxCells[0].c+1}!`
+                        };
+                    }
+                    const sameCol = boxCells.every(cell => cell.c === boxCells[0].c);
+                    if (sameCol) {
+                        const c = boxCells[0].c;
+                        return {
+                            r: boxCells[0].r,
+                            c: boxCells[0].c,
+                            val: solution[boxCells[0].r][boxCells[0].c],
+                            method: "Pointing Pairs/Triples",
+                            tier1: `Look at Column ${c+1} inside Box ${br*3+bc+1}. Try using "Pointing Candidates".`,
+                            tier2: `All candidate locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Column ${c+1}.`,
+                            tier3: `Since ${n} must go in Column ${c+1} within Box ${br*3+bc+1}, eliminate ${n} elsewhere along Column ${c+1}. Place ${solution[boxCells[0].r][boxCells[0].c]} in Row ${boxCells[0].r+1}, Column ${boxCells[0].c+1}!`
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 5. Naked Pairs
+function findNakedPair(candGrid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c1 = 0; c1 < 9; c1++) {
+            if (candGrid[r][c1].length === 2) {
+                const pair = candGrid[r][c1];
+                for (let c2 = c1 + 1; c2 < 9; c2++) {
+                    if (candGrid[r][c2].length === 2 && candGrid[r][c2][0] === pair[0] && candGrid[r][c2][1] === pair[1]) {
+                        return {
+                            r, c: c1,
+                            val: solution[r][c1],
+                            method: "Naked Pair",
+                            tier1: `Look at Row ${r+1}, Columns ${c1+1} & ${c2+1}. Try using "Naked Pair".`,
+                            tier2: `Cells in Row ${r+1} at Columns ${c1+1} and ${c2+1} contain the exact same pair of candidates ([${pair.join(', ')}]).`,
+                            tier3: `Since candidates ${pair.join(' and ')} are locked into Row ${r+1}, place ${solution[r][c1]} in Row ${r+1}, Column ${c1+1}!`
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 6. X-Wing Pattern Analysis
+function findXWing(candGrid) {
+    for (let n = 1; n <= 9; n++) {
+        const rowSpots = [];
+        for (let r = 0; r < 9; r++) {
+            const cols = [];
+            for (let c = 0; c < 9; c++) {
+                if (candGrid[r][c].includes(n)) cols.push(c);
+            }
+            if (cols.length === 2) rowSpots.push({ r, cols });
+        }
+        if (rowSpots.length >= 2) {
+            for (let i = 0; i < rowSpots.length; i++) {
+                for (let j = i + 1; j < rowSpots.length; j++) {
+                    if (rowSpots[i].cols[0] === rowSpots[j].cols[0] && rowSpots[i].cols[1] === rowSpots[j].cols[1]) {
+                        const r1 = rowSpots[i].r;
+                        const r2 = rowSpots[j].r;
+                        const c1 = rowSpots[i].cols[0];
+                        const c2 = rowSpots[i].cols[1];
+                        return {
+                            r: r1, c: c1,
+                            val: solution[r1][c1],
+                            method: "X-Wing",
+                            tier1: `Look at Rows ${r1+1} & ${r2+1} at Columns ${c1+1} & ${c2+1}. Try using "X-Wing".`,
+                            tier2: `The candidate ${n} forms a perfect rectangle across Rows ${r1+1} and ${r2+1} in Columns ${c1+1} and ${c2+1}.`,
+                            tier3: `Because ${n} must occupy two diagonal corners of this rectangle, eliminate candidate ${n} from all other cells in Columns ${c1+1} and ${c2+1}. Place ${solution[r1][c1]} in Row ${r1+1}, Column ${c1+1}!`
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// 7. Direct Reveal Fallback (Guarantees solution continuity)
 function findDirectRevealFallback(currentGrid, targetSolution) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (currentGrid[r][c] === 0) {
                 const correctVal = targetSolution[r][c];
+                const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
                 return {
-                    r,
-                    c,
-                    val: correctVal,
-                    method: "Candidate Elimination",
-                    tier1: `Look at Row ${r+1}, Column ${c+1}.`,
-                    tier2: `Review intersecting numbers in Row ${r+1} and Column ${c+1} to narrow options down to a single choice.`,
+                    r, c, val: correctVal,
+                    method: "Fallback Strategic Elimination",
+                    tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}.`,
+                    tier2: `Examine intersecting values in Row ${r+1}, Column ${c+1}, and Box ${boxNum} to eliminate candidates down to a single option.`,
                     tier3: `Place ${correctVal} in Row ${r+1}, Column ${c+1}.`
                 };
             }
@@ -1581,28 +1687,21 @@ function showHint() {
 
     const currentGrid = getCurrentGrid();
     const candGrid = getCandidatesGrid(currentGrid);
-    const hasNotes = pencilMode || hasActivePencilMarksOnBoard();
 
-    let hint = null;
-
-    if (!hasNotes) {
-        hint = findFullHouse(currentGrid, candGrid) || 
+    let hint = findFullHouse(currentGrid, candGrid) || 
                findHiddenSingleInBox(candGrid) || 
                findNakedSingle(candGrid) || 
+               findLockedCandidates(candGrid) || 
+               findNakedPair(candGrid) || 
+               findXWing(candGrid) || 
                findDirectRevealFallback(currentGrid, solution);
-    } else {
-        hint = findFullHouse(currentGrid, candGrid) || 
-               findNakedSingle(candGrid) || 
-               findHiddenSingleInBox(candGrid) || 
-               findDirectRevealFallback(currentGrid, solution);
-    }
 
     if (!hint) {
         setStatusText("No logical step found. Try adjusting placed candidates.");
         return;
     }
 
-    const { r, c, tier1, tier2, tier3 } = hint;
+    const { r, c, tier1, tier2, tier3, method } = hint;
     const cell = board.children[r * 9 + c];
 
     cell.classList.add("highlight-least", "glow");
@@ -1618,11 +1717,11 @@ function showHint() {
     }
 
     if (currentHintLevel === 1) {
-        setStatusText(`💡 Tier 1 (Target): ${tier1} (Tap Hint to see more)`);
+        setStatusText(`💡 Tier 1 (${method}): ${tier1} (Tap Hint to see more)`);
     } else if (currentHintLevel === 2) {
-        setStatusText(`💡 Tier 2 (Method): ${tier2} (Tap Hint to see answer)`);
+        setStatusText(`💡 Tier 2 (${method}): ${tier2} (Tap Hint to see answer)`);
     } else {
-        setStatusText(`💡 Tier 3 (Solution): ${tier3}`);
+        setStatusText(`💡 Tier 3 (${method}): ${tier3}`);
     }
 }
 
@@ -1798,9 +1897,8 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
 
     const grid = getCurrentGrid();
     let minEmpty = 10;
-    const bestUnits = []; // Holds all units tied for min empty count
+    const bestUnits = [];
 
-    // 1. Scan Rows
     for (let r = 0; r < 9; r++) {
         const emptyCount = grid[r].filter(val => val === 0).length;
         if (emptyCount > 0) {
@@ -1814,7 +1912,6 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
         }
     }
 
-    // 2. Scan Columns
     for (let c = 0; c < 9; c++) {
         let emptyCount = 0;
         for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyCount++;
@@ -1829,7 +1926,6 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
         }
     }
 
-    // 3. Scan Boxes
     for (let b = 0; b < 9; b++) {
         const br = Math.floor(b / 3) * 3;
         const bc = (b % 3) * 3;
@@ -1848,7 +1944,6 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
         }
     }
 
-    // 4. Scan Digits
     for (let n = 1; n <= 9; n++) {
         const placedCount = placements[n] ? placements[n].length : 0;
         const emptyCount = 9 - placedCount;
@@ -1868,7 +1963,6 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
         return;
     }
 
-    // Highlight target unit cells across all matching units
     const cellsToHighlight = new Set();
     const unitDescriptions = [];
 
@@ -1981,9 +2075,12 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 const fullHouse = findFullHouse(simGrid, candGrid);
                 const naked = findNakedSingle(candGrid);
                 const hidden = findHiddenSingleInBox(candGrid);
-                const direct = findDirectRevealFallback(simGrid, res.solution);
+                const locked = findLockedCandidates(candGrid);
+                const pair = findNakedPair(candGrid);
+                const xwing = findXWing(candGrid);
+                const fallback = findDirectRevealFallback(simGrid, res.solution);
                 
-                assert(fullHouse !== null || naked !== null || hidden !== null || direct !== null, `${diff} puzzle generated without valid hint strategy`);
+                assert(fullHouse !== null || naked !== null || hidden !== null || locked !== null || pair !== null || xwing !== null || fallback !== null, `${diff} puzzle generated without valid hint strategy`);
             }
         },
 
