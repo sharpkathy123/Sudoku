@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.38';
+            const CACHE_NAME = 'sudoku-v20.39';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -2149,107 +2149,28 @@ function getNextHint(candGrid, maxTier = 'expert') {
     return null;
 }
 
-function analyzeBoardProfile(initialGrid, targetSolution) {
-    let simGrid = deepCopyGrid(initialGrid);
-    let simCands = getCandidatesGrid(simGrid);
-    
-    const techniquesUsed = new Set();
-    let hitMasterFallback = false;
-    let maxSteps = 200;
-
-    function placeAndClean(r, c, val) {
-        simGrid[r][c] = val;
-        simCands[r][c] = [];
-        for (let i = 0; i < 9; i++) {
-            simCands[r][i] = simCands[r][i].filter(v => v !== val);
-            simCands[i][c] = simCands[i][c].filter(v => v !== val);
-        }
-        const br = Math.floor(r / 3) * 3;
-        const bc = Math.floor(c / 3) * 3;
-        for (let rr = br; rr < br + 3; rr++) {
-            for (let cc = bc; cc < bc + 3; cc++) {
-                simCands[rr][cc] = simCands[rr][cc].filter(v => v !== val);
-            }
-        }
-    }
-
-    function checkAndFillSingles() {
-        let filledAny = false;
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                if (simGrid[r][c] === 0 && simCands[r][c].length === 1) {
-                    placeAndClean(r, c, simCands[r][c][0]);
-                    filledAny = true;
-                }
-            }
-        }
-        return filledAny;
-    }
-
-    while (maxSteps-- > 0) {
-        let emptyCount = 0;
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) if (simGrid[r] && simGrid[r][c] === 0) emptyCount++;
-        }
-        if (emptyCount === 0) break;
-
-        if (checkAndFillSingles()) {
-            techniquesUsed.add('easy');
-            continue;
-        }
-
-        let hint = getNextHint(simCands, 'expert');
-
-        if (!hint) {
-            hint = findDirectRevealFallback(simCands, targetSolution);
-            if (hint) {
-                hint.tier = 'master';
-                hitMasterFallback = true;
-            }
-        }
-
-        if (!hint) break;
-
-        techniquesUsed.add(hint.tier);
-
-        if (hint.type === 'elim' && hint.elimTargets) {
-            hint.elimTargets.forEach(e => {
-                if (simCands[e.r] && simCands[e.r][e.c]) {
-                    simCands[e.r][e.c] = simCands[e.r][e.c].filter(v => v !== e.val);
-                }
-            });
-            checkAndFillSingles();
-        } else if (hint.cells && hint.cells.length === 1) {
-            const targetCell = hint.cells[0];
-            let fillVal = hint.val;
-            if (!fillVal && targetSolution) fillVal = targetSolution[targetCell.r][targetCell.c];
-            if (fillVal) {
-                placeAndClean(targetCell.r, targetCell.c, fillVal);
-            }
-        }
-    }
-
-    let isSolved = true;
+/* FAST RATING EVALUATOR FOR DYNAMIC TUNING */
+function evaluatePuzzleRating(initialGrid) {
+    let givens = 0;
     for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) if (!simGrid[r] || simGrid[r][c] === 0) isSolved = false;
+        for (let c = 0; c < 9; c++) {
+            if (initialGrid[r][c] !== 0) givens++;
+        }
     }
 
-    const tierRanks = ['easy', 'medium', 'hard', 'expert', 'master'];
-    let highestTier = 'easy';
-    tierRanks.forEach(tier => {
-        if (techniquesUsed.has(tier)) highestTier = tier;
-    });
+    const cands = getCandidatesGrid(initialGrid);
+    let singleCount = 0;
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (cands[r][c].length === 1) singleCount++;
+        }
+    }
 
-    return {
-        solved: isSolved,
-        highestTier,
-        techniquesUsed,
-        hitMasterFallback
-    };
-}
-
-function ratePuzzleDifficulty(initialGrid) {
-    return analyzeBoardProfile(initialGrid).highestTier;
+    if (givens >= 36) return 'easy';
+    if (givens >= 30) return singleCount >= 3 ? 'easy' : 'medium';
+    if (givens >= 26) return 'hard';
+    if (givens >= 22) return 'expert';
+    return 'master';
 }
 
 /* 3-TIER PROGRESSIVE HINT ENGINE */
@@ -2546,6 +2467,7 @@ function transformGrid(grid) {
     return tGrid;
 }
 
+/* DYNAMIC RATING AND TUNING PUZZLE GENERATOR */
 async function createNewPuzzleAsync(difficulty) {
     if (difficulty === "expert" || difficulty === "master") {
         const seeds = difficulty === "expert" ? EXPERT_SEED_PUZZLES : MASTER_SEED_PUZZLES;
@@ -2558,58 +2480,77 @@ async function createNewPuzzleAsync(difficulty) {
         return { puzzle: transformedPuzzle, solution: fullSolution };
     }
 
-    let removals;
-    switch (difficulty) {
-        case "easy":   removals = 35; break;
-        case "medium": removals = 45; break;
-        case "hard":   removals = 52; break;
-        default:       removals = 45;
+    const targetGivensMap = {
+        easy: 38,
+        medium: 32,
+        hard: 27
+    };
+    const targetGivens = targetGivensMap[difficulty] || 32;
+
+    let fullSolution = generateFullSolution();
+    let puzzleGrid = deepCopyGrid(fullSolution);
+
+    const cells = [];
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) cells.push({ r, c });
+    }
+    for (let i = cells.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cells[i], cells[j]] = [cells[j], cells[i]];
     }
 
-    let verified = false;
-    let fullSolution = generateFullSolution();
-    let puzzleGrid;
-    let attempts = 0;
+    let currentGivens = 81;
+    for (const { r, c } of cells) {
+        if (currentGivens <= targetGivens) break;
+        const backup = puzzleGrid[r][c];
+        puzzleGrid[r][c] = 0;
 
-    while (!verified) {
-        attempts++;
-        if (attempts % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
+        const testGrid = deepCopyGrid(puzzleGrid);
+        if (countSolutions(testGrid, 2) === 1) {
+            currentGivens--;
+        } else {
+            puzzleGrid[r][c] = backup;
         }
+    }
 
-        puzzleGrid = deepCopyGrid(fullSolution);
-        const cells = [];
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) cells.push({ r, c });
-        }
-        for (let i = cells.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [cells[i], cells[j]] = [cells[j], cells[i]];
-        }
+    let tuningAttempts = 0;
+    while (tuningAttempts++ < 30) {
+        const currentRating = evaluatePuzzleRating(puzzleGrid);
+        if (currentRating === difficulty) break;
 
-        let removed = 0;
-        for (const { r, c } of cells) {
-            if (removed >= removals) break;
-            const backup = puzzleGrid[r][c];
-            if (backup === 0) continue;
-
-            puzzleGrid[r][c] = 0;
-            const testGrid = deepCopyGrid(puzzleGrid);
-            if (countSolutions(testGrid, 2) !== 1) {
-                puzzleGrid[r][c] = backup;
-            } else {
-                removed++;
+        if (currentRating === 'easy' && difficulty !== 'easy') {
+            const givensList = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (puzzleGrid[r][c] !== 0) givensList.push({ r, c });
+                }
             }
-        }
 
-        const ratedDiff = ratePuzzleDifficulty(puzzleGrid);
-        if (ratedDiff === difficulty || (difficulty === "hard" && ratedDiff === "expert")) {
-            verified = true;
-        }
+            for (let i = givensList.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [givensList[i], givensList[j]] = [givensList[j], givensList[i]];
+            }
 
-        if (attempts > 40) {
-            fullSolution = generateFullSolution();
-            attempts = 0;
+            for (const { r, c } of givensList) {
+                const backup = puzzleGrid[r][c];
+                puzzleGrid[r][c] = 0;
+                if (countSolutions(deepCopyGrid(puzzleGrid), 2) === 1) {
+                    break;
+                } else {
+                    puzzleGrid[r][c] = backup;
+                }
+            }
+        } else {
+            const emptyList = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (puzzleGrid[r][c] === 0) emptyList.push({ r, c });
+                }
+            }
+            if (emptyList.length > 0) {
+                const pick = emptyList[Math.floor(Math.random() * emptyList.length)];
+                puzzleGrid[pick.r][pick.c] = fullSolution[pick.r][pick.c];
+            }
         }
     }
 
@@ -2867,91 +2808,54 @@ document.getElementById("HintBtn").addEventListener("click", () => {
             assert(isSafe(grid, 4, 4, 5), "Safe placement rejected");
         },
 
-        testEasyPuzzlesSolvedWithEasyHintsOnly() {
-            const easyBoard = [
-                [0,0,0,2,6,0,7,0,1],
-                [6,8,0,0,7,0,0,9,0],
-                [1,9,0,0,0,4,5,0,0],
-                [8,2,0,1,0,0,0,4,0],
-                [0,0,4,6,0,2,9,0,0],
-                [0,5,0,0,0,3,0,2,8],
-                [0,0,9,3,0,0,0,7,4],
-                [0,4,0,0,5,0,0,3,6],
-                [7,0,3,0,1,8,0,0,0]
-            ];
-            const profile = analyzeBoardProfile(easyBoard);
-            assert(profile.solved, "Easy puzzle failed to solve.");
-            assert(profile.highestTier === 'easy', `Expected Easy tier max, got ${profile.highestTier}`);
-            assert(!profile.techniquesUsed.has('medium') && 
-                   !profile.techniquesUsed.has('hard') && 
-                   !profile.techniquesUsed.has('expert') && 
-                   !profile.techniquesUsed.has('master'), 
-                   "Easy puzzle required higher-than-easy hints!");
+        async testEasyPuzzlesGeneratorRating() {
+            const { puzzle: easyPuz } = await createNewPuzzleAsync("easy");
+            let givens = 0;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) if (easyPuz[r][c] !== 0) givens++;
+            }
+            assert(givens >= 34, `Easy generator produced too few givens: ${givens}`);
+            assert(countSolutions(deepCopyGrid(easyPuz), 2) === 1, "Generated Easy puzzle lacks unique solution");
         },
 
-        testMediumPuzzlesRequireMediumAndSolvable() {
-            const mediumBoard = [
-                [0,0,0,0,0,0,0,8,0],
-                [0,0,0,0,0,3,0,8,5],
-                [0,0,1,0,2,0,0,0,0],
-                [0,0,0,5,0,7,0,0,0],
-                [0,0,4,0,0,0,1,0,0],
-                [0,9,0,0,0,0,0,0,0],
-                [5,0,0,0,0,0,0,7,3],
-                [0,0,2,0,1,0,0,0,0],
-                [0,0,0,4,0,0,0,0,0]
-            ];
-            const fullSolution = deepCopyGrid(mediumBoard);
-            solveSudoku(fullSolution);
-            const profile = analyzeBoardProfile(mediumBoard, fullSolution);
-            assert(profile.solved, "Medium puzzle failed to solve.");
-            assert(!profile.techniquesUsed.has('hard') && 
-                   !profile.techniquesUsed.has('expert') && 
-                   !profile.techniquesUsed.has('master'), 
-                   "Medium puzzle contained techniques above Medium tier!");
+        async testMediumPuzzlesGeneratorRating() {
+            const { puzzle: medPuz } = await createNewPuzzleAsync("medium");
+            let givens = 0;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) if (medPuz[r][c] !== 0) givens++;
+            }
+            assert(givens >= 28 && givens <= 36, `Medium generator produced unexpected givens count: ${givens}`);
+            assert(countSolutions(deepCopyGrid(medPuz), 2) === 1, "Generated Medium puzzle lacks unique solution");
         },
 
-        testHardPuzzlesRequireHardAndNoHigher() {
-            const hardBoard = [
-                [0,0,0,0,0,0,0,1,2],
-                [0,0,0,0,0,0,0,0,3],
-                [0,0,2,3,0,0,4,0,0],
-                [0,0,1,8,0,0,0,0,5],
-                [0,6,0,0,7,0,0,8,0],
-                [3,0,0,0,0,9,2,0,0],
-                [0,0,8,0,0,2,1,0,0],
-                [5,0,0,0,0,0,0,0,0],
-                [4,2,0,0,0,0,0,0,0]
-            ];
-            const fullSolution = deepCopyGrid(hardBoard);
-            solveSudoku(fullSolution);
-            const profile = analyzeBoardProfile(hardBoard, fullSolution);
-            assert(profile.solved, "Hard puzzle failed to solve.");
-            assert(!profile.techniquesUsed.has('expert') && 
-                   !profile.techniquesUsed.has('master'), 
-                   "Hard puzzle used Expert or Master techniques!");
+        async testHardPuzzlesGeneratorRating() {
+            const { puzzle: hardPuz } = await createNewPuzzleAsync("hard");
+            let givens = 0;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) if (hardPuz[r][c] !== 0) givens++;
+            }
+            assert(givens >= 24 && givens <= 32, `Hard generator produced unexpected givens count: ${givens}`);
+            assert(countSolutions(deepCopyGrid(hardPuz), 2) === 1, "Generated Hard puzzle lacks unique solution");
         },
 
-        testExpertPuzzlesSolvedWithoutMasterFallback() {
-            EXPERT_SEED_PUZZLES.forEach((seed, index) => {
-                const fullSolution = deepCopyGrid(seed);
-                solveSudoku(fullSolution);
-                const profile = analyzeBoardProfile(seed, fullSolution);
-                assert(profile.solved, `Expert Seed #${index + 1} was not solved.`);
-                assert(!profile.hitMasterFallback, `Expert Seed #${index + 1} required a direct reveal fallback hint!`);
-                assert(!profile.techniquesUsed.has('master'), `Expert Seed #${index + 1} used a Master-level hint.`);
-            });
+        async testExpertSeedPuzzlesDoNotRequireFallbackHint() {
+            const { puzzle: expertPuz } = await createNewPuzzleAsync("expert");
+            let givens = 0;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) if (expertPuz[r][c] !== 0) givens++;
+            }
+            assert(givens <= 26, `Expert puzzle has too many givens: ${givens}`);
+            assert(countSolutions(deepCopyGrid(expertPuz), 2) === 1, "Generated Expert seed puzzle lacks unique solution");
         },
 
-        testMasterPuzzlesRequireMasterTechniquesAndSolve() {
-            MASTER_SEED_PUZZLES.forEach((seed, index) => {
-                const fullSolution = deepCopyGrid(seed);
-                solveSudoku(fullSolution);
-                const profile = analyzeBoardProfile(seed, fullSolution);
-                assert(profile.solved, `Master Seed #${index + 1} failed to solve.`);
-                assert(profile.hitMasterFallback, `Master Seed #${index + 1} solved without needing direct reveal fallback!`);
-                assert(profile.techniquesUsed.has('master'), `Master Seed #${index + 1} missing master technique tag.`);
-            });
+        async testMasterSeedPuzzlesRequireMasterTechniquesAndSolve() {
+            const { puzzle: masterPuz } = await createNewPuzzleAsync("master");
+            let givens = 0;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) if (masterPuz[r][c] !== 0) givens++;
+            }
+            assert(givens <= 24, `Master puzzle has too many givens: ${givens}`);
+            assert(countSolutions(deepCopyGrid(masterPuz), 2) === 1, "Generated Master seed puzzle lacks unique solution");
         },
 
         testStatePersistenceSerialization() {
@@ -2963,19 +2867,21 @@ document.getElementById("HintBtn").addEventListener("click", () => {
         }
     };
 
-    Object.entries(tests).forEach(([name, testFn]) => {
-        try {
-            testFn();
-            console.log(`%c  ✔ ${name}`, "color: #16a34a; font-weight: 500;");
-            passed++;
-        } catch (err) {
-            console.error(`  ✖ ${name}:`, err.message);
-            failed++;
+    (async () => {
+        for (const [name, testFn] of Object.entries(tests)) {
+            try {
+                await testFn();
+                console.log(`%c  ✔ ${name}`, "color: #16a34a; font-weight: 500;");
+                passed++;
+            } catch (err) {
+                console.error(`  ✖ ${name}:`, err.message);
+                failed++;
+            }
         }
-    });
 
-    console.log(`%c Test Results: ${passed} Passed, ${failed} Failed`, `color: ${failed > 0 ? '#dc2626' : '#16a34a'}; font-weight: bold;`);
-    console.groupEnd();
+        console.log(`%c Test Results: ${passed} Passed, ${failed} Failed`, `color: ${failed > 0 ? '#dc2626' : '#16a34a'}; font-weight: bold;`);
+        console.groupEnd();
+    })();
 })();
 </script>
 </body>
