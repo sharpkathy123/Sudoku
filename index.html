@@ -67,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
     window.addEventListener('load', () => {
         const swScript = `
-            const CACHE_NAME = 'sudoku-v20.39';
+            const CACHE_NAME = 'sudoku-v20.40';
 
             self.addEventListener('install', (e) => {
                 e.waitUntil(
@@ -2387,15 +2387,15 @@ const EXPERT_SEED_PUZZLES = [
 
 const MASTER_SEED_PUZZLES = [
     [
-        [0,0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,3,0,8,5],
-        [0,0,1,0,2,0,0,0,0],
-        [0,0,0,5,0,7,0,0,0],
-        [0,0,4,0,0,0,1,0,0],
-        [0,9,0,0,0,0,0,0,0],
-        [5,0,0,0,0,0,0,7,3],
-        [0,0,2,0,1,0,0,0,0],
-        [0,0,0,4,0,0,0,0,0]
+        [0,0,0,7,0,0,0,0,0],
+        [1,0,0,0,0,0,0,0,0],
+        [0,0,0,4,3,0,2,0,0],
+        [0,0,0,0,0,0,0,0,6],
+        [0,0,0,5,0,9,0,0,0],
+        [0,0,0,0,0,0,4,1,8],
+        [0,0,0,0,8,1,0,0,0],
+        [0,0,2,0,0,0,0,5,0],
+        [0,4,0,0,0,0,3,0,0]
     ],
     [
         [8,0,0,0,0,0,0,0,0],
