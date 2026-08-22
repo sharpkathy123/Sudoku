@@ -635,7 +635,7 @@ h2 {
 
    <div class="controls-gameplay">
        <button id="HintBtn" class="btn-primary">Hint</button>
-       <button id="highlightLeastBtn" title="Highlights cells belonging to the most completed digits">Highlight Fullest</button>
+       <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
        <button id="autoPencilBtn" title="Automatically fills legal pencil notes for all empty cells">Auto‑Notes</button>
        <button id="guardNotesToggle" class="active" title="Prevents adding invalid candidates or removing correct pencil notes">Guard Notes: ON</button>
    </div>
@@ -679,6 +679,13 @@ let currentHintLevel = 0;
 let statusTimeoutId = null;
 
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
+
+// Completion tracking for celebration glows across all 4 unit types
+const completedRows = Array(9).fill(false);
+const completedCols = Array(9).fill(false);
+const completedBoxes = Array(9).fill(false);
+const completedDigits = Array(10).fill(false);
+
 const givenMask = [];
 const STORAGE_KEY = 'sudoku_active_game_v1';
 
@@ -969,6 +976,11 @@ function buildBoard() {
     board.innerHTML = "";
     givenMask.length = 0;
     for (let k = 1; k <= 9; k++) placements[k] = [];
+    completedRows.fill(false);
+    completedCols.fill(false);
+    completedBoxes.fill(false);
+    completedDigits.fill(false);
+
     selectedCell = null;
     gameWon = false;
     currentHintState = null;
@@ -1111,11 +1123,73 @@ function loadSavedGameState() {
     }
 }
 
+function triggerUnitGlow(cellIndices) {
+    cellIndices.forEach(idx => {
+        const cell = board.children[idx];
+        if (cell) {
+            cell.classList.add("glow");
+            setTimeout(() => cell.classList.remove("glow"), 2000);
+        }
+    });
+}
+
 function checkAndBoldCompletedNumbers() {
+    const grid = getCurrentGrid();
+
+    // Check completed rows
+    for (let r = 0; r < 9; r++) {
+        const rowFilled = grid[r].every(val => val !== 0);
+        if (rowFilled && !completedRows[r]) {
+            completedRows[r] = true;
+            const indices = [];
+            for (let c = 0; c < 9; c++) indices.push(r * 9 + c);
+            triggerUnitGlow(indices);
+        }
+    }
+
+    // Check completed columns
+    for (let c = 0; c < 9; c++) {
+        let colFilled = true;
+        for (let r = 0; r < 9; r++) {
+            if (grid[r][c] === 0) { colFilled = false; break; }
+        }
+        if (colFilled && !completedCols[c]) {
+            completedCols[c] = true;
+            const indices = [];
+            for (let r = 0; r < 9; r++) indices.push(r * 9 + c);
+            triggerUnitGlow(indices);
+        }
+    }
+
+    // Check completed 3x3 boxes
+    for (let b = 0; b < 9; b++) {
+        const br = Math.floor(b / 3) * 3;
+        const bc = (b % 3) * 3;
+        let boxFilled = true;
+        for (let r = br; r < br + 3; r++) {
+            for (let c = bc; c < bc + 3; c++) {
+                if (grid[r][c] === 0) { boxFilled = false; break; }
+            }
+        }
+        if (boxFilled && !completedBoxes[b]) {
+            completedBoxes[b] = true;
+            const indices = [];
+            for (let r = br; r < br + 3; r++) {
+                for (let c = bc; c < bc + 3; c++) indices.push(r * 9 + c);
+            }
+            triggerUnitGlow(indices);
+        }
+    }
+
+    // Check completed digits (all 9 placed)
     for (let num = 1; num <= 9; num++) {
         if (placements[num].length === 9) {
             placements[num].forEach(index => board.children[index].classList.add("completed-number"));
             if (numberBar.children[num - 1]) numberBar.children[num - 1].classList.add("completed-number");
+            if (!completedDigits[num]) {
+                completedDigits[num] = true;
+                triggerUnitGlow(placements[num]);
+            }
         }
     }
 }
@@ -1669,31 +1743,93 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     if (gameWon) return;
 
-    let maxCount = -1;
-    let mostFilledNum = null;
+    if (selectedCell) selectedCell.classList.remove("selected");
+    selectedCell = null;
+    clearNumberHighlights();
 
-    for (let n = 1; n <= 9; n++) {
-        const count = placements[n] ? placements[n].length : 0;
-        if (count < 9 && count > maxCount) {
-            maxCount = count;
-            mostFilledNum = n;
+    currentHintState = null;
+    currentHintLevel = 0;
+
+    const grid = getCurrentGrid();
+    let minEmpty = 10;
+    let bestUnit = null; // { type: 'row'|'col'|'box'|'digit', index: number, emptyCount: number }
+
+    // 1. Scan Rows
+    for (let r = 0; r < 9; r++) {
+        const emptyCount = grid[r].filter(val => val === 0).length;
+        if (emptyCount > 0 && emptyCount < minEmpty) {
+            minEmpty = emptyCount;
+            bestUnit = { type: 'row', index: r, emptyCount };
         }
     }
 
-    if (mostFilledNum) {
-        if (selectedCell) selectedCell.classList.remove("selected");
-        selectedCell = null;
-        
-        currentHintState = null;
-        currentHintLevel = 0;
-
-        selectedNumber = mostFilledNum;
-        updateNumberTileStyles();
-        highlightSameNumbers(mostFilledNum);
-        setStatusText(`Highlighting ${mostFilledNum}—the most completed active number (${maxCount}/9 placed).`, 4000);
-    } else {
-        setStatusText("All numbers are fully placed!", 3000);
+    // 2. Scan Columns
+    for (let c = 0; c < 9; c++) {
+        let emptyCount = 0;
+        for (let r = 0; r < 9; r++) if (grid[r][c] === 0) emptyCount++;
+        if (emptyCount > 0 && emptyCount < minEmpty) {
+            minEmpty = emptyCount;
+            bestUnit = { type: 'col', index: c, emptyCount };
+        }
     }
+
+    // 3. Scan Boxes
+    for (let b = 0; b < 9; b++) {
+        const br = Math.floor(b / 3) * 3;
+        const bc = (b % 3) * 3;
+        let emptyCount = 0;
+        for (let r = br; r < br + 3; r++) {
+            for (let c = bc; c < bc + 3; c++) if (grid[r][c] === 0) emptyCount++;
+        }
+        if (emptyCount > 0 && emptyCount < minEmpty) {
+            minEmpty = emptyCount;
+            bestUnit = { type: 'box', index: b, emptyCount };
+        }
+    }
+
+    // 4. Scan Digits
+    for (let n = 1; n <= 9; n++) {
+        const placedCount = placements[n] ? placements[n].length : 0;
+        const emptyCount = 9 - placedCount;
+        if (emptyCount > 0 && emptyCount < minEmpty) {
+            minEmpty = emptyCount;
+            bestUnit = { type: 'digit', index: n, emptyCount };
+        }
+    }
+
+    if (!bestUnit) {
+        setStatusText("All units are completely filled!", 3000);
+        return;
+    }
+
+    // Highlight target unit cells
+    const cellsToHighlight = [];
+    if (bestUnit.type === 'row') {
+        const r = bestUnit.index;
+        for (let c = 0; c < 9; c++) cellsToHighlight.push(r * 9 + c);
+        setStatusText(`Highlighting Row ${r+1}—only ${bestUnit.emptyCount} empty cell${bestUnit.emptyCount > 1 ? 's' : ''} remaining!`, 4000);
+    } else if (bestUnit.type === 'col') {
+        const c = bestUnit.index;
+        for (let r = 0; r < 9; r++) cellsToHighlight.push(r * 9 + c);
+        setStatusText(`Highlighting Column ${c+1}—only ${bestUnit.emptyCount} empty cell${bestUnit.emptyCount > 1 ? 's' : ''} remaining!`, 4000);
+    } else if (bestUnit.type === 'box') {
+        const b = bestUnit.index;
+        const br = Math.floor(b / 3) * 3;
+        const bc = (b % 3) * 3;
+        for (let r = br; r < br + 3; r++) {
+            for (let c = bc; c < bc + 3; c++) cellsToHighlight.push(r * 9 + c);
+        }
+        setStatusText(`Highlighting Box ${b+1}—only ${bestUnit.emptyCount} empty cell${bestUnit.emptyCount > 1 ? 's' : ''} remaining!`, 4000);
+    } else if (bestUnit.type === 'digit') {
+        const n = bestUnit.index;
+        selectedNumber = n;
+        updateNumberTileStyles();
+        highlightSameNumbers(n);
+        setStatusText(`Highlighting Digit ${n}—only ${bestUnit.emptyCount} left to place!`, 4000);
+        return;
+    }
+
+    cellsToHighlight.forEach(idx => board.children[idx].classList.add("highlight-least"));
 });
 
 difficultySelect.addEventListener("change", async () => {
