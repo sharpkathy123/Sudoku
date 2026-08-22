@@ -619,7 +619,6 @@ h2 {
     <h2>Sudoku Game</h2>
     <div id="status"></div>
 
-    <!-- TOP HEADER CONTROL BAR: SETUP & DESTRUCTIVE RESET ACTIONS -->
     <div class="top-bar">
         <label for="difficulty">Level:</label>
         <select id="difficulty">
@@ -634,7 +633,6 @@ h2 {
         <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
     </div>
 
-   <!-- GAMEPLAY CONTROLS BAR -->
    <div class="controls-gameplay">
        <button id="HintBtn" class="btn-primary">Hint</button>
        <button id="highlightLeastBtn">Highlight Fullest</button>
@@ -945,6 +943,18 @@ function onCellClick(cell) {
     updateNumberTileStyles();
 }
 
+function hasActivePencilMarksOnBoard() {
+    for (let i = 0; i < board.children.length; i++) {
+        const digits = board.children[i]._pencilDigits;
+        if (digits) {
+            for (let n = 1; n <= 9; n++) {
+                if (digits[n].classList.contains("active")) return true;
+            }
+        }
+    }
+    return false;
+}
+
 function buildBoard() {
     board.innerHTML = "";
     givenMask.length = 0;
@@ -1219,7 +1229,6 @@ guardNotesToggle.addEventListener("click", () => {
     guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
     
-    // EXTENDED READABILITY TIMEOUT: 7 SECONDS
     setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`);
     setTimeout(() => { if (statusEl.textContent.startsWith("Guard Notes")) setStatusText(""); }, 7000);
     
@@ -1303,7 +1312,7 @@ function getCurrentGrid() {
 }
 
 /* ==========================================================================
-   5. HUMAN LEARNING PROGRESSION HINT ENGINE
+   5. DYNAMIC PENCIL-AWARE HUMAN HINT ENGINE
    ========================================================================== */
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -1372,23 +1381,6 @@ function findFullHouse(grid, candGrid) {
     return null;
 }
 
-function findNakedSingle(candGrid) {
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            if (candGrid[r][c].length === 1) {
-                const val = candGrid[r][c][0];
-                return {
-                    r, c, val,
-                    nudge: `Focus on Cell (${r+1}, ${c+1})—only 1 digit can legally fit here!`,
-                    techName: `Naked Single Cell (${r+1}, ${c+1})`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val}—all other digits are blocked by intersecting lines.`
-                };
-            }
-        }
-    }
-    return null;
-}
-
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1403,11 +1395,28 @@ function findHiddenSingleInBox(candGrid) {
                 if (spots.length === 1) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
-                        nudge: `Look in Box ${boxNum}—one missing digit has only a single valid cell left!`,
-                        techName: `Hidden Single (Box ${boxNum})`,
-                        explanation: `${n} must go in Cell (${spots[0].r+1}, ${spots[0].c+1})—nowhere else in Box ${boxNum} can hold it.`
+                        nudge: `Scan digit ${n} across Box ${boxNum}—cross-hatching eliminates all other spots!`,
+                        techName: `Visual Cross-Hatch (Digit ${n} in Box ${boxNum})`,
+                        explanation: `Digit ${n} cross-hatches into Box ${boxNum} leaving only Cell (${spots[0].r+1}, ${spots[0].c+1}).`
                     };
                 }
+            }
+        }
+    }
+    return null;
+}
+
+function findNakedSingle(candGrid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (candGrid[r][c].length === 1) {
+                const val = candGrid[r][c][0];
+                return {
+                    r, c, val,
+                    nudge: `Focus on Cell (${r+1}, ${c+1})—only 1 digit can legally fit here!`,
+                    techName: `Naked Single Cell (${r+1}, ${c+1})`,
+                    explanation: `Cell (${r+1}, ${c+1}) must be ${val}—all other 8 digits are present in intersecting lines.`
+                };
             }
         }
     }
@@ -1452,11 +1461,24 @@ function showHint() {
 
     const currentGrid = getCurrentGrid();
     const candGrid = getCandidatesGrid(currentGrid);
+    const hasNotes = pencilMode || hasActivePencilMarksOnBoard();
 
-    let hint = findFullHouse(currentGrid, candGrid) || 
+    // ADAPTIVE ORDERING BASED ON PENCIL MARKS:
+    // Pencil OFF: Full House -> Visual Cross-Hatching -> Naked Single -> Fallback
+    // Pencil ON:  Full House -> Naked Single -> Hidden Single -> Fallback
+    let hint = null;
+
+    if (!hasNotes) {
+        hint = findFullHouse(currentGrid, candGrid) || 
+               findHiddenSingleInBox(candGrid) || 
+               findNakedSingle(candGrid) || 
+               findDirectRevealFallback(candGrid, solution);
+    } else {
+        hint = findFullHouse(currentGrid, candGrid) || 
                findNakedSingle(candGrid) || 
                findHiddenSingleInBox(candGrid) || 
                findDirectRevealFallback(candGrid, solution);
+    }
 
     if (!hint) {
         setStatusText("Board is complete!");
@@ -1719,7 +1741,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 const fullHouse = findFullHouse(simGrid, candGrid);
                 const naked = findNakedSingle(candGrid);
                 const hidden = findHiddenSingleInBox(candGrid);
-                const direct = findDirectRevealFallback(candGrid, res.solution);
+                const direct = findDirectRevealFallback(simGrid, res.solution);
                 
                 assert(fullHouse !== null || naked !== null || hidden !== null || direct !== null, `${diff} puzzle generated without valid hint strategy`);
             }
