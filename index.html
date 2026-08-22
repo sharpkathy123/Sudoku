@@ -1681,6 +1681,12 @@ document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     }
 
     if (mostFilledNum) {
+        if (selectedCell) selectedCell.classList.remove("selected");
+        selectedCell = null;
+        
+        currentHintState = null;
+        currentHintLevel = 0;
+
         selectedNumber = mostFilledNum;
         updateNumberTileStyles();
         highlightSameNumbers(mostFilledNum);
