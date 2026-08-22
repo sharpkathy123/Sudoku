@@ -619,6 +619,7 @@ h2 {
     <h2>Sudoku Game</h2>
     <div id="status"></div>
 
+    <!-- TOP HEADER CONTROL BAR: SETUP & DESTRUCTIVE RESET ACTIONS -->
     <div class="top-bar">
         <label for="difficulty">Level:</label>
         <select id="difficulty">
@@ -628,14 +629,15 @@ h2 {
             <option value="expert">Expert</option>
             <option value="master">Master</option>
         </select>
-        <button id="newGameBtn">New Game</button>
+        <button id="newGameBtn" class="btn-danger">New Game</button>
         <button id="restartBtn" class="btn-danger">Restart</button>
         <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
     </div>
 
+   <!-- GAMEPLAY CONTROLS BAR -->
    <div class="controls-gameplay">
        <button id="HintBtn" class="btn-primary">Hint</button>
-       <button id="highlightLeastBtn">Highlight Fullest</button>
+       <button id="highlightLeastBtn" title="Highlights cells belonging to the most completed digits">Highlight Fullest</button>
        <button id="autoPencilBtn" title="Automatically fills legal pencil notes for all empty cells">Auto‑Notes</button>
        <button id="guardNotesToggle" class="active" title="Prevents adding invalid candidates or removing correct pencil notes">Guard Notes: ON</button>
    </div>
@@ -676,6 +678,7 @@ let activeGenerationId = 0;
 
 let currentHintState = null;
 let currentHintLevel = 0;
+let statusTimeoutId = null;
 
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 const givenMask = [];
@@ -689,6 +692,19 @@ const difficultySelect = document.getElementById("difficulty");
 const winOverlay = document.getElementById("winOverlay");
 const confettiCanvas = document.getElementById("confettiCanvas");
 const ctx = confettiCanvas.getContext("2d");
+
+function setStatusText(text, durationMs = 0) {
+    if (statusTimeoutId) {
+        clearTimeout(statusTimeoutId);
+        statusTimeoutId = null;
+    }
+    statusEl.textContent = text;
+    if (durationMs > 0) {
+        statusTimeoutId = setTimeout(() => {
+            if (statusEl.textContent === text) setStatusText("");
+        }, durationMs);
+    }
+}
 
 function deepCopyGrid(grid) {
     if (!grid) return [];
@@ -896,10 +912,6 @@ function transformGridPair(seedObj) {
 /* ==========================================================================
    3. BOARD UI BUILDING & HIGHLIGHTING
    ========================================================================== */
-function setStatusText(text) {
-    statusEl.textContent = text;
-}
-
 function showGeneratingStatus(text = "Generating puzzle...") {
     const gearSVG = `<svg class="gear-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/></svg>`;
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
@@ -1093,8 +1105,7 @@ function loadSavedGameState() {
 
         checkAndBoldCompletedNumbers();
         updateNumberTileStyles();
-        setStatusText("Resumed saved game.");
-        setTimeout(() => { if (statusEl.textContent === "Resumed saved game.") setStatusText(""); }, 3000);
+        setStatusText("Resumed saved game.", 3000);
         return true;
     } catch (e) {
         console.error("Failed to restore game state", e);
@@ -1120,8 +1131,7 @@ for (let n = 1; n <= 9; n++) {
         if (gameWon) return;
 
         if (!selectedCell) {
-            setStatusText("Select a cell first.");
-            setTimeout(() => { if (statusEl.textContent === "Select a cell first.") setStatusText(""); }, 2000);
+            setStatusText("Select a cell first.", 2000);
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
@@ -1132,8 +1142,7 @@ for (let n = 1; n <= 9; n++) {
         const c = parseInt(selectedCell.dataset.col, 10);
 
         if (givenMask[r][c]) {
-            setStatusText("You can't change a given cell.");
-            setTimeout(() => { if (statusEl.textContent === "You can't change a given cell.") setStatusText(""); }, 2000);
+            setStatusText("You can't change a given cell.", 2000);
             return;
         }
 
@@ -1146,15 +1155,13 @@ for (let n = 1; n <= 9; n++) {
 
                 if (isCurrentlyActive && n === correctValue) {
                     flashWrong(selectedCell);
-                    setStatusText(`Cannot erase ${n}—it is correct!`);
-                    setTimeout(() => { if (statusEl.textContent.startsWith("Cannot erase")) setStatusText(""); }, 3000);
+                    setStatusText(`Cannot erase candidate—it is part of the solution!`, 3000);
                     return;
                 }
 
                 if (!isCurrentlyActive && n !== correctValue) {
                     flashWrong(selectedCell);
-                    setStatusText(`Candidate ${n} doesn't belong here!`);
-                    setTimeout(() => { if (statusEl.textContent.startsWith("Candidate")) setStatusText(""); }, 3000);
+                    setStatusText(`Candidate ${n} doesn't belong in this cell!`, 3000);
                     return;
                 }
             }
@@ -1229,8 +1236,8 @@ guardNotesToggle.addEventListener("click", () => {
     guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
     
-    setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`);
-    setTimeout(() => { if (statusEl.textContent.startsWith("Guard Notes")) setStatusText(""); }, 7000);
+    // PERSISTENT READABILITY TIMEOUT (10 SECONDS)
+    setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`, 10000);
     
     saveGameState();
 });
@@ -1282,8 +1289,7 @@ function autoFillAllPencils() {
         }
     }
     saveGameState();
-    setStatusText(`Auto-Notes: Calculated ${notesAdded} legal candidates.`);
-    setTimeout(() => { if (statusEl.textContent.startsWith("Auto-Notes")) setStatusText(""); }, 5000);
+    setStatusText(`Auto-Notes: Calculated ${notesAdded} legal candidates.`, 5000);
 }
 
 function flashWrong(cell) {
@@ -1328,6 +1334,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
+// Tier 1 hints focus strictly on visual structure without revealing exact values
 function findFullHouse(grid, candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1337,7 +1344,7 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0];
             return {
                 r, c, val,
-                nudge: `Look at Row ${r+1}—8 numbers are already filled!`,
+                nudge: `Look closely at Row ${r+1}—8 numbers are already filled!`,
                 techName: `Full House (Row ${r+1})`,
                 explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Row ${r+1} and must be ${val}.`
             };
@@ -1351,7 +1358,7 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0];
             return {
                 r, c, val,
-                nudge: `Look at Column ${c+1}—8 numbers are already filled!`,
+                nudge: `Look closely at Column ${c+1}—8 numbers are already filled!`,
                 techName: `Full House (Column ${c+1})`,
                 explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Column ${c+1} and must be ${val}.`
             };
@@ -1371,7 +1378,7 @@ function findFullHouse(grid, candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
-                    nudge: `Look at Box ${boxNum}—8 numbers are already filled!`,
+                    nudge: `Look closely at Box ${boxNum}—8 numbers are already filled!`,
                     techName: `Full House (Box ${boxNum})`,
                     explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Box ${boxNum} and must be ${val}.`
                 };
@@ -1395,7 +1402,7 @@ function findHiddenSingleInBox(candGrid) {
                 if (spots.length === 1) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
-                        nudge: `Scan digit ${n} across Box ${boxNum}—cross-hatching eliminates all other spots!`,
+                        nudge: `Focus on Box ${boxNum}—scanning digits across intersecting lines leaves only one valid spot!`,
                         techName: `Visual Cross-Hatch (Digit ${n} in Box ${boxNum})`,
                         explanation: `Digit ${n} cross-hatches into Box ${boxNum} leaving only Cell (${spots[0].r+1}, ${spots[0].c+1}).`
                     };
@@ -1413,7 +1420,7 @@ function findNakedSingle(candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
-                    nudge: `Focus on Cell (${r+1}, ${c+1})—only 1 digit can legally fit here!`,
+                    nudge: `Focus on Cell (${r+1}, ${c+1})—only 1 legal candidate can fit here!`,
                     techName: `Naked Single Cell (${r+1}, ${c+1})`,
                     explanation: `Cell (${r+1}, ${c+1}) must be ${val}—all other 8 digits are present in intersecting lines.`
                 };
@@ -1444,7 +1451,7 @@ function findDirectRevealFallback(candGrid, targetSolution) {
             r: target.r,
             c: target.c,
             val: correctVal,
-            nudge: `Cell (${target.r+1}, ${target.c+1}) is a good cell to focus on next.`,
+            nudge: `Cell (${target.r+1}, ${target.c+1}) is a logical cell to focus on next.`,
             techName: `Direct Candidate Placement`,
             explanation: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
         };
@@ -1463,9 +1470,6 @@ function showHint() {
     const candGrid = getCandidatesGrid(currentGrid);
     const hasNotes = pencilMode || hasActivePencilMarksOnBoard();
 
-    // ADAPTIVE ORDERING BASED ON PENCIL MARKS:
-    // Pencil OFF: Full House -> Visual Cross-Hatching -> Naked Single -> Fallback
-    // Pencil ON:  Full House -> Naked Single -> Hidden Single -> Fallback
     let hint = null;
 
     if (!hasNotes) {
@@ -1644,8 +1648,7 @@ document.getElementById("restartBtn").addEventListener("click", () => {
     buildBoard();
     updateNumberTileStyles();
     saveGameState();
-    setStatusText("Game restarted.");
-    setTimeout(() => { if (statusEl.textContent === "Game restarted.") setStatusText(""); }, 3000);
+    setStatusText("Game restarted.", 3000);
 });
 
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
@@ -1656,12 +1659,32 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
         if (!givenMask[r][c]) clearAllPencilsInCell(cell);
     });
     saveGameState();
-    setStatusText("Cleared all pencil notes across the board.");
-    setTimeout(() => { if (statusEl.textContent.startsWith("Cleared")) setStatusText(""); }, 5000);
+    setStatusText("Cleared all pencil notes across the board.", 5000);
 });
 
+// HIGHLIGHT FULLEST: SEPARATED FROM HINT ENGINE
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
-    if (!gameWon) showHint();
+    if (gameWon) return;
+
+    let maxCount = -1;
+    let mostFilledNum = null;
+
+    for (let n = 1; n <= 9; n++) {
+        const count = placements[n] ? placements[n].length : 0;
+        if (count < 9 && count > maxCount) {
+            maxCount = count;
+            mostFilledNum = n;
+        }
+    }
+
+    if (mostFilledNum) {
+        selectedNumber = mostFilledNum;
+        updateNumberTileStyles();
+        highlightSameNumbers(mostFilledNum);
+        setStatusText(`Highlighting ${mostFilledNum}—the most completed active number (${maxCount}/9 placed).`, 4000);
+    } else {
+        setStatusText("All numbers are fully placed!", 3000);
+    }
 });
 
 difficultySelect.addEventListener("change", async () => {
