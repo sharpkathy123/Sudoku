@@ -129,7 +129,7 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 }
 </script>
 
-<!-- ON-SCREEN LOG OVERLAY FOR DEVELOPMENT / TESTING -->
+<!-- STREAMING ON-SCREEN LOG OVERLAY FOR DEVELOPMENT / TESTING -->
 <script>
 (function setupOnScreenLogger() {
     if (!new URLSearchParams(window.location.search).has('test')) return;
@@ -156,36 +156,60 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 
     const header = document.createElement('div');
     header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; color: #60a5fa; border-bottom: 1px solid #334155; padding-bottom: 4px;';
-    header.innerHTML = '<span>🧪 Test Results</span><button onclick="document.getElementById(\'testLogOverlay\').remove()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Close</button>';
+    header.innerHTML = '<span id="testHeaderTitle" style="display:flex;align-items:center;gap:6px;">🧪 Testing in progress... <span class="test-spinner"></span></span><button onclick="document.getElementById(\'testLogOverlay\').remove()" style="background:#1e293b;border:1px solid #475569;color:#94a3b8;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Close</button>';
     logContainer.appendChild(header);
+
+    const activeTestIndicator = document.createElement('div');
+    activeTestIndicator.id = 'activeTestIndicator';
+    activeTestIndicator.style.cssText = 'color: #fbbf24; font-style: italic; margin-bottom: 6px; font-size: 11px;';
+    logContainer.appendChild(activeTestIndicator);
 
     const logBody = document.createElement('div');
     logContainer.appendChild(logBody);
 
-    function appendLine(msg, color = '#f8fafc') {
-        const line = document.createElement('div');
-        line.style.cssText = `color: ${color}; margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; line-height: 1.4;`;
-        line.textContent = msg;
-        logBody.appendChild(line);
-        logContainer.scrollTop = logContainer.scrollHeight;
-    }
+    const style = document.createElement('style');
+    style.textContent = `
+        .test-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(96, 165, 250, 0.3);
+            border-radius: 50%;
+            border-top-color: #60a5fa;
+            animation: testSpin 0.8s linear infinite;
+        }
+        @keyframes testSpin {
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
 
-    const origLog = console.log;
-    const origErr = console.error;
-
-    console.log = function (...args) {
-        origLog.apply(console, args);
-        const cleanText = args[0] ? String(args[0]).replace(/%c/g, '') : '';
-        let color = '#f8fafc';
-        if (cleanText.includes('✔')) color = '#4ade80';
-        if (cleanText.includes('Test Results') || cleanText.includes('Executing')) color = '#60a5fa';
-        appendLine(cleanText, color);
-    };
-
-    console.error = function (...args) {
-        origErr.apply(console, args);
-        const text = args.map(a => String(a).replace(/%c/g, '')).join(' ');
-        appendLine(text, '#f87171');
+    window.testUI = {
+        appendLine(msg, color = '#f8fafc') {
+            const line = document.createElement('div');
+            line.style.cssText = `color: ${color}; margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; line-height: 1.4;`;
+            line.textContent = msg;
+            logBody.appendChild(line);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        },
+        setActiveTest(testName) {
+            if (testName) {
+                activeTestIndicator.textContent = `⏳ Running: ${testName}...`;
+            } else {
+                activeTestIndicator.textContent = '';
+            }
+        },
+        finishSuite(passed, failed) {
+            activeTestIndicator.remove();
+            const headerTitle = document.getElementById('testHeaderTitle');
+            if (headerTitle) {
+                if (failed === 0) {
+                    headerTitle.innerHTML = '🧪 Test Results <span style="color:#4ade80;">(All Passed)</span>';
+                } else {
+                    headerTitle.innerHTML = `🧪 Test Results <span style="color:#f87171;">(${failed} Failed)</span>`;
+                }
+            }
+        }
     };
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -2866,7 +2890,7 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 })();
 
 /* ==========================================================================
-   AUTOMATED REGRESSION TEST HARNESS
+   STREAMING AUTOMATED REGRESSION TEST HARNESS
    ========================================================================== */
 (function runAutomatedRegressionTests() {
     if (!new URLSearchParams(window.location.search).has('test')) return;
@@ -2962,14 +2986,25 @@ document.getElementById("HintBtn").addEventListener("click", () => {
 
     (async () => {
         for (const [name, testFn] of Object.entries(tests)) {
+            if (window.testUI) window.testUI.setActiveTest(name);
             try {
                 await testFn();
-                console.log(`%c  ✔ ${name}`, "color: #16a34a; font-weight: 500;");
+                const msg = `  ✔ ${name}`;
+                console.log(`%c${msg}`, "color: #16a34a; font-weight: 500;");
+                if (window.testUI) window.testUI.appendLine(msg, '#4ade80');
                 passed++;
             } catch (err) {
-                console.error(`  ✖ ${name}:`, err.message);
+                const msg = `  ✖ ${name}: ${err.message}`;
+                console.error(msg);
+                if (window.testUI) window.testUI.appendLine(msg, '#f87171');
                 failed++;
             }
+        }
+
+        if (window.testUI) {
+            window.testUI.setActiveTest(null);
+            window.testUI.appendLine(`\nTest Results: ${passed} Passed, ${failed} Failed`, failed > 0 ? '#f87171' : '#4ade80');
+            window.testUI.finishSuite(passed, failed);
         }
 
         console.log(`%c Test Results: ${passed} Passed, ${failed} Failed`, `color: ${failed > 0 ? '#dc2626' : '#16a34a'}; font-weight: bold;`);
