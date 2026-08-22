@@ -630,18 +630,18 @@ h2 {
         </select>
         <button id="newGameBtn" class="btn-danger">New Game</button>
         <button id="restartBtn" class="btn-danger">Restart</button>
-        <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
+        <button id="clearNotesBtn" class="btn-danger" title="Clears all small pencil marks across the board">Clear Pencil Marks</button>
     </div>
 
    <div class="controls-gameplay">
-       <button id="HintBtn" class="btn-primary">Hint</button>
+       <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
        <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
-       <button id="autoPencilBtn" title="Automatically fills legal pencil notes for all empty cells">Auto‑Notes</button>
-       <button id="guardNotesToggle" class="active" title="Prevents adding invalid candidates or removing correct pencil notes">Guard Notes: ON</button>
+       <button id="autoPencilBtn" title="Automatically fills pencil candidates into all open spaces">Auto‑Pencil</button>
+       <button id="guardNotesToggle" class="active" title="Prevents adding invalid pencil numbers or removing correct marks">Guard Pencil: ON</button>
    </div>
 
     <div class="input-section">
-        <button id="pencilToggle">Pencil Mode: OFF</button>
+        <button id="pencilToggle" title="Toggle writing small pencil numbers vs solid final answers">Pencil Mode: OFF</button>
         <div class="number-bar" id="numberBar"></div>
     </div>
 
@@ -1128,7 +1128,7 @@ function loadSavedGameState() {
         if (state.difficulty) difficultySelect.value = state.difficulty;
         if (typeof state.guardNotesMode !== "undefined") {
             guardNotesMode = state.guardNotesMode;
-            guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
+            guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"}`;
             guardNotesToggle.classList.toggle("active", guardNotesMode);
         }
 
@@ -1266,13 +1266,13 @@ for (let n = 1; n <= 9; n++) {
 
                 if (isCurrentlyActive && n === correctValue) {
                     flashWrong(selectedCell);
-                    setStatusText(`Cannot erase candidate—it is part of the solution!`, 3000);
+                    setStatusText(`Cannot erase pencil mark—it is part of the solution!`, 3000);
                     return;
                 }
 
                 if (!isCurrentlyActive && n !== correctValue) {
                     flashWrong(selectedCell);
-                    setStatusText(`Candidate ${n} doesn't belong in this cell!`, 3000);
+                    setStatusText(`Number ${n} doesn't belong in this cell!`, 3000);
                     return;
                 }
             }
@@ -1344,10 +1344,10 @@ const guardNotesToggle = document.getElementById("guardNotesToggle");
 guardNotesToggle.addEventListener("click", () => {
     if (gameWon) return;
     guardNotesMode = !guardNotesMode;
-    guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
+    guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"}`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
     
-    setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`, 10000);
+    setStatusText(`Guard Pencil ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid pencil marks or removing correct ones." : "Allows manual pencil freedom."}`, 10000);
     
     saveGameState();
 });
@@ -1399,7 +1399,7 @@ function autoFillAllPencils() {
         }
     }
     saveGameState();
-    setStatusText(`Auto-Notes: Calculated ${notesAdded} legal candidates.`, 5000);
+    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil candidates.`, 5000);
 }
 
 function flashWrong(cell) {
@@ -1540,7 +1540,7 @@ function findNakedSingle(candGrid) {
                     r, c, val,
                     method: "Naked Single",
                     tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
-                    tier2: `Check Row ${r+1}, Column ${c+1}, and Box ${boxNum}. Together, they already contain 8 different numbers.`,
+                    tier2: `Check Row ${r+1}, Column ${c+1}, and Box ${boxNum}. Together, they already contain 8 different numbers, leaving only 1 possible candidate (pencil mark).`,
                     tier3: `All digits except ${val} are already placed across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
                 };
             }
@@ -1570,7 +1570,7 @@ function findLockedCandidates(candGrid) {
                             val: solution[boxCells[0].r][boxCells[0].c],
                             method: "Pointing Pairs/Triples",
                             tier1: `Look at Row ${r+1} inside Box ${br*3+bc+1}. Try using "Pointing Candidates".`,
-                            tier2: `All candidate locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Row ${r+1}.`,
+                            tier2: `All candidate (pencil mark) locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Row ${r+1}.`,
                             tier3: `Since ${n} must go in Row ${r+1} within Box ${br*3+bc+1}, eliminate ${n} elsewhere along Row ${r+1}. Place ${solution[boxCells[0].r][boxCells[0].c]} in Row ${boxCells[0].r+1}, Column ${boxCells[0].c+1}!`
                         };
                     }
@@ -1583,7 +1583,7 @@ function findLockedCandidates(candGrid) {
                             val: solution[boxCells[0].r][boxCells[0].c],
                             method: "Pointing Pairs/Triples",
                             tier1: `Look at Column ${c+1} inside Box ${br*3+bc+1}. Try using "Pointing Candidates".`,
-                            tier2: `All candidate locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Column ${c+1}.`,
+                            tier2: `All candidate (pencil mark) locations for digit ${n} inside Box ${br*3+bc+1} align strictly on Column ${c+1}.`,
                             tier3: `Since ${n} must go in Column ${c+1} within Box ${br*3+bc+1}, eliminate ${n} elsewhere along Column ${c+1}. Place ${solution[boxCells[0].r][boxCells[0].c]} in Row ${boxCells[0].r+1}, Column ${boxCells[0].c+1}!`
                         };
                     }
@@ -1607,7 +1607,7 @@ function findNakedPair(candGrid) {
                             val: solution[r][c1],
                             method: "Naked Pair",
                             tier1: `Look at Row ${r+1}, Columns ${c1+1} & ${c2+1}. Try using "Naked Pair".`,
-                            tier2: `Cells in Row ${r+1} at Columns ${c1+1} and ${c2+1} contain the exact same pair of candidates ([${pair.join(', ')}]).`,
+                            tier2: `Cells in Row ${r+1} at Columns ${c1+1} and ${c2+1} share the exact same candidate pair (pencil marks [${pair.join(', ')}]).`,
                             tier3: `Since candidates ${pair.join(' and ')} are locked into Row ${r+1}, place ${solution[r][c1]} in Row ${r+1}, Column ${c1+1}!`
                         };
                     }
@@ -1642,7 +1642,7 @@ function findXWing(candGrid) {
                             val: solution[r1][c1],
                             method: "X-Wing",
                             tier1: `Look at Rows ${r1+1} & ${r2+1} at Columns ${c1+1} & ${c2+1}. Try using "X-Wing".`,
-                            tier2: `The candidate ${n} forms a perfect rectangle across Rows ${r1+1} and ${r2+1} in Columns ${c1+1} and ${c2+1}.`,
+                            tier2: `The candidate ${n} forms a rectangle across Rows ${r1+1} and ${r2+1} in Columns ${c1+1} and ${c2+1}.`,
                             tier3: `Because ${n} must occupy two diagonal corners of this rectangle, eliminate candidate ${n} from all other cells in Columns ${c1+1} and ${c2+1}. Place ${solution[r1][c1]} in Row ${r1+1}, Column ${c1+1}!`
                         };
                     }
@@ -1882,7 +1882,7 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
         if (!givenMask[r][c]) clearAllPencilsInCell(cell);
     });
     saveGameState();
-    setStatusText("Cleared all pencil notes across the board.", 5000);
+    setStatusText("Cleared all pencil marks across the board.", 5000);
 });
 
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
