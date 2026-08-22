@@ -619,7 +619,6 @@ h2 {
     <h2>Sudoku Game</h2>
     <div id="status"></div>
 
-    <!-- TOP HEADER CONTROL BAR: SETUP & DESTRUCTIVE RESET ACTIONS -->
     <div class="top-bar">
         <label for="difficulty">Level:</label>
         <select id="difficulty">
@@ -634,7 +633,6 @@ h2 {
         <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
     </div>
 
-   <!-- GAMEPLAY CONTROLS BAR -->
    <div class="controls-gameplay">
        <button id="HintBtn" class="btn-primary">Hint</button>
        <button id="highlightLeastBtn" title="Highlights cells belonging to the most completed digits">Highlight Fullest</button>
@@ -1236,7 +1234,6 @@ guardNotesToggle.addEventListener("click", () => {
     guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
     
-    // PERSISTENT READABILITY TIMEOUT (10 SECONDS)
     setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`, 10000);
     
     saveGameState();
@@ -1318,7 +1315,7 @@ function getCurrentGrid() {
 }
 
 /* ==========================================================================
-   5. DYNAMIC PENCIL-AWARE HUMAN HINT ENGINE
+   5. PROGRESSIVE VALUE-NEUTRAL HINT ENGINE
    ========================================================================== */
 function getCandidatesGrid(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -1334,7 +1331,6 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// Tier 1 hints focus strictly on visual structure without revealing exact values
 function findFullHouse(grid, candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1344,9 +1340,10 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0];
             return {
                 r, c, val,
-                nudge: `Look closely at Row ${r+1}—8 numbers are already filled!`,
-                techName: `Full House (Row ${r+1})`,
-                explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Row ${r+1} and must be ${val}.`
+                method: "Full House (Single Empty Cell)",
+                tier1: `Focus on Cell (${r+1}, ${c+1}) using Full House.`,
+                tier2: `Row ${r+1} has 8 numbers filled—count digits 1 through 9 across this row to find the missing one.`,
+                tier3: `Cell (${r+1}, ${c+1}) must be ${val} to complete Row ${r+1}.`
             };
         }
     }
@@ -1358,9 +1355,10 @@ function findFullHouse(grid, candGrid) {
             const val = candGrid[r][c][0];
             return {
                 r, c, val,
-                nudge: `Look closely at Column ${c+1}—8 numbers are already filled!`,
-                techName: `Full House (Column ${c+1})`,
-                explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Column ${c+1} and must be ${val}.`
+                method: "Full House (Single Empty Cell)",
+                tier1: `Focus on Cell (${r+1}, ${c+1}) using Full House.`,
+                tier2: `Column ${c+1} has 8 numbers filled—count digits 1 through 9 down this column to find the missing one.`,
+                tier3: `Cell (${r+1}, ${c+1}) must be ${val} to complete Column ${c+1}.`
             };
         }
     }
@@ -1378,9 +1376,10 @@ function findFullHouse(grid, candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
-                    nudge: `Look closely at Box ${boxNum}—8 numbers are already filled!`,
-                    techName: `Full House (Box ${boxNum})`,
-                    explanation: `Cell (${r+1}, ${c+1}) is the last empty cell in Box ${boxNum} and must be ${val}.`
+                    method: "Full House (Single Empty Cell)",
+                    tier1: `Focus on Cell (${r+1}, ${c+1}) using Full House.`,
+                    tier2: `Box ${boxNum} has 8 numbers filled—count digits 1 through 9 inside this box to find the missing one.`,
+                    tier3: `Cell (${r+1}, ${c+1}) must be ${val} to complete Box ${boxNum}.`
                 };
             }
         }
@@ -1402,9 +1401,10 @@ function findHiddenSingleInBox(candGrid) {
                 if (spots.length === 1) {
                     return {
                         r: spots[0].r, c: spots[0].c, val: n,
-                        nudge: `Focus on Box ${boxNum}—scanning digits across intersecting lines leaves only one valid spot!`,
-                        techName: `Visual Cross-Hatch (Digit ${n} in Box ${boxNum})`,
-                        explanation: `Digit ${n} cross-hatches into Box ${boxNum} leaving only Cell (${spots[0].r+1}, ${spots[0].c+1}).`
+                        method: "Visual Cross-Hatching (Hidden Single)",
+                        tier1: `Focus on Cell (${spots[0].r+1}, ${spots[0].c+1}) using Visual Cross-Hatching.`,
+                        tier2: `Scan intersecting rows and columns across Box ${boxNum} to find a number blocked everywhere except this cell.`,
+                        tier3: `Digit ${n} cross-hatches into Box ${boxNum}, leaving only Cell (${spots[0].r+1}, ${spots[0].c+1}).`
                     };
                 }
             }
@@ -1420,9 +1420,10 @@ function findNakedSingle(candGrid) {
                 const val = candGrid[r][c][0];
                 return {
                     r, c, val,
-                    nudge: `Focus on Cell (${r+1}, ${c+1})—only 1 legal candidate can fit here!`,
-                    techName: `Naked Single Cell (${r+1}, ${c+1})`,
-                    explanation: `Cell (${r+1}, ${c+1}) must be ${val}—all other 8 digits are present in intersecting lines.`
+                    method: "Intersection Reduction (Naked Single)",
+                    tier1: `Focus on Cell (${r+1}, ${c+1}) using Intersection Reduction.`,
+                    tier2: `Check all intersecting cells across Row ${r+1}, Column ${c+1}, and Box ${Math.floor(r/3)*3 + Math.floor(c/3) + 1} to eliminate 8 visible numbers.`,
+                    tier3: `Cell (${r+1}, ${c+1}) must be ${val}—all other 8 numbers are present in intersecting lines.`
                 };
             }
         }
@@ -1451,9 +1452,10 @@ function findDirectRevealFallback(candGrid, targetSolution) {
             r: target.r,
             c: target.c,
             val: correctVal,
-            nudge: `Cell (${target.r+1}, ${target.c+1}) is a logical cell to focus on next.`,
-            techName: `Direct Candidate Placement`,
-            explanation: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
+            method: "Candidate Elimination",
+            tier1: `Focus on Cell (${target.r+1}, ${target.c+1}) using Candidate Elimination.`,
+            tier2: `Review intersecting numbers in Row ${target.r+1} and Column ${target.c+1} to narrow options down to a single choice.`,
+            tier3: `Cell (${target.r+1}, ${target.c+1}) should be filled with ${correctVal}.`
         };
     }
     return null;
@@ -1476,12 +1478,12 @@ function showHint() {
         hint = findFullHouse(currentGrid, candGrid) || 
                findHiddenSingleInBox(candGrid) || 
                findNakedSingle(candGrid) || 
-               findDirectRevealFallback(candGrid, solution);
+               findDirectRevealFallback(currentGrid, solution);
     } else {
         hint = findFullHouse(currentGrid, candGrid) || 
                findNakedSingle(candGrid) || 
                findHiddenSingleInBox(candGrid) || 
-               findDirectRevealFallback(candGrid, solution);
+               findDirectRevealFallback(currentGrid, solution);
     }
 
     if (!hint) {
@@ -1489,7 +1491,7 @@ function showHint() {
         return;
     }
 
-    const { r, c, nudge, techName, explanation } = hint;
+    const { r, c, tier1, tier2, tier3 } = hint;
     const cell = board.children[r * 9 + c];
 
     cell.classList.add("highlight-least", "glow");
@@ -1505,11 +1507,11 @@ function showHint() {
     }
 
     if (currentHintLevel === 1) {
-        setStatusText(`💡 Tier 1 (Nudge): ${nudge}`);
+        setStatusText(`💡 Tier 1 (Target): ${tier1}`);
     } else if (currentHintLevel === 2) {
-        setStatusText(`💡 Tier 2 (Technique): ${techName}`);
+        setStatusText(`💡 Tier 2 (Method): ${tier2}`);
     } else {
-        setStatusText(`💡 Tier 3 (Solution): ${explanation}`);
+        setStatusText(`💡 Tier 3 (Solution): ${tier3}`);
     }
 }
 
@@ -1662,7 +1664,6 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
     setStatusText("Cleared all pencil notes across the board.", 5000);
 });
 
-// HIGHLIGHT FULLEST: SEPARATED FROM HINT ENGINE
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
     if (gameWon) return;
 
