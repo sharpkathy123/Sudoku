@@ -273,7 +273,7 @@ h2 {
 
 #status {
     margin-bottom: 8px;
-    min-height: 32px;
+    min-height: 38px;
     font-size: 13px;
     font-weight: 500;
     color: var(--text-soft);
@@ -308,11 +308,10 @@ h2 {
 }
 
 .top-bar,
-.controls-primary,
-.controls-secondary {
+.controls-gameplay {
     display: flex;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
@@ -320,10 +319,12 @@ h2 {
     max-width: 480px;
 }
 
-.controls-secondary {
+.top-bar {
+    background: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
     margin-bottom: 10px;
-    padding-top: 4px;
-    border-top: 1px dashed #e2e8f0;
 }
 
 .panel-row {
@@ -339,22 +340,22 @@ h2 {
 }
 
 .top-bar select,
-.controls-primary button,
-.controls-secondary button,
+.top-bar button,
+.controls-gameplay button,
 #pencilToggle,
 #guardNotesToggle {
     padding: 6px 12px;
     border-radius: 999px;
     border: 1px solid var(--border-light);
-    background: #f9fafb;
+    background: #ffffff;
     cursor: pointer;
     font-size: 12px;
     color: var(--text-dark);
     transition: background 0.18s, box-shadow 0.18s, transform 0.08s, border-color 0.18s;
 }
 
-.controls-primary button:hover,
-.controls-secondary button:hover,
+.top-bar button:hover,
+.controls-gameplay button:hover,
 #pencilToggle:hover,
 #guardNotesToggle:hover {
     background: #eef2ff;
@@ -618,30 +619,27 @@ h2 {
     <h2>Sudoku Game</h2>
     <div id="status"></div>
 
+    <!-- TOP HEADER CONTROL BAR: SETUP & DESTRUCTIVE RESET ACTIONS -->
     <div class="top-bar">
-        <label for="difficulty">Difficulty:</label>
+        <label for="difficulty">Level:</label>
         <select id="difficulty">
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
-            <option value="master">Master (hints may be limited)</option>
+            <option value="master">Master</option>
         </select>
+        <button id="newGameBtn">New Game</button>
+        <button id="restartBtn" class="btn-danger">Restart</button>
+        <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
     </div>
 
-   <!-- PRIMARY HIGH-FREQUENCY CONTROLS -->
-   <div class="controls-primary">
-       <button id="newGameBtn">New Game</button>
+   <!-- GAMEPLAY CONTROLS BAR -->
+   <div class="controls-gameplay">
        <button id="HintBtn" class="btn-primary">Hint</button>
        <button id="highlightLeastBtn">Highlight Fullest</button>
        <button id="autoPencilBtn" title="Automatically fills legal pencil notes for all empty cells">Auto‑Notes</button>
        <button id="guardNotesToggle" class="active" title="Prevents adding invalid candidates or removing correct pencil notes">Guard Notes: ON</button>
-   </div>
-
-   <!-- ISOLATED DESTRUCTIVE CONTROLS -->
-   <div class="controls-secondary">
-       <button id="clearNotesBtn" class="btn-danger" title="Clears all pencil notes across the board">Clear Notes</button>
-       <button id="restartBtn" class="btn-danger">Restart Game</button>
    </div>
 
     <div class="input-section">
@@ -1086,7 +1084,7 @@ function loadSavedGameState() {
         checkAndBoldCompletedNumbers();
         updateNumberTileStyles();
         setStatusText("Resumed saved game.");
-        setTimeout(() => { if (statusEl.textContent === "Resumed saved game.") setStatusText(""); }, 2000);
+        setTimeout(() => { if (statusEl.textContent === "Resumed saved game.") setStatusText(""); }, 3000);
         return true;
     } catch (e) {
         console.error("Failed to restore game state", e);
@@ -1113,7 +1111,7 @@ for (let n = 1; n <= 9; n++) {
 
         if (!selectedCell) {
             setStatusText("Select a cell first.");
-            setTimeout(() => { if (statusEl.textContent === "Select a cell first.") setStatusText(""); }, 1500);
+            setTimeout(() => { if (statusEl.textContent === "Select a cell first.") setStatusText(""); }, 2000);
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
@@ -1125,7 +1123,7 @@ for (let n = 1; n <= 9; n++) {
 
         if (givenMask[r][c]) {
             setStatusText("You can't change a given cell.");
-            setTimeout(() => { if (statusEl.textContent === "You can't change a given cell.") setStatusText(""); }, 1500);
+            setTimeout(() => { if (statusEl.textContent === "You can't change a given cell.") setStatusText(""); }, 2000);
             return;
         }
 
@@ -1139,14 +1137,14 @@ for (let n = 1; n <= 9; n++) {
                 if (isCurrentlyActive && n === correctValue) {
                     flashWrong(selectedCell);
                     setStatusText(`Cannot erase ${n}—it is correct!`);
-                    setTimeout(() => { if (statusEl.textContent.startsWith("Cannot erase")) setStatusText(""); }, 1500);
+                    setTimeout(() => { if (statusEl.textContent.startsWith("Cannot erase")) setStatusText(""); }, 3000);
                     return;
                 }
 
                 if (!isCurrentlyActive && n !== correctValue) {
                     flashWrong(selectedCell);
                     setStatusText(`Candidate ${n} doesn't belong here!`);
-                    setTimeout(() => { if (statusEl.textContent.startsWith("Candidate")) setStatusText(""); }, 1500);
+                    setTimeout(() => { if (statusEl.textContent.startsWith("Candidate")) setStatusText(""); }, 3000);
                     return;
                 }
             }
@@ -1221,8 +1219,9 @@ guardNotesToggle.addEventListener("click", () => {
     guardNotesToggle.textContent = `Guard Notes: ${guardNotesMode ? "ON" : "OFF"}`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
     
+    // EXTENDED READABILITY TIMEOUT: 7 SECONDS
     setStatusText(`Guard Notes ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding invalid candidates or removing correct notes." : "Allows manual pencil freedom."}`);
-    setTimeout(() => { if (statusEl.textContent.startsWith("Guard Notes")) setStatusText(""); }, 3000);
+    setTimeout(() => { if (statusEl.textContent.startsWith("Guard Notes")) setStatusText(""); }, 7000);
     
     saveGameState();
 });
@@ -1275,7 +1274,7 @@ function autoFillAllPencils() {
     }
     saveGameState();
     setStatusText(`Auto-Notes: Calculated ${notesAdded} legal candidates.`);
-    setTimeout(() => { if (statusEl.textContent.startsWith("Auto-Notes")) setStatusText(""); }, 2500);
+    setTimeout(() => { if (statusEl.textContent.startsWith("Auto-Notes")) setStatusText(""); }, 5000);
 }
 
 function flashWrong(cell) {
@@ -1624,7 +1623,7 @@ document.getElementById("restartBtn").addEventListener("click", () => {
     updateNumberTileStyles();
     saveGameState();
     setStatusText("Game restarted.");
-    setTimeout(() => { if (statusEl.textContent === "Game restarted.") setStatusText(""); }, 2000);
+    setTimeout(() => { if (statusEl.textContent === "Game restarted.") setStatusText(""); }, 3000);
 });
 
 document.getElementById("clearNotesBtn").addEventListener("click", () => {
@@ -1636,7 +1635,7 @@ document.getElementById("clearNotesBtn").addEventListener("click", () => {
     });
     saveGameState();
     setStatusText("Cleared all pencil notes across the board.");
-    setTimeout(() => { if (statusEl.textContent.startsWith("Cleared")) setStatusText(""); }, 2000);
+    setTimeout(() => { if (statusEl.textContent.startsWith("Cleared")) setStatusText(""); }, 5000);
 });
 
 document.getElementById("highlightLeastBtn").addEventListener("click", () => {
