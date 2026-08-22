@@ -1435,8 +1435,25 @@ function getCandidatesGrid(grid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (grid[r][c] === 0) {
-                for (let n = 1; n <= 9; n++) {
-                    if (isSafe(grid, r, c, n)) cand[r][c].push(n);
+                const cell = board.children[r * 9 + c];
+                let hasUserPencilMarks = false;
+                const activePencils = [];
+
+                if (cell && cell._pencilDigits) {
+                    for (let n = 1; n <= 9; n++) {
+                        if (cell._pencilDigits[n].classList.contains("active")) {
+                            hasUserPencilMarks = true;
+                            activePencils.push(n);
+                        }
+                    }
+                }
+
+                if (hasUserPencilMarks) {
+                    cand[r][c] = activePencils;
+                } else {
+                    for (let n = 1; n <= 9; n++) {
+                        if (isSafe(grid, r, c, n)) cand[r][c].push(n);
+                    }
                 }
             }
         }
@@ -1444,7 +1461,7 @@ function getCandidatesGrid(grid) {
     return cand;
 }
 
-// 1. Full House
+// 1. Full House (Strict Priority Level 1: Visual Counting)
 function findFullHouse(grid, candGrid) {
     for (let r = 0; r < 9; r++) {
         const emptyCols = [];
@@ -1501,7 +1518,7 @@ function findFullHouse(grid, candGrid) {
     return null;
 }
 
-// 2. Hidden Singles
+// 2. Hidden Singles (Strict Priority Level 2: Visual Cross-Hatching)
 function findHiddenSingleInBox(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1529,7 +1546,7 @@ function findHiddenSingleInBox(candGrid) {
     return null;
 }
 
-// 3. Naked Singles
+// 3. Naked Singles (Strict Priority Level 3: Visual Intersection Check)
 function findNakedSingle(candGrid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
@@ -1549,7 +1566,7 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
-// 4. Pointing Pairs / Triples & Claiming (Locked Candidates)
+// 4. Pointing Pairs / Triples & Claiming (Locked Candidates - Advanced Pencil Technique)
 function findLockedCandidates(candGrid) {
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
@@ -1688,6 +1705,7 @@ function showHint() {
     const currentGrid = getCurrentGrid();
     const candGrid = getCandidatesGrid(currentGrid);
 
+    // Strict non-pencil priority cascade
     let hint = findFullHouse(currentGrid, candGrid) || 
                findHiddenSingleInBox(candGrid) || 
                findNakedSingle(candGrid) || 
