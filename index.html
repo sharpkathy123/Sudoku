@@ -902,13 +902,13 @@ function transformGridPair(seedObj) {
         const j = Math.floor(Math.random() * (i + 1));
         [digits[i], digits[j]] = [digits[j], digits[i]];
     }
-    const map = {};
+    const map = { 0: 0 };
     for (let i = 1; i <= 9; i++) map[i] = digits[i - 1];
 
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            if (tPuzzle[r][c] !== 0) tPuzzle[r][c] = map[tPuzzle[r][c]];
-            if (tSolution[r][c] !== 0) tSolution[r][c] = map[tSolution[r][c]];
+            tPuzzle[r][c] = map[tPuzzle[r][c]];
+            tSolution[r][c] = map[tSolution[r][c]];
         }
     }
     return { puzzle: tPuzzle, solution: tSolution };
@@ -1138,7 +1138,7 @@ function checkAndBoldCompletedNumbers() {
 
     // Check completed rows
     for (let r = 0; r < 9; r++) {
-        const rowFilled = grid[r].every(val => val !== 0);
+        const rowFilled = grid[r].every((val, c) => val === solution[r][c]);
         if (rowFilled && !completedRows[r]) {
             completedRows[r] = true;
             const indices = [];
@@ -1151,7 +1151,7 @@ function checkAndBoldCompletedNumbers() {
     for (let c = 0; c < 9; c++) {
         let colFilled = true;
         for (let r = 0; r < 9; r++) {
-            if (grid[r][c] === 0) { colFilled = false; break; }
+            if (grid[r][c] !== solution[r][c]) { colFilled = false; break; }
         }
         if (colFilled && !completedCols[c]) {
             completedCols[c] = true;
@@ -1168,7 +1168,7 @@ function checkAndBoldCompletedNumbers() {
         let boxFilled = true;
         for (let r = br; r < br + 3; r++) {
             for (let c = bc; c < bc + 3; c++) {
-                if (grid[r][c] === 0) { boxFilled = false; break; }
+                if (grid[r][c] !== solution[r][c]) { boxFilled = false; break; }
             }
         }
         if (boxFilled && !completedBoxes[b]) {
@@ -1540,6 +1540,11 @@ function findDirectRevealFallback(candGrid, targetSolution) {
 function showHint() {
     if (gameWon) return;
 
+    if (isBoardSolved()) {
+        setStatusText("Board is complete!");
+        return;
+    }
+
     if (selectedCell) selectedCell.classList.remove("selected");
     selectedNumber = null;
     clearNumberHighlights();
@@ -1563,7 +1568,7 @@ function showHint() {
     }
 
     if (!hint) {
-        setStatusText("Board is complete!");
+        setStatusText("No logical step found. Try adjusting placed candidates.");
         return;
     }
 
