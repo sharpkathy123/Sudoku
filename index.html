@@ -812,7 +812,6 @@ let MASTER_SEED_PUZZLES = [
     }
 ];
 
-// AUTOMATED STARTUP AUDIT & SANITIZATION HOOK
 function sanitizeAndRepairSeed(seedObj) {
     if (!seedObj || !seedObj.puzzle || !seedObj.solution) return null;
     if (seedObj.puzzle.length !== 9 || seedObj.solution.length !== 9) return null;
@@ -1620,6 +1619,23 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
             const res = await createNewPuzzleAsync("easy");
             assert(res !== null, "Generator returned null");
             assert(countSolutions(deepCopyGrid(res.puzzle), 2) === 1, "Easy puzzle lacks unique solution");
+        },
+
+        async testDifficultyTierQuality() {
+            const difficulties = ["easy", "medium", "hard", "expert", "master"];
+            for (const diff of difficulties) {
+                const res = await createNewPuzzleAsync(diff);
+                assert(res !== null, `${diff} generator returned null`);
+                
+                const simGrid = deepCopyGrid(res.puzzle);
+                const candGrid = getCandidatesGrid(simGrid);
+                
+                const naked = findNakedSingle(candGrid);
+                const hidden = findHiddenSingleInBox(candGrid);
+                const direct = findDirectRevealFallback(candGrid, res.solution);
+                
+                assert(naked !== null || hidden !== null || direct !== null, `${diff} puzzle generated without valid hint strategy`);
+            }
         },
 
         async testExpertSeedPuzzlesValidity() {
