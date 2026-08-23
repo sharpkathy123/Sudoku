@@ -3,9 +3,8 @@
 This is the durable source of truth for what this Sudoku app is supposed to
 do, separate from `README.md` (user-facing feature copy). `README.md`
 previously listed several hint techniques and an offline-support claim that
-didn't actually exist; the technique list has since been implemented to
-match (see items 2–8 below) and the README corrected, except offline support
-(item 1), which is still an open gap. Each item below has a verification
+didn't actually exist; both have since been implemented to match (see items
+1–8 below) and the README corrected. Each item below has a verification
 status. Where a requirement is enforced by an automated test, the test name
 is given so a future change that breaks the requirement gets caught, not
 just described.
@@ -13,27 +12,53 @@ just described.
 Status legend: ✅ Met and verified · ⚠️ Met most of the time (bounded,
 probabilistic) · ❌ Not currently met.
 
-## 1. Offline play ("Airplane Mode") — ❌ Not currently met
+## 1. Offline play ("Airplane Mode") — ✅ Met (verified with real offline simulation)
 
 **Requirement:** the game must be playable with no network connection,
 including on a mobile device in Airplane Mode after being loaded once.
 
-**Status:** not met. An earlier version registered a Service Worker from a
-`data:` URL for "single-file" offline caching; browsers refuse to register a
-Service Worker from anything other than an `http(s)` URL, so that
-registration always failed silently and no offline caching ever actually
-happened. It's been removed rather than left in place pretending to work.
+**Status:** met, via a real Service Worker — `sw.js`, a second file alongside
+`index.html`. An earlier attempt registered a Service Worker from a `data:`
+URL to keep everything in one file; browsers refuse to register a Service
+Worker from anything other than an `http(s)` URL, so that registration
+always failed silently and no offline caching ever actually happened. There
+is no way to make a Service Worker work from a single inline file — this is
+a platform restriction, not an implementation detail — so a second file is
+the minimum deviation from "everything in one HTML file" needed to make this
+requirement genuinely true rather than aspirational.
 
-`README.md` currently claims *"🌐 100% Offline Support: Embedded Service
-Worker automatically caches the app locally... (even in Airplane Mode)"* —
-that claim is false today and should be corrected or the feature rebuilt.
+**How it works:** `sw.js` uses a network-first, cache-fallback strategy —
+every successful online load refreshes a cache (`sudoku-cache-v1`) with the
+current `index.html`; when a fetch fails (no connectivity), it serves the
+last cached copy instead. Because the game itself makes zero runtime network
+calls (no external CSS/JS/fonts/images — the touch icon is canvas-generated
+and the manifest is an inline `data:` URI), caching the one HTML file is
+sufficient; there's no separate app-shell asset list to keep in sync. No
+manual versioning is needed for ordinary content updates — the network-first
+strategy means the cache is refreshed on every online visit automatically;
+`CACHE_NAME` only needs bumping if the caching *strategy itself* changes and
+old cached entries should be discarded.
 
-**What it would take to actually fix this:** a Service Worker script served
-from a real `http(s)` URL — i.e. a second file (`sw.js`) alongside
-`index.html`, registered with a relative path. That's a small deviation from
-"everything in one HTML file," which is a call for whoever owns that
-tradeoff, not something to do silently. Once such a file exists, the
-manifest and PWA meta tags already in `index.html` need no changes.
+`index.html` registers it (`navigator.serviceWorker.register('./sw.js', {
+scope: './' })`) guarded behind the same `http:`/`https:` protocol check as
+before, so opening the file directly (`file://`) — where Service Workers
+aren't supported at all — degrades harmlessly with no registration attempt.
+
+**Verified with actual offline simulation**, not just "should work in
+theory": loaded the page online (letting the Service Worker install,
+activate, and cache the page), then set the browser context genuinely
+offline (Playwright's `context.set_offline(True)`, not just throttling) and
+reloaded — the page still loaded, the board rendered, and clicking Hint
+still worked, with no console errors. This mirrors exactly what you
+described experiencing on your phone (a system "no connection" warning that
+doesn't actually stop the page from loading), except now it happens because
+of a Service Worker deliberately caching the app, not by accident of
+whatever the browser's ordinary HTTP cache happened to still be holding.
+
+**Known limitation, same as any Service-Worker-based offline strategy:** the
+very first visit still needs a network connection so there's something to
+cache. A device that has never loaded the page online has nothing to fall
+back to.
 
 ## 2–6. Difficulty calibration — ✅ / ⚠️ (see per-tier notes)
 
@@ -264,6 +289,16 @@ on each test is set from what was actually observed running it repeatedly,
 not guessed.
 
 **Still not covered** (real gaps, not addressed by this pass): anything in
-the DOM/UI layer — cell clicks, Guard Pencil behavior, win detection — and
-the PWA/offline plumbing (item 1). Those would need lightweight interaction
-tests, not just solver-engine tests, to be caught the same way.
+the DOM/UI layer — cell clicks, Guard Pencil behavior, win detection. Those
+would need lightweight interaction tests, not just solver-engine tests, to
+be caught the same way.
+
+Item 1 (offline play) is a special case: it's genuinely verified — with real
+offline simulation, not just "should work" — but not by the in-page `?test`
+suite, because that suite runs as JavaScript *inside* the page and has no
+way to control the browser's actual network state. It was verified
+externally (headless browser automation, forcing the network fully offline,
+reloading, and confirming the page and its interactions still work) during
+development instead. If the Service Worker's caching logic changes in the
+future, it should be re-verified the same way, not assumed from reading the
+code.

@@ -1,6 +1,6 @@
 # 🧩 Mobile-Friendly Sudoku
 
-A clean, responsive, single-file Sudoku web application optimized for mobile devices (iOS/Android) and desktop web browsers. Built with pure HTML, CSS, and vanilla JavaScript—no external dependencies, frameworks, or build steps required.
+A clean, responsive Sudoku web application optimized for mobile devices (iOS/Android) and desktop web browsers. Built with pure HTML, CSS, and vanilla JavaScript—no external dependencies, frameworks, or build steps required. Just two files: `index.html` (the entire game) and `sw.js` (the Service Worker that makes offline play possible — a Service Worker can only be registered from its own file, so this is the one thing that can't live inline).
 
 👉 **[Play Sudoku Live Here](https://sharpkathy123.github.io/Sudoku/)**
 
@@ -9,6 +9,7 @@ A clean, responsive, single-file Sudoku web application optimized for mobile dev
 ## ✨ Features
 
 * **📱 iPhone & Android Optimized:** Uses fluid CSS (`clamp()`, `vw`) and dynamic viewport scaling to ensure the board fits perfectly on any screen size without scrolling.
+* **🌐 Real Offline Support:** A genuine Service Worker (`sw.js`) caches the app after your first visit, so it keeps working with no connection — Airplane Mode included. Verified with actual network-offline testing, not just "should work." (Needs one visit online first, same as any offline-capable app.)
 * **📲 PWA & Home Screen Ready:** Includes native web app configuration, black translucent status bar styling, and a dynamic canvas-generated Apple Touch Icon.
 * **💾 Automatic Progress Saving:** Automatically saves game state (including filled cells, active pencil notes, Guard Notes status, and current difficulty) to `localStorage` so you never lose progress when closing or refreshing the app.
 * **💡 Progressive Logical Hint Engine:** A full, newbie-to-expert curriculum of solving techniques, each with the same 3-tier nudge (name the technique and point at the cell → explain the pattern without giving away the number → the exact digit and placement), applied in the order a person would actually try them:
@@ -33,11 +34,11 @@ A clean, responsive, single-file Sudoku web application optimized for mobile dev
 
 ---
 
-## 📱 Adding to Home Screen
+## 📱 Adding to Home Screen (Offline Play)
 
 For the best experience, install the app directly to your device's Home Screen.
 
-*Note: True offline play (e.g. Airplane Mode) isn't implemented yet — see the open item in `REQUIREMENTS.md`. Adding to your Home Screen today gives you an app-like icon and window, but the page still needs a network connection to load.*
+*Note: Open the app once while connected to Wi-Fi or data after installing so the Service Worker can cache the game for offline use. After that first visit, it works fully offline — Airplane Mode included.*
 
 ### 🍏 iPhone / iPad (Safari)
 1. Open [https://sharpkathy123.github.io/Sudoku/](https://sharpkathy123.github.io/Sudoku/) in **Safari**.
@@ -56,15 +57,15 @@ For the best experience, install the app directly to your device's Home Screen.
 
 ## 🛠️ Installation & Deployment
 
-Because this app is entirely self-contained in a single `index.html` file, deployment takes seconds.
+This app is just two static files (`index.html` and `sw.js`) — no build step, no server-side code, deployment takes seconds on any static host (GitHub Pages, etc.).
 
 ### Running Locally
-Simply open `index.html` directly in any web browser.
+Serve the folder with any static file server (e.g. `python3 -m http.server`) and open it in a browser. Opening `index.html` directly via a `file://` URL still works for playing the game, but Service Workers require an `http(s)` origin, so offline caching only activates when served over http(s) (including `localhost`).
 
 ---
 
 ## 🧰 Built With
 
-* **HTML5** (Embedded Web App Manifest)
+* **HTML5** (Embedded Web App Manifest, Service Worker)
 * **CSS3** (CSS Grid, Custom Variables, Fluid Typography/Scaling)
 * **Vanilla JavaScript** (ES6+, Full-Simulation Logical Solver & Generator Engine, HTML5 Canvas Confetti)

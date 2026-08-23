@@ -46,6 +46,19 @@
 
 <link rel="manifest" href='data:application/manifest+json,{"name":"Sudoku Game","short_name":"Sudoku","start_url":"./","display":"standalone","background_color":"#f2f4f7","theme_color":"#ffffff"}' />
 
+<!-- OFFLINE SUPPORT — see sw.js and REQUIREMENTS.md item 1. Must register
+     a real http(s)-served script; a data: or blob: URL is refused by every
+     browser, which is why an earlier inline attempt at this never worked. -->
+<script>
+if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(reg => console.log('SW registered:', reg.scope))
+            .catch(err => console.warn('SW registration failed:', err));
+    });
+}
+</script>
+
 <script>
 window.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
