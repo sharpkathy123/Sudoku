@@ -1584,7 +1584,9 @@ function findHiddenSingle(candGrid, grid = getCurrentGrid()) {
             }
 
             const method = blockedByPlacedDigits ? "Cross-Hatching" : "Hidden Single";
-            const tier1 = `Look at Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`;
+            const tier1 = blockedByPlacedDigits
+                ? `Look at Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`
+                : `Look at pencil marks in Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`;
             const tier2 = blockedByPlacedDigits
                 ? `Trace filled numbers across intersecting rows, columns, and boxes into ${unit.label}. Watch how they block empty spots until only one spot remains for a specific candidate.`
                 : `Examine pencil marks in ${unit.label}. Only one open cell there can hold a specific missing digit.`;
@@ -1657,7 +1659,7 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                                 method: methodName,
                                 tier: "medium",
                                 eliminate,
-                                tier1: `Look at Row ${r+1} inside Box ${boxNum}. Try using "${methodName}".`,
+                                tier1: `Look at pencil marks in Row ${r+1} inside Box ${boxNum}. Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Row ${r+1}.`,
                                 tier3: makesSingle
                                     ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solutionGrid[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
@@ -1692,7 +1694,7 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                                 method: methodName,
                                 tier: "medium",
                                 eliminate,
-                                tier1: `Look at Column ${c+1} inside Box ${boxNum}. Try using "${methodName}".`,
+                                tier1: `Look at pencil marks in Column ${c+1} inside Box ${boxNum}. Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Column ${c+1}.`,
                                 tier3: makesSingle
                                     ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solutionGrid[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
@@ -1743,7 +1745,7 @@ function findClaimingCandidates(candGrid, solutionGrid = solution) {
                 method: methodName,
                 tier: "medium",
                 eliminate,
-                tier1: `Look at ${unit.label} inside Box ${boxNum}. Try using "${methodName}".`,
+                tier1: `Look at pencil marks in ${unit.label} inside Box ${boxNum}. Try using "${methodName}".`,
                 tier2: `Inside ${unit.label}, all possible locations for a key digit fall within Box ${boxNum}.`,
                 tier3: `Since ${n} must go inside Box ${boxNum} along ${unit.label}, eliminate pencil mark ${n} from the rest of Box ${boxNum}.`
             };
@@ -1783,7 +1785,7 @@ function findNakedSubsetOfSize(candGrid, solutionGrid, size, methodName) {
                 method: methodName,
                 tier: "medium",
                 eliminate,
-                tier1: `Look at ${unit.label} (${cellList}). Try using "${methodName}".`,
+                tier1: `Look at pencil marks in ${unit.label} (${cellList}). Try using "${methodName}".`,
                 tier2: `${unit.label} has ${size} cells whose candidates are limited to the same ${size} numbers between them.`,
                 tier3: `Because ${digitsArr.join(', ')} must fill those ${size} cells in ${unit.label}, eliminate those pencil marks from every other cell in ${unit.label}.`
             };
@@ -1857,7 +1859,7 @@ function findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, ax
                 method: methodName,
                 tier: size === 2 ? "hard" : "expert",
                 eliminate,
-                tier1: `Look at ${lineLabel} ${lineNums} across ${crossLabel} ${crossNums}. Try using "${methodName}".`,
+                tier1: `Look at pencil marks in ${lineLabel} ${lineNums} across ${crossLabel} ${crossNums}. Try using "${methodName}".`,
                 tier2: `A candidate digit is confined to the same ${sizeWord} ${crossLabel.toLowerCase()} across ${sizeWord} separate ${lineLabel.toLowerCase()}, forming ${article} ${methodName} pattern.`,
                 tier3: `Because digit ${n} must occupy those ${lineLabel.toLowerCase()} within ${crossLabel} ${crossNums}, eliminate pencil mark ${n} from all other cells in those ${crossLabel.toLowerCase()}.`
             };
@@ -1924,7 +1926,7 @@ function findXYWing(candGrid, solutionGrid = solution) {
                     method: "XY-Wing",
                     tier: "expert",
                     eliminate,
-                    tier1: `Look at Row ${pivot.r+1}, Column ${pivot.c+1} and the two cells it links to. Try using "XY-Wing".`,
+                    tier1: `Look at pencil marks in Row ${pivot.r+1}, Column ${pivot.c+1} and the two cells it links to. Try using "XY-Wing".`,
                     tier2: `Three cells, each holding only two candidates, form a chain: the pivot shares one candidate with each of the other two, and those two share a third candidate between them.`,
                     tier3: `Because that shared third candidate must appear in one of the two outer cells, eliminate it from every cell that can see both of them.`
                 };
@@ -1980,7 +1982,7 @@ function findXYZWing(candGrid, solutionGrid = solution) {
                         method: "XYZ-Wing",
                         tier: "expert",
                         eliminate,
-                        tier1: `Look at Row ${pivot.r+1}, Column ${pivot.c+1} and the two cells it links to. Try using "XYZ-Wing".`,
+                        tier1: `Look at pencil marks in Row ${pivot.r+1}, Column ${pivot.c+1} and the two cells it links to. Try using "XYZ-Wing".`,
                         tier2: `A three-candidate cell links to two two-candidate cells; all three share one candidate that must appear in one of them.`,
                         tier3: `Because that shared candidate must appear in the pivot cell or one of its two linked cells, eliminate it from every other cell that can see all three.`
                     };
@@ -2026,7 +2028,7 @@ function findUniqueRectangle(candGrid, solutionGrid = solution) {
                             method: "Unique Rectangle",
                             tier: "expert",
                             eliminate: [{ r: extraCell.r, c: extraCell.c, digits: [x, y] }],
-                            tier1: `Look at the four-cell rectangle with a corner at Row ${extraCell.r+1}, Column ${extraCell.c+1}. Try using "Unique Rectangle".`,
+                            tier1: `Look at pencil marks in the four-cell rectangle with a corner at Row ${extraCell.r+1}, Column ${extraCell.c+1}. Try using "Unique Rectangle".`,
                             tier2: `Four cells form a rectangle across two boxes. Three corners share the exact same two candidates — if the fourth corner also settled on just those two, the puzzle could be solved two different ways, which isn't allowed.`,
                             tier3: `To keep the solution unique, eliminate pencil marks ${x} and ${y} from Row ${extraCell.r+1}, Column ${extraCell.c+1} — whatever extra candidate remains there must be the real answer.`
                         };

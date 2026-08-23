@@ -232,6 +232,19 @@ needed, and respect whatever pencil marks the player has already entered.
   back to full rule-based candidates (`isSafe`) otherwise. This means a hint
   reflects what the player has actually narrowed down, not a fresh
   from-scratch computation.
+- **Tier 1 says "Look at pencil marks in..." for every technique that is
+  literally impossible to spot without candidates written down** (Naked
+  Pair/Triple, Pointing/Claiming, X-Wing, XY-Wing, XYZ-Wing, Unique
+  Rectangle, Swordfish, and the pencil-mark variant of Hidden Single) —
+  a newbie who hasn't turned on Pencil Mode or used Auto-Pencil yet has no
+  way to even attempt these otherwise, and the hint didn't used to say so.
+  Full House, Naked Single, and the Cross-Hatching variant of Hidden Single
+  are correctly left unchanged: those are genuinely readable straight off
+  the placed digits, no marks required, so saying "look at pencil marks"
+  there would be actively wrong instruction. Sample of what each technique
+  says now: `Naked Pair: Look at pencil marks in Row 6 (Row 6, Col 4 / Row
+  6, Col 7). Try using "Naked Pair".` vs `Full House: Look at Row 1, Column
+  4 in Box 2. Try using "Full House".`
 - **Known intentional edge case:** if a player's pencil marks for a cell are
   incomplete or wrong, the hint engine trusts them as the candidate universe
   for that cell anyway (garbage in, garbage out) — this matches how a real
