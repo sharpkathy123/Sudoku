@@ -2466,6 +2466,21 @@ document.addEventListener("click", () => {
     }
 });
 
+// Tapping anywhere that isn't the board or an actual control (a button,
+// the difficulty select, a number tile) clears the current cell selection
+// and every highlight derived from it — same-number highlighting and
+// Highlight Fullest. A click on the board itself reaches this listener too
+// (it bubbles up after onCellClick already ran), so it's excluded here
+// rather than re-selected.
+document.addEventListener("click", (event) => {
+    if (event.target.closest("#board, .top-bar, .controls-gameplay, .input-section")) return;
+    if (selectedCell) selectedCell.classList.remove("selected");
+    selectedCell = null;
+    selectedNumber = null;
+    clearNumberHighlights();
+    updateNumberTileStyles();
+});
+
 /* ==========================================================================
    8. EVENT BINDINGS & INIT
    ========================================================================== */
