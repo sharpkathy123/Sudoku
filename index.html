@@ -670,13 +670,17 @@ function getAllUnits() {
     return units;
 }
 const ALL_UNITS = getAllUnits();
-// Box-first ordering for Hidden Single: a cell can legitimately be a hidden
-// single from more than one unit's perspective at once (e.g. also explained
-// via its row), and ALL_UNITS' row-then-column-then-box order would always
-// report the row/column framing first even when the box framing is the more
-// direct, standard-teaching-order explanation (a hidden single confined to
-// a compact 3x3 box, blocked by digits in as few as two other rows/columns,
-// reads as far more obvious than the same fact described row-by-row).
+// Box-first ordering, used by every technique that scans ALL_UNITS looking
+// for a pattern confined to a single unit (Hidden Single, Naked Pair/Triple).
+// The same cells can legitimately qualify from more than one unit's
+// perspective at once — e.g. a hidden single also explained via its row, or
+// a naked pair whose two cells happen to share both a row/column and a box
+// — and ALL_UNITS' row-then-column-then-box order would always report the
+// row/column framing first purely because rows are checked before boxes,
+// regardless of which framing is more directly useful or easier to follow.
+// Boxes first matches standard cross-hatching teaching order and is at
+// least as good a tie-break as any other for the rest. See REQUIREMENTS.md
+// item 8 ("are other techniques susceptible to the same bug").
 const UNITS_BOX_FIRST = [
     ...ALL_UNITS.filter(u => u.kind === "box"),
     ...ALL_UNITS.filter(u => u.kind === "row"),
@@ -1751,7 +1755,7 @@ function findClaimingCandidates(candGrid, solutionGrid = solution) {
 // 5. Naked Subsets — Pairs and Triples, checked across rows, columns, AND
 // boxes (the original Naked Pair only checked rows).
 function findNakedSubsetOfSize(candGrid, solutionGrid, size, methodName) {
-    for (const unit of ALL_UNITS) {
+    for (const unit of UNITS_BOX_FIRST) {
         const eligible = unit.cells.filter(({ r, c }) => candGrid[r][c].length >= 2 && candGrid[r][c].length <= size);
         if (eligible.length < size) continue;
 
@@ -1797,102 +1801,84 @@ function findNakedTriple(candGrid, solutionGrid = solution) {
 }
 
 // 6. X-Wing Pattern Analysis
-function findXWing(candGrid, solutionGrid = solution) {
+// Generic "fish" pattern search — X-Wing (size 2) and Swordfish (size 3)
+// are the same shape: a digit confined to `size` cross-lines across `size`
+// parallel lines. Checked in BOTH directions (rows confined to columns, and
+// its mirror image, columns confined to rows) — a puzzle can need either
+// orientation, and checking only one misses roughly as many real patterns
+// as it finds (confirmed empirically: about 1 in 8 solving steps in
+// Hard/Expert/Master puzzles had a column-oriented X-Wing available that a
+// row-only search would never see). See REQUIREMENTS.md item 8.
+function findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, axis) {
+    const lineLabel = axis === "row" ? "Rows" : "Columns";
+    const crossLabel = axis === "row" ? "Columns" : "Rows";
+    const sizeWord = size === 2 ? "two" : "three";
+
     for (let n = 1; n <= 9; n++) {
-        const rowSpots = [];
-        for (let r = 0; r < 9; r++) {
-            const cols = [];
-            for (let c = 0; c < 9; c++) {
-                if (candGrid[r][c].includes(n)) cols.push(c);
+        const lineSpots = [];
+        for (let p = 0; p < 9; p++) {
+            const cross = [];
+            for (let q = 0; q < 9; q++) {
+                const r = axis === "row" ? p : q;
+                const c = axis === "row" ? q : p;
+                if (candGrid[r][c].includes(n)) cross.push(q);
             }
-            if (cols.length === 2) rowSpots.push({ r, cols });
+            if (cross.length >= 2 && cross.length <= size) lineSpots.push({ p, cross });
         }
-        if (rowSpots.length >= 2) {
-            for (let i = 0; i < rowSpots.length; i++) {
-                for (let j = i + 1; j < rowSpots.length; j++) {
-                    if (rowSpots[i].cols[0] === rowSpots[j].cols[0] && rowSpots[i].cols[1] === rowSpots[j].cols[1]) {
-                        const r1 = rowSpots[i].r;
-                        const r2 = rowSpots[j].r;
-                        const c1 = rowSpots[i].cols[0];
-                        const c2 = rowSpots[i].cols[1];
+        if (lineSpots.length < size) continue;
 
-                        const eliminate = [];
-                        for (const col of [c1, c2]) {
-                            for (let r = 0; r < 9; r++) {
-                                if (r !== r1 && r !== r2 && candGrid[r][col].includes(n)) {
-                                    eliminate.push({ r, c: col, digits: [n] });
-                                }
-                            }
-                        }
-                        if (eliminate.length === 0) continue;
+        for (const combo of combinations(lineSpots, size)) {
+            const crossSet = new Set();
+            combo.forEach(ls => ls.cross.forEach(q => crossSet.add(q)));
+            if (crossSet.size !== size) continue;
 
-                        return {
-                            r: r1, c: c1,
-                            val: solutionGrid[r1][c1],
-                            method: "X-Wing",
-                            tier: "hard",
-                            eliminate,
-                            tier1: `Look at Rows ${r1+1} & ${r2+1} at Columns ${c1+1} & ${c2+1}. Try using "X-Wing".`,
-                            tier2: `A candidate digit appears in exactly two cells in Row ${r1+1} and two cells in Row ${r2+1}, sharing Columns ${c1+1} and ${c2+1} to form a rectangle.`,
-                            tier3: `Because digit ${n} must occupy two diagonal corners of this rectangle, pencil mark ${n} can be eliminated from all other cells in Columns ${c1+1} and ${c2+1}.`
-                        };
-                    }
+            const lines = combo.map(ls => ls.p);
+            const crossLines = [...crossSet];
+
+            const eliminate = [];
+            for (const q of crossLines) {
+                for (let p = 0; p < 9; p++) {
+                    if (lines.includes(p)) continue;
+                    const r = axis === "row" ? p : q;
+                    const c = axis === "row" ? q : p;
+                    if (candGrid[r][c].includes(n)) eliminate.push({ r, c, digits: [n] });
                 }
             }
+            if (eliminate.length === 0) continue;
+
+            const focalR = axis === "row" ? lines[0] : crossLines[0];
+            const focalC = axis === "row" ? crossLines[0] : lines[0];
+            const lineNums = lines.map(x => x + 1).join(', ');
+            const crossNums = crossLines.map(x => x + 1).join(', ');
+
+            return {
+                r: focalR, c: focalC,
+                val: solutionGrid[focalR][focalC],
+                method: methodName,
+                tier: size === 2 ? "hard" : "expert",
+                eliminate,
+                tier1: `Look at ${lineLabel} ${lineNums} across ${crossLabel} ${crossNums}. Try using "${methodName}".`,
+                tier2: `A candidate digit is confined to the same ${sizeWord} ${crossLabel.toLowerCase()} across ${sizeWord} separate ${lineLabel.toLowerCase()}, forming ${article} ${methodName} pattern.`,
+                tier3: `Because digit ${n} must occupy those ${lineLabel.toLowerCase()} within ${crossLabel} ${crossNums}, eliminate pencil mark ${n} from all other cells in those ${crossLabel.toLowerCase()}.`
+            };
         }
     }
     return null;
 }
 
+function findFishPattern(candGrid, solutionGrid, size, methodName, article) {
+    return findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, "row") ||
+           findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, "col");
+}
+
+// 6. X-Wing Pattern Analysis
+function findXWing(candGrid, solutionGrid = solution) {
+    return findFishPattern(candGrid, solutionGrid, 2, "X-Wing", "an");
+}
+
 // 6b. Swordfish Pattern Analysis (X-Wing generalized to three rows/columns; Expert tier)
 function findSwordfish(candGrid, solutionGrid = solution) {
-    for (let n = 1; n <= 9; n++) {
-        const rowSpots = [];
-        for (let r = 0; r < 9; r++) {
-            const cols = [];
-            for (let c = 0; c < 9; c++) {
-                if (candGrid[r][c].includes(n)) cols.push(c);
-            }
-            if (cols.length >= 2 && cols.length <= 3) rowSpots.push({ r, cols });
-        }
-        if (rowSpots.length < 3) continue;
-
-        for (let i = 0; i < rowSpots.length; i++) {
-            for (let j = i + 1; j < rowSpots.length; j++) {
-                for (let k = j + 1; k < rowSpots.length; k++) {
-                    const colSet = new Set([...rowSpots[i].cols, ...rowSpots[j].cols, ...rowSpots[k].cols]);
-                    if (colSet.size !== 3) continue;
-
-                    const rows = [rowSpots[i].r, rowSpots[j].r, rowSpots[k].r];
-                    const patternCols = [...colSet];
-
-                    const eliminate = [];
-                    for (const col of patternCols) {
-                        for (let r = 0; r < 9; r++) {
-                            if (!rows.includes(r) && candGrid[r][col].includes(n)) {
-                                eliminate.push({ r, c: col, digits: [n] });
-                            }
-                        }
-                    }
-                    if (eliminate.length === 0) continue;
-
-                    const focalR = rows[0];
-                    const focalC = patternCols[0];
-                    return {
-                        r: focalR, c: focalC,
-                        val: solutionGrid[focalR][focalC],
-                        method: "Swordfish",
-                        tier: "expert",
-                        eliminate,
-                        tier1: `Look at Rows ${rows.map(r => r+1).join(', ')} across Columns ${patternCols.map(c => c+1).join(', ')}. Try using "Swordfish".`,
-                        tier2: `A candidate digit is confined to the same three columns across three separate rows, forming a Swordfish pattern.`,
-                        tier3: `Because digit ${n} must occupy those three rows within Columns ${patternCols.map(c => c+1).join(', ')}, eliminate pencil mark ${n} from all other cells in those columns.`
-                    };
-                }
-            }
-        }
-    }
-    return null;
+    return findFishPattern(candGrid, solutionGrid, 3, "Swordfish", "a");
 }
 
 // 6b. XY-Wing — a bivalue "pivot" cell {X,Y} links to two other bivalue

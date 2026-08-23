@@ -251,6 +251,47 @@ needed, and respect whatever pencil marks the player has already entered.
   the exact same deduction — the math wasn't wrong, the explanation was
   needlessly confusing.
 
+**When asked "does this affect other techniques too," these were checked
+and found:**
+
+- **Naked Pair / Naked Triple — same bug, fixed the same way.** Two (or
+  three) cells can share both a row/column *and* a box at once. Verified
+  empirically: in a sample of 63 naked-subset instances across generated
+  puzzles, ~8% had this ambiguity, and `findNakedSubsetOfSize` (which also
+  iterates `ALL_UNITS`) always picked the row/column framing for the same
+  reason as Hidden Single. Fixed by switching it to `UNITS_BOX_FIRST` too;
+  re-verified the same sample now always picks the box framing when both
+  are valid.
+- **Full House — same shape of bug in theory, not worth fixing.** Checked
+  empirically (no occurrences found in a smaller sample) and reasoned about
+  separately: unlike Hidden Single, a Full House explanation is equally
+  simple regardless of which unit is named ("count 1-9 in this row" vs "in
+  this box") — there's no more-confusing framing to accidentally prefer, so
+  even if the same row-before-box tie-break occurs, it doesn't produce a
+  worse hint the way it did for Hidden Single.
+- **X-Wing / Swordfish — a different, and actually larger, bug.** Not a
+  confusing-explanation issue: `findXWing`/`findSwordfish` only ever checked
+  one orientation of the pattern (a digit confined to N columns across N
+  rows), never its mirror image (confined to N rows across N columns).
+  Verified empirically this isn't rare: about 1 in 8 solving steps sampled
+  across Hard/Expert/Master puzzles had a column-oriented X-Wing available
+  that the row-only search would never find at all — meaning some puzzles
+  got shown a harder technique than actually necessary, or were mis-rated
+  as needing more than Hard when a column X-Wing would have sufficed.
+  Fixed by generalizing both into one axis-parameterized search
+  (`findFishAlongAxis`) tried in both directions. Re-verified against the
+  same sample: 0 missed column patterns after the fix (was 317 of 2557
+  checked steps). As a side effect, Hard's calibration hit rate also
+  improved (roughly 50% → 65% in spot-checks) since there are now more
+  valid X-Wing instances to find.
+- **The wing/rectangle techniques (XY-Wing, XYZ-Wing, Unique Rectangle) —
+  not exposed to this bug class.** Their explanations don't hinge on a
+  choice between interchangeable unit framings the way row/column/box-based
+  techniques do, so there's no equivalent tie-break to get wrong. They can
+  still only report one instance when multiple exist on a board (whichever
+  their scan order reaches first), but that's an arbitrary-choice-among-
+  equals situation, not a systematically-worse-framing one.
+
 ## 9. Are the regression tests worth keeping?
 
 Yes — keep them, but the honest answer is that they were narrower than they
