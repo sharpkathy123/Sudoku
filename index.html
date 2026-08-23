@@ -627,6 +627,7 @@ const completedDigits = Array(10).fill(false);
 
 const givenMask = [];
 const STORAGE_KEY = 'sudoku_active_game_v1';
+const MASTER_INTRO_SEEN_KEY = 'sudoku_master_intro_seen_v1';
 
 // Difficulty tiers for hint techniques (see REQUIREMENTS.md). Declared here
 // (not in the hint-engine section below) because the seed-puzzle calibration
@@ -738,6 +739,13 @@ const difficultySelect = document.getElementById("difficulty");
 const winOverlay = document.getElementById("winOverlay");
 const confettiCanvas = document.getElementById("confettiCanvas");
 const ctx = confettiCanvas.getContext("2d");
+
+function maybeShowMasterIntro(diff) {
+    if (diff !== "master" || localStorage.getItem(MASTER_INTRO_SEEN_KEY)) return false;
+    localStorage.setItem(MASTER_INTRO_SEEN_KEY, "1");
+    setStatusText("Master puzzles are built to resist every technique this app can teach — expect at least one cell you'll have to place without a hint explaining why.", 10000);
+    return true;
+}
 
 function setStatusText(text, durationMs = 0) {
     if (statusTimeoutId) {
@@ -2474,7 +2482,7 @@ document.getElementById("newGameBtn").addEventListener("click", async () => {
     buildBoard();
     updateNumberTileStyles();
     saveGameState();
-    setStatusText("");
+    if (!maybeShowMasterIntro(diff)) setStatusText("");
 });
 
 document.getElementById("restartBtn").addEventListener("click", () => {
@@ -2618,7 +2626,7 @@ difficultySelect.addEventListener("change", async () => {
     buildBoard();
     updateNumberTileStyles();
     saveGameState();
-    setStatusText("");
+    if (!maybeShowMasterIntro(diff)) setStatusText("");
 });
 
 document.getElementById("autoPencilBtn").addEventListener("click", autoFillAllPencils);
