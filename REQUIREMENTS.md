@@ -263,6 +263,36 @@ needed, and respect whatever pencil marks the player has already entered.
   says now: `Naked Pair: Look at pencil marks in Row 6 (Row 6, Col 4 / Row
   6, Col 7). Try using "Naked Pair".` vs `Full House: Look at Row 1, Column
   4 in Box 2. Try using "Full House".`
+- **Fixed bug: multi-cell hints only ever highlighted one cell, silently.**
+  `showHint()` added the `highlight-least` class (the same one "Highlight
+  Fullest" uses) to the primary cell, then immediately called
+  `onCellClick(cell)` — which calls `clearNumberHighlights()` internally,
+  stripping `highlight-least` off *every* cell, including the one it was
+  just added to, before the browser ever painted it. So the class was being
+  added and removed in the same synchronous tick; only the separate `glow`
+  flash (untouched by that clear) was ever visible. This meant every
+  multi-cell technique (Naked Pair/Triple, Pointing/Claiming, X-Wing,
+  Swordfish, the wings, Unique Rectangle) visually pointed at only one of
+  the several cells its own tier 1 text names — reported as "past
+  functionality was lost somewhere along the way."
+  Fixed by reordering (`onCellClick` first, then apply the highlight) and
+  giving every multi-cell technique a `highlightCells` list of every cell
+  its hint text refers to (the naked subset's cells, the box cells sharing
+  a confined candidate, the fish pattern's corners, the wing's pivot and
+  both pincers, the rectangle's four corners) — all styled with
+  `highlight-least`, so a Naked Pair now highlights both its cells the same
+  way Highlight Fullest highlights a whole unit, not just the first one.
+  Techniques with only one relevant cell (Full House, Naked Single, Hidden
+  Single, the fallback reveal) are unaffected — they still highlight just
+  that cell, correctly.
+  Verified against the live game (not just unit-level function output):
+  drove several puzzles to a state where a specific multi-cell technique
+  was next, called the real `showHint()`, and confirmed the cells that
+  actually got `highlight-least` in the DOM exactly matched the technique's
+  own `highlightCells` — checked for Naked Pair, Pointing Pair, and
+  Claiming Pair. `testHintObjectsWellFormed` now also checks that whenever
+  `highlightCells` is present, every cell in it is in-bounds and the list
+  includes the hint's own primary target cell.
 - **Known intentional edge case:** if a player's pencil marks for a cell are
   incomplete or wrong, the hint engine trusts them as the candidate universe
   for that cell anyway (garbage in, garbage out) — this matches how a real
