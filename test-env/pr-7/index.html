@@ -1663,6 +1663,7 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                             const targetC = boxCells[0].c;
                             const methodName = boxCells.length === 2 ? "Pointing Pair" : "Pointing Triple";
                             const resolved = singleCellResolvedByElimination(candGrid, eliminate, n);
+                            const cellList = boxCells.map(({ r, c }) => `Row ${r+1}, Col ${c+1}`).join(' / ');
 
                             return {
                                 r: targetR,
@@ -1671,7 +1672,8 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                                 method: methodName,
                                 tier: "medium",
                                 eliminate,
-                                tier1: `Look at pencil marks in Row ${r+1} inside Box ${boxNum}. Try using "${methodName}".`,
+                                highlightCells: boxCells,
+                                tier1: `Look at pencil marks in Row ${r+1} inside Box ${boxNum} (${cellList}). Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Row ${r+1}.`,
                                 tier3: resolved
                                     ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solutionGrid[resolved.r][resolved.c]} in Row ${resolved.r+1}, Column ${resolved.c+1}!`
@@ -1697,6 +1699,7 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                             const targetC = boxCells[0].c;
                             const methodName = boxCells.length === 2 ? "Pointing Pair" : "Pointing Triple";
                             const resolved = singleCellResolvedByElimination(candGrid, eliminate, n);
+                            const cellList = boxCells.map(({ r, c }) => `Row ${r+1}, Col ${c+1}`).join(' / ');
 
                             return {
                                 r: targetR,
@@ -1705,7 +1708,8 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                                 method: methodName,
                                 tier: "medium",
                                 eliminate,
-                                tier1: `Look at pencil marks in Column ${c+1} inside Box ${boxNum}. Try using "${methodName}".`,
+                                highlightCells: boxCells,
+                                tier1: `Look at pencil marks in Column ${c+1} inside Box ${boxNum} (${cellList}). Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Column ${c+1}.`,
                                 tier3: resolved
                                     ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solutionGrid[resolved.r][resolved.c]} in Row ${resolved.r+1}, Column ${resolved.c+1}!`
@@ -1749,6 +1753,7 @@ function findClaimingCandidates(candGrid, solutionGrid = solution) {
             const target = spots[0];
             const boxNum = boxIdx + 1;
             const methodName = spots.length === 2 ? "Claiming Pair" : "Claiming Triple";
+            const cellList = spots.map(({ r, c }) => `Row ${r+1}, Col ${c+1}`).join(' / ');
 
             return {
                 r: target.r, c: target.c,
@@ -1756,7 +1761,8 @@ function findClaimingCandidates(candGrid, solutionGrid = solution) {
                 method: methodName,
                 tier: "medium",
                 eliminate,
-                tier1: `Look at pencil marks in ${unit.label} inside Box ${boxNum}. Try using "${methodName}".`,
+                highlightCells: spots,
+                tier1: `Look at pencil marks in ${unit.label} inside Box ${boxNum} (${cellList}). Try using "${methodName}".`,
                 tier2: `Inside ${unit.label}, all possible locations for a key digit fall within Box ${boxNum}.`,
                 tier3: `Since ${n} must go inside Box ${boxNum} along ${unit.label}, eliminate pencil mark ${n} from the rest of Box ${boxNum}.`
             };
@@ -1796,6 +1802,7 @@ function findNakedSubsetOfSize(candGrid, solutionGrid, size, methodName) {
                 method: methodName,
                 tier: "medium",
                 eliminate,
+                highlightCells: combo,
                 tier1: `Look at pencil marks in ${unit.label} (${cellList}). Try using "${methodName}".`,
                 tier2: `${unit.label} has ${size} cells whose candidates are limited to the same ${size} numbers between them.`,
                 tier3: `Because ${digitsArr.join(', ')} must fill those ${size} cells in ${unit.label}, eliminate those pencil marks from every other cell in ${unit.label}.`
@@ -1863,6 +1870,9 @@ function findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, ax
             const focalC = axis === "row" ? crossLines[0] : lines[0];
             const lineNums = lines.map(x => x + 1).join(', ');
             const crossNums = crossLines.map(x => x + 1).join(', ');
+            const patternCells = combo.flatMap(ls => ls.cross.map(q => (
+                axis === "row" ? { r: ls.p, c: q } : { r: q, c: ls.p }
+            )));
 
             return {
                 r: focalR, c: focalC,
@@ -1870,6 +1880,7 @@ function findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, ax
                 method: methodName,
                 tier: size === 2 ? "hard" : "expert",
                 eliminate,
+                highlightCells: patternCells,
                 tier1: `Look at pencil marks in ${lineLabel} ${lineNums} across ${crossLabel} ${crossNums}. Try using "${methodName}".`,
                 tier2: `A candidate digit is confined to the same ${sizeWord} ${crossLabel.toLowerCase()} across ${sizeWord} separate ${lineLabel.toLowerCase()}, forming ${article} ${methodName} pattern.`,
                 tier3: `Because digit ${n} must occupy those ${lineLabel.toLowerCase()} within ${crossLabel} ${crossNums}, eliminate pencil mark ${n} from all other cells in those ${crossLabel.toLowerCase()}.`
@@ -1937,7 +1948,8 @@ function findXYWing(candGrid, solutionGrid = solution) {
                     method: "XY-Wing",
                     tier: "expert",
                     eliminate,
-                    tier1: `Look at pencil marks in Row ${pivot.r+1}, Column ${pivot.c+1} and the two cells it links to. Try using "XY-Wing".`,
+                    highlightCells: [pivot, p1, p2],
+                    tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XY-Wing".`,
                     tier2: `Three cells, each holding only two candidates, form a chain: the pivot shares one candidate with each of the other two, and those two share a third candidate between them.`,
                     tier3: `Because that shared third candidate must appear in one of the two outer cells, eliminate it from every cell that can see both of them.`
                 };
@@ -1993,7 +2005,8 @@ function findXYZWing(candGrid, solutionGrid = solution) {
                         method: "XYZ-Wing",
                         tier: "expert",
                         eliminate,
-                        tier1: `Look at pencil marks in Row ${pivot.r+1}, Column ${pivot.c+1} and the two cells it links to. Try using "XYZ-Wing".`,
+                        highlightCells: [pivot, p1, p2],
+                        tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XYZ-Wing".`,
                         tier2: `A three-candidate cell links to two two-candidate cells; all three share one candidate that must appear in one of them.`,
                         tier3: `Because that shared candidate must appear in the pivot cell or one of its two linked cells, eliminate it from every other cell that can see all three.`
                     };
@@ -2033,13 +2046,15 @@ function findUniqueRectangle(candGrid, solutionGrid = solution) {
                         if (!extraCands.includes(x) || !extraCands.includes(y) || extraCands.length <= 2) continue;
 
                         const extraCell = corners[extraIdx];
+                        const cellList = corners.map(({ r, c }) => `Row ${r+1}, Col ${c+1}`).join(' / ');
                         return {
                             r: extraCell.r, c: extraCell.c,
                             val: solutionGrid[extraCell.r][extraCell.c],
                             method: "Unique Rectangle",
                             tier: "expert",
                             eliminate: [{ r: extraCell.r, c: extraCell.c, digits: [x, y] }],
-                            tier1: `Look at pencil marks in the four-cell rectangle with a corner at Row ${extraCell.r+1}, Column ${extraCell.c+1}. Try using "Unique Rectangle".`,
+                            highlightCells: corners,
+                            tier1: `Look at pencil marks in the four-cell rectangle (${cellList}). Try using "Unique Rectangle".`,
                             tier2: `Four cells form a rectangle across two boxes. Three corners share the exact same two candidates — if the fourth corner also settled on just those two, the puzzle could be solved two different ways, which isn't allowed.`,
                             tier3: `To keep the solution unique, eliminate pencil marks ${x} and ${y} from Row ${extraCell.r+1}, Column ${extraCell.c+1} — whatever extra candidate remains there must be the real answer.`
                         };
@@ -2101,12 +2116,22 @@ function showHint() {
         return;
     }
 
-    const { r, c, tier1, tier2, tier3, method } = hint;
+    const { r, c, tier1, tier2, tier3, method, highlightCells } = hint;
     const cell = board.children[r * 9 + c];
 
-    cell.classList.add("highlight-least", "glow");
-    setTimeout(() => cell.classList.remove("glow"), 2000);
+    // onCellClick clears every cell's highlight classes as part of selecting
+    // the primary cell, so it must run BEFORE the hint's own highlights are
+    // applied below — reusing the same "highlight-least" style as Highlight
+    // Fullest, on every cell the hint actually refers to (not just the
+    // first one), is the whole point here (see REQUIREMENTS.md item 8).
     onCellClick(cell);
+
+    const cellsToHighlight = highlightCells && highlightCells.length ? highlightCells : [{ r, c }];
+    cellsToHighlight.forEach(({ r: hr, c: hc }) => {
+        const hCell = board.children[hr * 9 + hc];
+        hCell.classList.add("highlight-least", "glow");
+        setTimeout(() => hCell.classList.remove("glow"), 2000);
+    });
 
     const hintKey = `${r}_${c}`;
     if (currentHintState === hintKey) {
@@ -2745,6 +2770,21 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                             }
                             if (!(hint.tier in HINT_TIER_RANK)) problems.push(`${hint.method}: invalid tier "${hint.tier}"`);
                             if (typeof hint.r !== "number" || typeof hint.c !== "number") problems.push(`${hint.method}: missing target cell`);
+
+                            // Every mentioned cell (highlightCells) must be a real,
+                            // in-bounds board coordinate, and must include the
+                            // technique's own primary target cell — a hint that
+                            // points at cells other than the one it's about would be
+                            // confusing rather than helpful (see REQUIREMENTS.md item 8).
+                            if (hint.highlightCells) {
+                                if (hint.highlightCells.length === 0) problems.push(`${hint.method}: empty highlightCells`);
+                                const outOfBounds = hint.highlightCells.some(({ r: hr, c: hc }) =>
+                                    !(Number.isInteger(hr) && Number.isInteger(hc) && hr >= 0 && hr < 9 && hc >= 0 && hc < 9)
+                                );
+                                if (outOfBounds) problems.push(`${hint.method}: highlightCells has an out-of-bounds cell`);
+                                const includesPrimary = hint.highlightCells.some(({ r: hr, c: hc }) => hr === hint.r && hc === hint.c);
+                                if (!includesPrimary) problems.push(`${hint.method}: highlightCells doesn't include the primary target cell`);
+                            }
 
                             // If tier3 claims an elimination directly resolves some
                             // cell to a single value ("This leaves N in Row R, Column
