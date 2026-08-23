@@ -1385,6 +1385,8 @@ pencilToggle.addEventListener("click", () => {
     pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
     pencilToggle.classList.toggle("active", pencilMode);
     updateNumberTileStyles();
+
+    setStatusText(`Pencil Mode ${pencilMode ? "ON" : "OFF"}: ${pencilMode ? "Use it to note down all the numbers a cell could still be, instead of a final answer." : "Numbers you enter now go in as final answers again."}`, 10000);
 });
 
 const guardNotesToggle = document.getElementById("guardNotesToggle");
