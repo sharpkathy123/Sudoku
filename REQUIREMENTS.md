@@ -237,6 +237,19 @@ needed, and respect whatever pencil marks the player has already entered.
   for that cell anyway (garbage in, garbage out) — this matches how a real
   hint/checker built on your own notes should behave, rather than silently
   overriding what you wrote.
+- **Fixed bug:** a cell can legitimately be a Hidden Single from more than
+  one unit's perspective at once (e.g. the only open row-cell for a digit,
+  and separately the only open box-cell for it). `findHiddenSingle` used to
+  iterate all rows, then all columns, then all boxes (`ALL_UNITS`'s natural
+  order), so it always reported the row/column framing in that case — even
+  when the box framing was the more direct, obvious-to-a-human explanation
+  (a compact 3x3 area blocked by as few as two other rows/columns reads far
+  more clearly than the same fact traced row-by-row through a mix of column
+  and box eliminations). Fixed by checking boxes first (`UNITS_BOX_FIRST`),
+  matching how people actually cross-hatch. Caught from a real hint a player
+  saw explained as "Row 4" when "Box 6" was the far more obvious framing of
+  the exact same deduction — the math wasn't wrong, the explanation was
+  needlessly confusing.
 
 ## 9. Are the regression tests worth keeping?
 

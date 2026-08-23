@@ -670,6 +670,18 @@ function getAllUnits() {
     return units;
 }
 const ALL_UNITS = getAllUnits();
+// Box-first ordering for Hidden Single: a cell can legitimately be a hidden
+// single from more than one unit's perspective at once (e.g. also explained
+// via its row), and ALL_UNITS' row-then-column-then-box order would always
+// report the row/column framing first even when the box framing is the more
+// direct, standard-teaching-order explanation (a hidden single confined to
+// a compact 3x3 box, blocked by digits in as few as two other rows/columns,
+// reads as far more obvious than the same fact described row-by-row).
+const UNITS_BOX_FIRST = [
+    ...ALL_UNITS.filter(u => u.kind === "box"),
+    ...ALL_UNITS.filter(u => u.kind === "row"),
+    ...ALL_UNITS.filter(u => u.kind === "col")
+];
 
 function cellsSeeEachOther(a, b) {
     if (a.r === b.r) return true;
@@ -1554,7 +1566,7 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
 
 // 2. Hidden Singles / Cross-Hatching — box, row, AND column scanning
 function findHiddenSingle(candGrid, grid = getCurrentGrid()) {
-    for (const unit of ALL_UNITS) {
+    for (const unit of UNITS_BOX_FIRST) {
         for (let n = 1; n <= 9; n++) {
             const spots = unit.cells.filter(({ r, c }) => candGrid[r][c].includes(n));
             if (spots.length !== 1) continue;
