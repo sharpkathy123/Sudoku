@@ -2445,6 +2445,21 @@ function onWin() {
     startConfetti();
 }
 
+// Tap-to-skip: the win banner sits at a fixed distance from the top of the
+// viewport and can overlap the control buttons on short screens, and
+// confetti otherwise keeps falling for several seconds on its own. Neither
+// the overlay nor the banner intercepts clicks (both are pointer-events:
+// none, see CSS), so this listens on the whole document instead of any one
+// element — tapping anywhere, including "through" the banner onto a
+// button underneath, immediately clears all three (overlay, confetti,
+// board glow) without exiting the won state itself.
+document.addEventListener("click", () => {
+    if (!gameWon) return;
+    if (winOverlay.classList.contains("visible") || confettiRunning || board.classList.contains("board-win")) {
+        stopBoardAnimations();
+    }
+});
+
 /* ==========================================================================
    8. EVENT BINDINGS & INIT
    ========================================================================== */
