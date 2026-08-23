@@ -18,7 +18,12 @@ const APP_SHELL = ['./', './index.html'];
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(APP_SHELL))
+            .then((cache) => Promise.all(
+                // cache.addAll() would fetch with default (HTTP-cache-respecting)
+                // semantics; fetch each shell entry with no-store instead so
+                // install always precaches what's actually live right now.
+                APP_SHELL.map((url) => fetch(url, { cache: 'no-store' }).then((res) => cache.put(url, res)))
+            ))
             .catch(() => {}) // don't block install if the initial precache fails; fetch handler still caches on first successful load
     );
     self.skipWaiting();
@@ -37,7 +42,12 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
 
     event.respondWith(
-        fetch(event.request)
+        // cache: 'no-store' bypasses the browser's own HTTP cache — without
+        // it, GitHub Pages' Cache-Control headers let fetch() silently hand
+        // back a stale response instead of hitting the network, which then
+        // gets written into the SW cache as if it were fresh (see
+        // REQUIREMENTS.md item 1 for the earlier, related caching incident).
+        fetch(event.request, { cache: 'no-store' })
             .then((networkResponse) => {
                 if (networkResponse && networkResponse.status === 200) {
                     const copy = networkResponse.clone();
