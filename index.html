@@ -1621,6 +1621,19 @@ function findNakedSingle(candGrid) {
     return null;
 }
 
+// If eliminating `n` from exactly one of the cells in `eliminate` would
+// leave that cell with only one remaining candidate, that cell becomes an
+// immediate naked single as a side effect — worth calling out in the hint.
+// Deliberately checks the *eliminated* cells, not any cell inside the box
+// the elimination came from: a Pointing/Claiming elimination never touches
+// candidates inside its own box, so a cell there can't be "resolved" by it.
+function singleCellResolvedByElimination(candGrid, eliminate, n) {
+    const resolved = eliminate
+        .map(({ r, c }) => ({ r, c, remaining: candGrid[r][c].filter(x => x !== n) }))
+        .filter(({ remaining }) => remaining.length === 1);
+    return resolved.length === 1 ? resolved[0] : null;
+}
+
 // 4. Pointing Pairs/Triples & Claiming Candidates (Locked Candidates - Advanced Pencil Technique)
 function findLockedCandidates(candGrid, solutionGrid = solution) {
     for (let br = 0; br < 3; br++) {
@@ -1648,9 +1661,8 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                         if (eliminate.length > 0) {
                             const targetR = boxCells[0].r;
                             const targetC = boxCells[0].c;
-                            const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
-                            const makesSingle = targetCands.length === 1;
                             const methodName = boxCells.length === 2 ? "Pointing Pair" : "Pointing Triple";
+                            const resolved = singleCellResolvedByElimination(candGrid, eliminate, n);
 
                             return {
                                 r: targetR,
@@ -1661,8 +1673,8 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                                 eliminate,
                                 tier1: `Look at pencil marks in Row ${r+1} inside Box ${boxNum}. Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Row ${r+1}.`,
-                                tier3: makesSingle
-                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solutionGrid[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                tier3: resolved
+                                    ? `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Row ${r+1}. This leaves ${solutionGrid[resolved.r][resolved.c]} in Row ${resolved.r+1}, Column ${resolved.c+1}!`
                                     : `Since ${n} must go in Row ${r+1} within Box ${boxNum}, eliminate pencil mark ${n} from all other cells outside Box ${boxNum} along Row ${r+1}.`
                             };
                         }
@@ -1683,9 +1695,8 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                         if (eliminate.length > 0) {
                             const targetR = boxCells[0].r;
                             const targetC = boxCells[0].c;
-                            const targetCands = candGrid[targetR][targetC].filter(x => x !== n);
-                            const makesSingle = targetCands.length === 1;
                             const methodName = boxCells.length === 2 ? "Pointing Pair" : "Pointing Triple";
+                            const resolved = singleCellResolvedByElimination(candGrid, eliminate, n);
 
                             return {
                                 r: targetR,
@@ -1696,8 +1707,8 @@ function findLockedCandidates(candGrid, solutionGrid = solution) {
                                 eliminate,
                                 tier1: `Look at pencil marks in Column ${c+1} inside Box ${boxNum}. Try using "${methodName}".`,
                                 tier2: `Inside Box ${boxNum}, all possible locations for a key digit align strictly on Column ${c+1}.`,
-                                tier3: makesSingle
-                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solutionGrid[targetR][targetC]} in Row ${targetR+1}, Column ${targetC+1}!`
+                                tier3: resolved
+                                    ? `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} elsewhere along Column ${c+1}. This leaves ${solutionGrid[resolved.r][resolved.c]} in Row ${resolved.r+1}, Column ${resolved.c+1}!`
                                     : `Since ${n} must go in Column ${c+1} within Box ${boxNum}, eliminate pencil mark ${n} from all other cells outside Box ${boxNum} along Column ${c+1}.`
                             };
                         }
@@ -2734,6 +2745,24 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                             }
                             if (!(hint.tier in HINT_TIER_RANK)) problems.push(`${hint.method}: invalid tier "${hint.tier}"`);
                             if (typeof hint.r !== "number" || typeof hint.c !== "number") problems.push(`${hint.method}: missing target cell`);
+
+                            // If tier3 claims an elimination directly resolves some
+                            // cell to a single value ("This leaves N in Row R, Column
+                            // C"), that claim must actually be true against the real
+                            // candidate grid, not just plausible-sounding text — this
+                            // is exactly the bug class caught in a live Pointing Pair
+                            // hint (see REQUIREMENTS.md item 7).
+                            const claim = hint.tier3.match(/This leaves (\d) in Row (\d+), Column (\d+)/);
+                            if (claim) {
+                                const [, claimedVal, claimedRow, claimedCol] = claim.map(Number);
+                                const cr = claimedRow - 1, cc = claimedCol - 1;
+                                const afterElimination = (candGrid[cr][cc] || []).filter(x =>
+                                    !(hint.eliminate || []).some(e => e.r === cr && e.c === cc && e.digits.includes(x))
+                                );
+                                if (!(afterElimination.length === 1 && afterElimination[0] === claimedVal)) {
+                                    problems.push(`${hint.method}: claimed "leaves ${claimedVal} in Row ${claimedRow}, Column ${claimedCol}" but that cell's remaining candidates after the elimination are [${afterElimination.join(',')}]`);
+                                }
+                            }
 
                             if (kind === "place") {
                                 grid[hint.r][hint.c] = res.solution[hint.r][hint.c];
