@@ -214,6 +214,24 @@ tier1/2/3 text, a valid tier, and a real target cell — so a future technique
 added without full 3-tier text, or a typo that leaves one blank, fails the
 suite instead of shipping quietly.
 
+**Fixed bug:** Pointing Pair/Triple's tier 3 sometimes claimed an
+elimination "leaves N in Row R, Column C" when it didn't. The check for
+this (`makesSingle`) tested the wrong cell entirely — it looked at whether
+the *box's own* candidate cell would have one candidate left if digit `n`
+weren't a candidate there, which has nothing to do with the elimination
+(Pointing only removes `n` from cells *outside* the box; it never touches
+candidates inside the box). Reported from a real hint: Box 6 correctly had
+digit 2 confined to Row 5, but the actual elimination only removed one
+pencil mark elsewhere in Row 5, from a cell that still had another
+candidate left — no single was created anywhere, yet the hint claimed one.
+Fixed with `singleCellResolvedByElimination`, which checks the cells
+actually being eliminated from, not the box's own cells. Now caught
+permanently by `testHintObjectsWellFormed`: it parses any "This leaves N
+in Row R, Column C" claim out of a hint's tier3 text and verifies that
+cell's candidates, after applying the hint's own `eliminate` list, really
+do resolve to exactly `[N]` — so this exact bug, or the same mistake in
+any future technique, fails the suite instead of shipping.
+
 ## 8. Human-like hint ordering — ✅ Met
 
 **Requirement:** hints should come in the order a person would actually try
