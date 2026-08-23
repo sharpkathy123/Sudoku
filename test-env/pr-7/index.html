@@ -2077,10 +2077,10 @@ function findDirectRevealFallback(currentGrid, targetSolution) {
                 const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
                 return {
                     r, c, val: correctVal,
-                    method: "Fallback Elimination",
+                    method: "Direct Reveal",
                     tier: "master",
-                    tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}.`,
-                    tier2: `Examine intersecting values across Row ${r+1}, Column ${c+1}, and Box ${boxNum} to narrow down the missing number.`,
+                    tier1: `None of this app's solving techniques apply here — this isn't a technique to learn, it's a direct reveal. Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}.`,
+                    tier2: `This happens when a puzzle genuinely needs logic beyond what this app's hint engine covers — or sometimes because some of your own pencil marks are incomplete and are hiding a technique that would otherwise apply. If you're not sure, try Auto-Pencil first.`,
                     tier3: `Place ${correctVal} in Row ${r+1}, Column ${c+1}.`
                 };
             }
