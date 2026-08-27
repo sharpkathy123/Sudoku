@@ -1055,18 +1055,23 @@ function highlightSameNumbers(num) {
 function onCellClick(cell) {
     if (gameWon) return;
     if (selectedCell) selectedCell.classList.remove("selected");
-    clearNumberHighlights();
 
     selectedCell = cell;
-    cell.classList.add("selected");
 
+    // highlightSameNumbers() (like clearNumberHighlights() itself) wipes
+    // "selected" from every cell as its first step, so any clearing has to
+    // happen before "selected" is (re-)applied below — not after, or the
+    // cell we just selected loses its own selection outline immediately.
     const val = cell.querySelector(".cell-value").textContent.trim();
     if (val && !isNaN(val)) {
         selectedNumber = parseInt(val, 10);
         highlightSameNumbers(selectedNumber);
     } else {
         selectedNumber = null;
+        clearNumberHighlights();
     }
+
+    cell.classList.add("selected");
     updateNumberTileStyles();
 }
 
