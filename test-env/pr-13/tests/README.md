@@ -67,6 +67,10 @@ with specifics and exits 1 on failure.
 - **`test_tap_stops_glow.py`** — completes a row and checks that a
   plain tap anywhere immediately clears the in-progress glow, instead
   of forcing you to sit through it.
+- **`test_solution_grid_randomness.py`** — generates several puzzles
+  and checks their solution grids actually differ, catching a bug
+  where every puzzle's real answer key was the exact same grid every
+  time (only which cells were removed as givens was ever randomized).
 
 ## Adding a new one
 
