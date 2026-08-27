@@ -1254,7 +1254,7 @@ function loadSavedGameState() {
             }
         });
 
-        checkAndBoldCompletedNumbers();
+        checkAndBoldCompletedNumbers(true);
         updateNumberTileStyles();
         setStatusText("Resumed saved game.", 3000);
         return true;
@@ -1274,7 +1274,11 @@ function triggerUnitGlow(cellIndices) {
     });
 }
 
-function checkAndBoldCompletedNumbers() {
+// silent=true marks already-complete units as complete (so they don't
+// glow again later) without triggering the glow itself — used when
+// restoring a saved game, where every unit finished in a prior session
+// would otherwise look "newly" completed and glow all at once.
+function checkAndBoldCompletedNumbers(silent = false) {
     const grid = getCurrentGrid();
 
     // Check completed rows
@@ -1282,9 +1286,11 @@ function checkAndBoldCompletedNumbers() {
         const rowFilled = grid[r].every((val, c) => val === solution[r][c]);
         if (rowFilled && !completedRows[r]) {
             completedRows[r] = true;
-            const indices = [];
-            for (let c = 0; c < 9; c++) indices.push(r * 9 + c);
-            triggerUnitGlow(indices);
+            if (!silent) {
+                const indices = [];
+                for (let c = 0; c < 9; c++) indices.push(r * 9 + c);
+                triggerUnitGlow(indices);
+            }
         }
     }
 
@@ -1296,9 +1302,11 @@ function checkAndBoldCompletedNumbers() {
         }
         if (colFilled && !completedCols[c]) {
             completedCols[c] = true;
-            const indices = [];
-            for (let r = 0; r < 9; r++) indices.push(r * 9 + c);
-            triggerUnitGlow(indices);
+            if (!silent) {
+                const indices = [];
+                for (let r = 0; r < 9; r++) indices.push(r * 9 + c);
+                triggerUnitGlow(indices);
+            }
         }
     }
 
@@ -1314,11 +1322,13 @@ function checkAndBoldCompletedNumbers() {
         }
         if (boxFilled && !completedBoxes[b]) {
             completedBoxes[b] = true;
-            const indices = [];
-            for (let r = br; r < br + 3; r++) {
-                for (let c = bc; c < bc + 3; c++) indices.push(r * 9 + c);
+            if (!silent) {
+                const indices = [];
+                for (let r = br; r < br + 3; r++) {
+                    for (let c = bc; c < bc + 3; c++) indices.push(r * 9 + c);
+                }
+                triggerUnitGlow(indices);
             }
-            triggerUnitGlow(indices);
         }
     }
 
@@ -1329,7 +1339,7 @@ function checkAndBoldCompletedNumbers() {
             if (numberBar.children[num - 1]) numberBar.children[num - 1].classList.add("completed-number");
             if (!completedDigits[num]) {
                 completedDigits[num] = true;
-                triggerUnitGlow(placements[num]);
+                if (!silent) triggerUnitGlow(placements[num]);
             }
         }
     }
@@ -2507,6 +2517,15 @@ document.addEventListener("click", () => {
     if (winOverlay.classList.contains("visible") || confettiRunning || board.classList.contains("board-win")) {
         stopBoardAnimations();
     }
+});
+
+// Same idea, but for the smaller in-progress glow (a row/column/box/digit
+// you just completed): tapping anywhere — including on the board itself,
+// unlike the listener below — immediately clears any cell still glowing,
+// instead of making you sit through several queued 2-second glows one
+// after another if you finished multiple units in a row.
+document.addEventListener("click", () => {
+    document.querySelectorAll(".cell.glow").forEach(cell => cell.classList.remove("glow"));
 });
 
 // Tapping anywhere that isn't the board or an actual control (a button,
