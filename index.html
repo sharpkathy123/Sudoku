@@ -577,8 +577,7 @@ h2 {
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
-            <option value="expert">Expert</option>
-            <option value="master" title="Master puzzles are built to resist every technique this app can teach — expect at least one cell you'll need to place without a hint explaining why.">Master</option>
+            <option value="expert" title="Expert puzzles are built to resist every technique this app can teach — expect at least one cell you'll need to place without a hint explaining why.">Expert</option>
         </select>
         <button id="newGameBtn" class="btn-danger">New Game</button>
         <button id="restartBtn" class="btn-danger">Restart</button>
@@ -646,13 +645,12 @@ const STORAGE_KEY = 'sudoku_active_game_v1';
 // functions that reference them are reached in file order; the functions
 // themselves are plain `function` declarations and are hoisted, so only
 // these const lookup tables need to sit above their first use.
-const HINT_TIER_RANK = { easy: 1, medium: 2, hard: 3, expert: 4, master: 5 };
+const HINT_TIER_RANK = { easy: 1, medium: 2, hard: 3, expert: 4 };
 const DIFFICULTY_REQUIREMENTS = {
     easy:   { maxTier: HINT_TIER_RANK.easy },
     medium: { maxTier: HINT_TIER_RANK.medium, requireTier: "medium" },
     hard:   { maxTier: HINT_TIER_RANK.hard,   requireTier: "hard" },
-    expert: { maxTier: HINT_TIER_RANK.expert, requireTier: "expert" },
-    master: { maxTier: HINT_TIER_RANK.expert, requireUnsolvedAtMaxTier: true }
+    expert: { maxTier: HINT_TIER_RANK.hard,   requireUnsolvedAtMaxTier: true }
 };
 
 // Geometry helpers shared by several hint techniques below. Plain `function`
@@ -726,7 +724,7 @@ function combinations(arr, k) {
 // other technique only eliminates candidates. Each technique function is
 // defined further down (section 5); referencing them here is safe because
 // `function` declarations are hoisted — only the actual *call* happens
-// later, once every technique is defined. See REQUIREMENTS.md items 2-8.
+// later, once every technique is defined. See REQUIREMENTS.md items 2-5, 7-8.
 const HINT_CASCADE = [
     { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findFullHouse(grid, candGrid, solutionGrid) },
     { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findHiddenSingle(candGrid, grid, solutionGrid) },
@@ -735,11 +733,11 @@ const HINT_CASCADE = [
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findLockedCandidates(candGrid, solutionGrid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findClaimingCandidates(candGrid, solutionGrid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findNakedTriple(candGrid, solutionGrid) },
-    { tier: "hard",   kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findXWing(candGrid, solutionGrid) },
-    { tier: "expert", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findXYWing(candGrid, solutionGrid) },
-    { tier: "expert", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findXYZWing(candGrid, solutionGrid) },
-    { tier: "expert", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findUniqueRectangle(candGrid, solutionGrid) },
-    { tier: "expert", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findSwordfish(candGrid, solutionGrid) }
+    { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findXWing(candGrid, solutionGrid) },
+    { tier: "hard",   kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findXYWing(candGrid, solutionGrid) },
+    { tier: "hard",   kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findXYZWing(candGrid, solutionGrid) },
+    { tier: "hard",   kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findUniqueRectangle(candGrid, solutionGrid) },
+    { tier: "hard",   kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findSwordfish(candGrid, solutionGrid) }
 ];
 
 const board = document.getElementById("board");
@@ -751,9 +749,9 @@ const winOverlay = document.getElementById("winOverlay");
 const confettiCanvas = document.getElementById("confettiCanvas");
 const ctx = confettiCanvas.getContext("2d");
 
-function maybeShowMasterIntro(diff) {
-    if (diff !== "master") return false;
-    setStatusText("Master puzzles are built to resist every technique this app can teach — expect at least one cell you'll have to place without a hint explaining why.");
+function maybeShowExpertIntro(diff) {
+    if (diff !== "expert") return false;
+    setStatusText("Expert puzzles are built to resist every technique this app can teach — expect at least one cell you'll have to place without a hint explaining why.");
     return true;
 }
 
@@ -891,7 +889,7 @@ function countSolutions(grid, limit = 2) {
 /* ==========================================================================
    2. PROGRAMMATIC SEED SANITIZER & SYMMETRY TRANSFORMATIONS
    ========================================================================== */
-let EXPERT_SEED_PUZZLES = [
+let HARD_SEED_PUZZLES = [
     {
         puzzle: [
             [0,0,0,0,0,0,0,1,0],
@@ -942,7 +940,7 @@ let EXPERT_SEED_PUZZLES = [
     }
 ];
 
-let MASTER_SEED_PUZZLES = [
+let EXPERT_SEED_PUZZLES = [
     {
         puzzle: [
             [0,0,0,7,0,0,0,0,0],
@@ -1006,15 +1004,15 @@ function sanitizeAndRepairSeed(seedObj) {
 // they clear the same technique-based bar generated puzzles must clear —
 // otherwise they'd let a mislabeled puzzle back in through a side door.
 // As of writing, none of the hand-picked puzzles above actually require a
-// Swordfish (Expert) or resist every technique up to Swordfish (Master), so
+// Swordfish (Hard) or resist every technique up to Swordfish (Expert), so
 // both pools end up empty and createNewPuzzleAsync's calibrated digging loop
-// is what actually delivers Expert/Master puzzles today (see REQUIREMENTS.md
-// items 5-6). The arrays and this filter are kept so better seeds can be
+// is what actually delivers Hard/Expert puzzles today (see REQUIREMENTS.md
+// items 4-5). The arrays and this filter are kept so better seeds can be
 // dropped in later without any other code changing.
+HARD_SEED_PUZZLES = HARD_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean)
+    .filter(seed => meetsDifficultyBar(seed.puzzle, seed.solution, "hard"));
 EXPERT_SEED_PUZZLES = EXPERT_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean)
     .filter(seed => meetsDifficultyBar(seed.puzzle, seed.solution, "expert"));
-MASTER_SEED_PUZZLES = MASTER_SEED_PUZZLES.map(sanitizeAndRepairSeed).filter(Boolean)
-    .filter(seed => meetsDifficultyBar(seed.puzzle, seed.solution, "master"));
 
 function transformGridPair(seedObj) {
     let tPuzzle = deepCopyGrid(seedObj.puzzle);
@@ -1901,7 +1899,7 @@ function findNakedTriple(candGrid, solutionGrid = solution) {
 // its mirror image, columns confined to rows) — a puzzle can need either
 // orientation, and checking only one misses roughly as many real patterns
 // as it finds (confirmed empirically: about 1 in 8 solving steps in
-// Hard/Expert/Master puzzles had a column-oriented X-Wing available that a
+// Medium/Hard/Expert puzzles had a column-oriented X-Wing available that a
 // row-only search would never see). See REQUIREMENTS.md item 8.
 function findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, axis) {
     const lineLabel = axis === "row" ? "Rows" : "Columns";
@@ -1952,7 +1950,7 @@ function findFishAlongAxis(candGrid, solutionGrid, size, methodName, article, ax
                 r: focalR, c: focalC,
                 val: solutionGrid[focalR][focalC],
                 method: methodName,
-                tier: size === 2 ? "hard" : "expert",
+                tier: size === 2 ? "medium" : "hard",
                 eliminate,
                 highlightCells: patternCells,
                 tier1: `Look at pencil marks in ${lineLabel} ${lineNums} across ${crossLabel} ${crossNums}. Try using "${methodName}".`,
@@ -1974,7 +1972,7 @@ function findXWing(candGrid, solutionGrid = solution) {
     return findFishPattern(candGrid, solutionGrid, 2, "X-Wing", "an");
 }
 
-// 6b. Swordfish Pattern Analysis (X-Wing generalized to three rows/columns; Expert tier)
+// 6b. Swordfish Pattern Analysis (X-Wing generalized to three rows/columns; Hard tier)
 function findSwordfish(candGrid, solutionGrid = solution) {
     return findFishPattern(candGrid, solutionGrid, 3, "Swordfish", "a");
 }
@@ -2020,7 +2018,7 @@ function findXYWing(candGrid, solutionGrid = solution) {
                     r: pivot.r, c: pivot.c,
                     val: solutionGrid[pivot.r][pivot.c],
                     method: "XY-Wing",
-                    tier: "expert",
+                    tier: "hard",
                     eliminate,
                     highlightCells: [pivot, p1, p2],
                     tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XY-Wing".`,
@@ -2077,7 +2075,7 @@ function findXYZWing(candGrid, solutionGrid = solution) {
                         r: pivot.r, c: pivot.c,
                         val: solutionGrid[pivot.r][pivot.c],
                         method: "XYZ-Wing",
-                        tier: "expert",
+                        tier: "hard",
                         eliminate,
                         highlightCells: [pivot, p1, p2],
                         tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XYZ-Wing".`,
@@ -2125,7 +2123,7 @@ function findUniqueRectangle(candGrid, solutionGrid = solution) {
                             r: extraCell.r, c: extraCell.c,
                             val: solutionGrid[extraCell.r][extraCell.c],
                             method: "Unique Rectangle",
-                            tier: "expert",
+                            tier: "hard",
                             eliminate: [{ r: extraCell.r, c: extraCell.c, digits: [x, y] }],
                             highlightCells: corners,
                             tier1: `Look at pencil marks in the four-cell rectangle (${cellList}). Try using "Unique Rectangle".`,
@@ -2150,7 +2148,7 @@ function findDirectRevealFallback(currentGrid, targetSolution) {
                 return {
                     r, c, val: correctVal,
                     method: "Direct Reveal",
-                    tier: "master",
+                    tier: "expert",
                     tier1: `None of this app's solving techniques apply here — this isn't a technique to learn, it's a direct reveal. Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}.`,
                     tier2: `This happens when a puzzle genuinely needs logic beyond what this app's hint engine covers — or sometimes because some of your own pencil marks are incomplete and are hiding a technique that would otherwise apply. If you're not sure, try Auto-Pencil first.`,
                     tier3: `Place ${correctVal} in Row ${r+1}, Column ${c+1}.`
@@ -2177,7 +2175,7 @@ function showHint() {
     const candGrid = getCandidatesGrid(currentGrid);
 
     // Easiest-technique-first cascade, shared with the difficulty rater —
-    // see HINT_CASCADE and REQUIREMENTS.md items 2-8.
+    // see HINT_CASCADE and REQUIREMENTS.md items 2-5, 7-8.
     let hint = null;
     for (const { fn } of HINT_CASCADE) {
         hint = fn(currentGrid, candGrid, solution);
@@ -2229,7 +2227,7 @@ function showHint() {
    Solves a puzzle using only techniques up to a given tier, tracking which
    tiers were actually needed. Used by the generator to reject puzzles that
    don't match their declared difficulty, and by the regression tests to
-   verify that calibration. See REQUIREMENTS.md items 2-6.
+   verify that calibration. See REQUIREMENTS.md items 2-5.
    ========================================================================== */
 function getCandidatesGridPure(grid) {
     const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
@@ -2297,10 +2295,10 @@ function rateSolveWithTierCascade(puzzleGrid, solutionGrid, maxTierRank) {
 
 // Checks a puzzle against the calibration bar for a declared difficulty
 // (DIFFICULTY_REQUIREMENTS above): must be solvable using only techniques up
-// to that tier, and (for medium/hard/expert) must actually need at least one
+// to that tier, and (for medium/hard) must actually need at least one
 // technique at that tier — otherwise it's really an easier puzzle wearing a
-// harder label. Master instead requires that it NOT be solvable with
-// easy-through-expert techniques alone (it needs the direct-reveal fallback).
+// harder label. Expert instead requires that it NOT be solvable with
+// easy-through-hard techniques alone (it needs the direct-reveal fallback).
 //
 // Also reports `overshoot`: true when the puzzle *can't even be solved*
 // using techniques up to the tier's own ceiling — meaning it's already
@@ -2328,7 +2326,7 @@ function meetsDifficultyBar(puzzleGrid, solutionGrid, difficulty) {
    ========================================================================== */
 // Nominal starting given-count per difficulty (digging stops here if the
 // puzzle already meets its difficulty bar), and a hard floor it may be dug
-// down to if it doesn't (see REQUIREMENTS.md items 2-6). 17 is the proven
+// down to if it doesn't (see REQUIREMENTS.md items 2-5). 17 is the proven
 // theoretical minimum for any uniquely-solvable 9x9 grid, so it's a safe
 // floor to allow digging toward — random uniqueness-preserving removal
 // essentially never reaches it in practice, it just stops earlier once no
@@ -2336,12 +2334,11 @@ function meetsDifficultyBar(puzzleGrid, solutionGrid, difficulty) {
 const DIFFICULTY_GIVENS = {
     easy:   { target: 38, floor: 38 }, // never dig further: more givens only helps stay <= easy
     medium: { target: 32, floor: 26 },
-    hard:   { target: 27, floor: 19 },
-    expert: { target: 27, floor: 17 },
-    master: { target: 24, floor: 17 }
+    hard:   { target: 27, floor: 17 },
+    expert: { target: 24, floor: 17 }
 };
 
-const SEED_POOLS = { expert: EXPERT_SEED_PUZZLES, master: MASTER_SEED_PUZZLES };
+const SEED_POOLS = { hard: HARD_SEED_PUZZLES, expert: EXPERT_SEED_PUZZLES };
 
 async function createNewPuzzleAsync(difficulty, generationId = ++activeGenerationId) {
     const seedPool = SEED_POOLS[difficulty];
@@ -2354,9 +2351,9 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
     }
 
     // Every difficulty is calibrated against DIFFICULTY_REQUIREMENTS
-    // (REQUIREMENTS.md items 2-6): a unique-solution dig isn't enough, the
+    // (REQUIREMENTS.md items 2-5): a unique-solution dig isn't enough, the
     // result also has to actually need (or for Easy, not exceed; or for
-    // Master, defeat) techniques at its declared tier. A puzzle that doesn't
+    // Expert, defeat) techniques at its declared tier. A puzzle that doesn't
     // meet the bar at its nominal given-count is dug further, cell by cell,
     // down to a floor, re-checking the bar after each removal (removing
     // givens generally makes a puzzle harder, so this converges much faster
@@ -2365,9 +2362,9 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
     const targetGivens = givensSpec ? givensSpec.target : 27;
     // Landing exactly on "needs this tier's technique, nothing harder" gets
     // rarer as the tier goes up (a real Swordfish pattern is uncommon even at
-    // very few givens), so Expert/Master get a much larger retry budget than
-    // Easy/Medium/Hard, which converge almost immediately.
-    const CALIBRATION_ATTEMPTS_BY_DIFFICULTY = { easy: 25, medium: 60, hard: 450, expert: 400, master: 200 };
+    // very few givens), so Hard/Expert get a much larger retry budget than
+    // Easy/Medium, which converge almost immediately.
+    const CALIBRATION_ATTEMPTS_BY_DIFFICULTY = { easy: 25, medium: 60, hard: 400, expert: 200 };
     const MAX_CALIBRATION_ATTEMPTS = CALIBRATION_ATTEMPTS_BY_DIFFICULTY[difficulty] || 25;
     let attempts = 0;
     let lastCandidate = null;
@@ -2375,7 +2372,7 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
     while (generationId === activeGenerationId) {
         attempts++;
         // Yield to the browser periodically so a long calibration search
-        // (mainly Expert/Master) doesn't freeze the UI — the caller already
+        // (mainly Hard/Expert) doesn't freeze the UI — the caller already
         // shows a "Generating..." status before awaiting this function.
         if (attempts % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
         const fullSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
@@ -2433,7 +2430,7 @@ async function createNewPuzzleAsync(difficulty, generationId = ++activeGeneratio
 
         lastCandidate = { puzzle: puzzleGrid, solution: fullSolution };
         if (attempts >= MAX_CALIBRATION_ATTEMPTS) {
-            console.warn(`Sudoku: gave up calibrating a ${difficulty} puzzle after ${attempts} attempts; serving the closest candidate found instead (see REQUIREMENTS.md items 2-6).`);
+            console.warn(`Sudoku: gave up calibrating a ${difficulty} puzzle after ${attempts} attempts; serving the closest candidate found instead (see REQUIREMENTS.md items 2-5).`);
             return lastCandidate;
         }
     }
@@ -2574,7 +2571,7 @@ document.getElementById("newGameBtn").addEventListener("click", async () => {
     buildBoard();
     updateNumberTileStyles();
     saveGameState();
-    if (!maybeShowMasterIntro(diff)) setStatusText("");
+    if (!maybeShowExpertIntro(diff)) setStatusText("");
 });
 
 document.getElementById("restartBtn").addEventListener("click", () => {
@@ -2718,7 +2715,7 @@ difficultySelect.addEventListener("change", async () => {
     buildBoard();
     updateNumberTileStyles();
     saveGameState();
-    if (!maybeShowMasterIntro(diff)) setStatusText("");
+    if (!maybeShowExpertIntro(diff)) setStatusText("");
 });
 
 document.getElementById("autoPencilBtn").addEventListener("click", autoFillAllPencils);
@@ -2801,32 +2798,36 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
             }
         },
 
-        // REQUIREMENTS.md item 3: needs >=1 medium-tier hint, solvable at medium-or-easier.
+        // REQUIREMENTS.md item 3: needs >=1 medium-tier hint (Naked Pair/Triple,
+        // Pointing, Claiming, or X-Wing — X-Wing was folded into this tier
+        // rather than kept as its own, since "exactly needs X-Wing, nothing
+        // more" had gotten too rare once Medium's own roster grew), solvable
+        // at medium-or-easier.
         async testMediumPuzzleCalibration() {
             await assertMostlyCalibrated("medium", 4, 1, "met the Medium bar (needs a medium technique, nothing harder)");
         },
 
-        // REQUIREMENTS.md item 4: needs >=1 hard-tier hint, solvable at hard-or-easier.
-        // "Exactly needs X-Wing, nothing more" got rarer once Medium's own
-        // technique roster grew (Naked Triple, Claiming, pair-in-any-unit) —
-        // there's simply less left in between for Hard to be the sole fix
-        // for. Empirically this now succeeds roughly half the time even at
-        // a generous attempt budget, so the tolerance here is wide — this
-        // mainly guards against Hard's detection breaking entirely, not
-        // against the calibration search occasionally missing (expected).
+        // REQUIREMENTS.md item 4: needs >=1 hard-tier (XY-Wing/XYZ-Wing/Unique
+        // Rectangle/Swordfish) hint, solvable at hard-or-easier.
         async testHardPuzzleCalibration() {
-            await assertMostlyCalibrated("hard", 4, 3, "met the Hard bar (needs a hard technique, nothing harder)");
+            await assertMostlyCalibrated("hard", 6, 1, "met the Hard bar (needs one of XY-Wing/XYZ-Wing/Unique Rectangle/Swordfish, nothing harder)");
         },
 
-        // REQUIREMENTS.md item 5: needs >=1 expert-tier (Swordfish) hint, solvable at expert-or-easier.
+        // REQUIREMENTS.md item 5: needs the fallback direct-reveal (i.e. NOT
+        // fully solvable with easy-through-hard techniques alone).
         async testExpertPuzzleCalibration() {
-            await assertMostlyCalibrated("expert", 6, 1, "met the Expert bar (needs a Swordfish, nothing harder)");
+            await assertMostlyCalibrated("expert", 4, 1, "needed the fallback reveal (weren't fully solvable through Hard techniques)");
         },
 
-        // REQUIREMENTS.md item 6: needs the fallback direct-reveal (i.e. NOT
-        // fully solvable with easy-through-expert techniques alone).
-        async testMasterPuzzleCalibration() {
-            await assertMostlyCalibrated("master", 4, 1, "needed the fallback reveal (weren't fully solvable through Expert techniques)");
+        async testHardSeedPuzzlesValidity() {
+            for (let i = 0; i < HARD_SEED_PUZZLES.length; i++) {
+                const seed = HARD_SEED_PUZZLES[i];
+                const solCopy = deepCopyGrid(seed.solution);
+                assert(solveSudoku(solCopy), `Hard seed ${i} solution is invalid`);
+                assert(isValidBoardState(seed.puzzle), `Hard seed ${i} contains initial duplicate values`);
+                assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Hard seed ${i} puzzle lacks unique solution`);
+                assert(meetsDifficultyBar(seed.puzzle, seed.solution, "hard"), `Hard seed ${i} doesn't meet the Hard difficulty bar`);
+            }
         },
 
         async testExpertSeedPuzzlesValidity() {
@@ -2837,17 +2838,6 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
                 assert(isValidBoardState(seed.puzzle), `Expert seed ${i} contains initial duplicate values`);
                 assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Expert seed ${i} puzzle lacks unique solution`);
                 assert(meetsDifficultyBar(seed.puzzle, seed.solution, "expert"), `Expert seed ${i} doesn't meet the Expert difficulty bar`);
-            }
-        },
-
-        async testMasterSeedPuzzlesValidity() {
-            for (let i = 0; i < MASTER_SEED_PUZZLES.length; i++) {
-                const seed = MASTER_SEED_PUZZLES[i];
-                const solCopy = deepCopyGrid(seed.solution);
-                assert(solveSudoku(solCopy), `Master seed ${i} solution is invalid`);
-                assert(isValidBoardState(seed.puzzle), `Master seed ${i} contains initial duplicate values`);
-                assert(countSolutions(deepCopyGrid(seed.puzzle), 2) === 1, `Master seed ${i} puzzle lacks unique solution`);
-                assert(meetsDifficultyBar(seed.puzzle, seed.solution, "master"), `Master seed ${i} doesn't meet the Master difficulty bar`);
             }
         },
 
@@ -2877,7 +2867,7 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
         // valid tier, and a real target cell.
         async testHintObjectsWellFormed() {
             const problems = [];
-            for (const diff of ["easy", "medium", "hard", "expert", "master"]) {
+            for (const diff of ["easy", "medium", "hard", "expert"]) {
                 for (let i = 0; i < 4; i++) {
                     const res = await createNewPuzzleAsync(diff);
                     const grid = deepCopyGrid(res.puzzle);
