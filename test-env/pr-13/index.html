@@ -2521,12 +2521,16 @@ document.addEventListener("click", () => {
 
 // Same idea, but for the smaller in-progress glow (a row/column/box/digit
 // you just completed): tapping anywhere — including on the board itself,
-// unlike the listener below — immediately clears any cell still glowing,
-// instead of making you sit through several queued 2-second glows one
-// after another if you finished multiple units in a row.
+// unlike the listener below — immediately clears any cell still glowing
+// from a *previous* action, instead of making you sit through several
+// queued 2-second glows one after another if you finished multiple units
+// in a row. Registered on the capture phase so it runs before the click's
+// own handler (e.g. placing a digit) has a chance to add fresh glow —
+// otherwise a click that completes a unit would wipe its own glow in the
+// same synchronous dispatch before it ever got a chance to render.
 document.addEventListener("click", () => {
     document.querySelectorAll(".cell.glow").forEach(cell => cell.classList.remove("glow"));
-});
+}, true);
 
 // Tapping anywhere that isn't the board or an actual control (a button,
 // the difficulty select, a number tile) clears the current cell selection
