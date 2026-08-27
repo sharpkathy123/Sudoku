@@ -1497,6 +1497,7 @@ for (let n = 1; n <= 9; n++) {
 
         if (n !== correctValue) {
             flashWrong(selectedCell);
+            setStatusText(`${n} doesn't belong in row ${r + 1}, column ${c + 1}. Try another number.`, 2000);
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);

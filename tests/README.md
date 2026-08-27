@@ -85,6 +85,10 @@ with specifics and exits 1 on failure.
 - **`test_auto_pencil_preserves_notes.py`** — Auto-Pencil leaves a
   hand-marked cell alone instead of silently discarding its notes,
   and pencil marks are refused on an already-filled cell.
+- **`test_wrong_digit_status_message.py`** — a legal-but-wrong digit
+  shows a plain status message naming the digit and cell location
+  (not just an easy-to-miss 400ms red flash), never actually lands on
+  the board, and doesn't overflow #status's fixed height.
 
 ## Adding a new one
 
