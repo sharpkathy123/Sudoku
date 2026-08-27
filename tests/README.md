@@ -60,6 +60,13 @@ with specifics and exits 1 on failure.
   puzzle generation ever completed) into localStorage and checks the
   app discards it and generates a real puzzle, rather than resuming a
   permanently blank, all-glowing board with no way to ever win it.
+- **`test_resume_no_spurious_glow.py`** — completes a row for real,
+  saves, and reloads, checking that resuming a game with real prior
+  progress doesn't re-trigger glow for units that were already done in
+  an earlier session.
+- **`test_tap_stops_glow.py`** — completes a row and checks that a
+  plain tap anywhere immediately clears the in-progress glow, instead
+  of forcing you to sit through it.
 
 ## Adding a new one
 
