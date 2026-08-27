@@ -60,14 +60,13 @@ very first visit still needs a network connection so there's something to
 cache. A device that has never loaded the page online has nothing to fall
 back to.
 
-## 2–6. Difficulty calibration — ✅ / ⚠️ (see per-tier notes)
+## 2–5. Difficulty calibration — ✅ Met (see per-tier notes)
 
 **Requirement:**
 - Easy: solvable using only easy-tier hints.
 - Medium: needs at least one medium-tier hint; solvable at medium-or-easier.
 - Hard: needs at least one hard-tier hint; solvable at hard-or-easier.
-- Expert: needs at least one expert-tier hint; solvable at expert-or-easier.
-- Master: needs at least one fallback (direct-reveal) hint.
+- Expert: needs at least one fallback (direct-reveal) hint.
 
 Before this was implemented, the generator only checked that a puzzle had a
 **unique solution** — given-count (38/32/27) was the only thing standing in
@@ -75,6 +74,52 @@ for difficulty, with no check that a puzzle generated for "Hard" actually
 *needed* a hard technique, or that an "Easy" puzzle didn't secretly need one.
 Testing this for real turned out to require an actual difficulty rater, not
 just a test file — see the Testing section below for what that took.
+
+**Tier count changed from 5 to 4 (Hard/Expert/Master → Hard/Expert).** The
+old middle "Hard" tier existed solely to require X-Wing and nothing more —
+but as Medium's own technique roster grew (Naked Triple, Claiming, checking
+every unit instead of just rows), there was less and less room left for
+X-Wing alone to be the one thing distinguishing a puzzle from Medium, and it
+became the single least reliable tier to calibrate (see the old status notes
+below, kept as history). X-Wing was folded into Medium's own qualifying
+technique set instead of kept as its own slot, old Expert was renamed to
+Hard, and old Master was renamed to Expert. Nothing about *what a puzzle
+needs* changed for the renamed tiers — only the old X-Wing-only slot was
+removed, and its technique now also satisfies Medium.
+
+### Every generated puzzle used to have the exact same solution — ✅ Fixed
+
+**Bug (reported by a player: "I know what the cells are going to be for
+every difficulty level"):** `solveSudoku()`, used to generate each puzzle's
+full answer key by solving a blank grid, always tried digits 1-9 in a fixed
+order and always scanned cells in the same order — so solving an empty grid
+always found the exact same "first" solution, every single time, for every
+difficulty (row 1 was always `1 2 3 4 5 6 7 8 9`, row 2 always
+`4 5 6 7 8 9 1 2 3`, etc., matching exactly what the player described). Only
+*which cells got removed* as givens was ever randomized; the underlying
+solved grid never varied at all — meaning an experienced player really could
+memorize it and "solve" any puzzle at any difficulty from memory.
+
+**Fix:** `solveSudoku()` now shuffles the digit-try order at each cell
+before attempting placements, so solving an empty grid produces a different
+random valid solution on every call. Callers that only need a yes/no
+validity check (the seed-puzzle tests) are unaffected — shuffling which
+solution is found doesn't change whether one exists.
+
+**Side effect discovered while verifying the fix:** real random solution
+grids turned out to be *much* harder to calibrate for the old X-Wing-only
+Hard tier than the one fixed canonical grid the generator had always
+actually been testing against — "New Game" at that tier went from an
+occasional multi-second wait to consistently exhausting its full 450-attempt
+budget (~19-20 seconds) every time. This is what motivated folding X-Wing
+into Medium rather than just re-tuning the old tier's numbers: the old tier
+wasn't just unreliable, it was unreliable specifically because the bug it
+was calibrated against no longer applied once puzzles were genuinely random.
+
+**Verified:** generated 5 consecutive puzzles and confirmed all 5 solution
+grids were different (previously always identical); confirmed reverting the
+fix reproduces the exact reported pattern. See
+`tests/test_solution_grid_randomness.py`.
 
 ### Tier → technique mapping
 
@@ -86,10 +131,9 @@ is easiest-to-spot first.
 | Tier | Techniques | Rank |
 |---|---|---|
 | Easy | Full House, Hidden Single / Cross-Hatching (box, row, *and* column), Naked Single | 1 |
-| Medium | Naked Pair, Pointing Pair/Triple, Claiming Pair/Triple (Box-Line Reduction), Naked Triple | 2 |
-| Hard | X-Wing | 3 |
-| Expert | XY-Wing, XYZ-Wing, Unique Rectangle (Type 1), Swordfish | 4 |
-| Master | Fallback direct-reveal (nothing above solves it) | 5 |
+| Medium | Naked Pair, Pointing Pair/Triple, Claiming Pair/Triple (Box-Line Reduction), Naked Triple, X-Wing | 2 |
+| Hard | XY-Wing, XYZ-Wing, Unique Rectangle (Type 1), Swordfish | 3 |
+| Expert | Fallback direct-reveal (nothing above solves it) | 4 |
 
 This is the full "widely known techniques, newbie to mastery" roster
 `README.md` describes. What changed to get there:
@@ -113,8 +157,8 @@ This is the full "widely known techniques, newbie to mastery" roster
   2-box-spanning 4-cell rectangles for the classic "three corners share a
   pair, the fourth has extras" deadly pattern.
 - **Swordfish** was added in the previous pass (X-Wing generalized from 2
-  rows/columns to 3) so Expert would have a technique of its own instead of
-  sharing X-Wing with Hard.
+  rows/columns to 3) so Hard would have a technique of its own instead of
+  sharing X-Wing with Medium.
 
 ### How calibration actually works
 
@@ -133,12 +177,11 @@ digging the *same* puzzle further (removing cells generally makes a puzzle
 harder, so this converges far faster than re-rolling a whole new grid) down
 to a floor (`DIFFICULTY_GIVENS`). If that still doesn't clear the bar, it
 re-rolls a fresh solution and repeats, up to a bounded number of attempts
-(`CALIBRATION_ATTEMPTS_BY_DIFFICULTY` — Easy/Medium hit the bar almost
-immediately; Hard needs more tries; Expert needs the most, since a genuine
-Swordfish requirement is rare even at very few givens). If the whole budget
-is exhausted, it serves the closest candidate found rather than searching
-forever or freezing the "New Game" button, and logs a `console.warn` so this
-is visible rather than silent.
+(`CALIBRATION_ATTEMPTS_BY_DIFFICULTY`). If the whole budget is exhausted, it
+serves the closest candidate found rather than searching forever or freezing
+the "New Game" button, and logs a `console.warn` so this is visible rather
+than silent — in practice, this essentially never happens any more (see
+below).
 
 **A puzzle that overshoots its tier can't come back by digging further** —
 removing givens only ever makes a puzzle harder or leaves it the same, never
@@ -148,45 +191,41 @@ unsolvable using techniques up to the tier's own ceiling), that trajectory is
 abandoned immediately in favor of a fresh attempt, rather than continuing to
 dig toward the floor for a result that can only get further away.
 
-**Status by tier:**
-- Easy: ✅ — converges on the first or second dig almost every time.
-- Medium: ✅ — converges reliably within its budget (60 attempts); needed a
-  higher budget than Easy once Hidden Single started covering rows/columns
-  too, since that alone resolves more puzzles that used to need a medium
-  technique.
-- Hard: ⚠️ — genuinely the hardest tier to calibrate, and got harder once
-  Medium's technique roster grew (Naked Triple, Claiming, pair-in-any-unit):
-  there's simply less left in between for Hard (X-Wing alone) to be the sole
-  missing piece for. Empirically converges only around half the time even at
-  a 450-attempt budget; the rest fall back to the closest candidate found.
-- Expert: ⚠️ — same idea; a genuine Expert-tier requirement (XY-Wing/XYZ-Wing/
-  Unique Rectangle/Swordfish, and nothing harder) is uncommon, but the tier
-  now has four techniques' worth of ways to qualify instead of one
-  (Swordfish alone previously), which noticeably improved its hit rate.
-- Master: ⚠️ — same mechanism, requiring the *opposite* condition (not
-  solvable through Expert techniques).
+**Status by tier — ✅ across the board, and fast, since folding X-Wing into
+Medium and removing the old standalone slot:**
+- Easy: converges on the first or second dig almost every time.
+- Medium: converges reliably within its budget (60 attempts); X-Wing being
+  an acceptable qualifying technique now (alongside Naked Pair/Triple,
+  Pointing, Claiming) only ever makes this *easier* to satisfy, never harder.
+- Hard: spot-checked at 10/10 puzzles meeting the bar, generating in well
+  under a second each. This tier held the *exact* techniques the old,
+  unreliable "Expert" tier used to require (XY-Wing/XYZ-Wing/Unique
+  Rectangle/Swordfish) — nothing about the requirement changed, only its
+  name and the removal of the old X-Wing-only tier below it.
+- Expert: spot-checked at 10/10, also well under a second each — same
+  situation, this tier is exactly the old "Master" requirement (not solvable
+  through Hard techniques) under a new name.
 
-**Performance tradeoff:** Hard and Expert's attempt budgets (450 and 400)
-can take several seconds in the worst case — observed up to roughly 10–15
-seconds for Hard, 5–10 for Expert. `createNewPuzzleAsync` yields to the
-browser every 5 attempts (`await new Promise(resolve => setTimeout(resolve,
-0))`) so a long search doesn't freeze the UI the way puzzle generation
-previously could, but a multi-second wait for "New Game" at these tiers is
-the honest worst case, not hidden. A puzzle that falls back to the closest
-non-qualifying candidate is still a perfectly valid, appropriately-sparse
-puzzle at that difficulty's given-count — just not provably needing that
-exact tier's signature technique.
+Before the tier consolidation, the old middle "Hard" tier (X-Wing only,
+nothing else could qualify it) was the genuinely unreliable one — empirically
+converging only around half the time even at a 450-attempt budget, and after
+the solution-randomization fix below, effectively never converging at all
+within budget (~19-20 seconds, every single "New Game" at that tier). That
+specific failure mode is what's gone now: X-Wing has always remained useful
+as a *hint* — nothing about the technique itself changed, and it still
+appears in the same cascade position — it just no longer has to be the
+*sole* qualifying technique for an entire difficulty tier by itself.
 
-**The three hardcoded seed puzzles are currently unused.** `EXPERT_SEED_PUZZLES`
-and `MASTER_SEED_PUZZLES` are filtered through this same bar at load time
+**The two hardcoded seed puzzles are currently unused.** `HARD_SEED_PUZZLES`
+and `EXPERT_SEED_PUZZLES` are filtered through this same bar at load time
 (so a seed can't sneak in without meeting it), and as of writing none of the
-three hand-picked puzzles actually require a Swordfish or resist every
-technique through Swordfish — they were evidently chosen by feel (few
-givens) rather than verified technique requirements. Both pools end up
-empty, and the generic calibrated digging loop is what actually delivers
-Expert and Master puzzles today. The seed machinery is left in place —
-if better-chosen seeds are added later, they'll be used automatically
-provided they clear `meetsDifficultyBar`.
+hand-picked puzzles actually require a Swordfish or resist every technique
+through Swordfish — they were evidently chosen by feel (few givens) rather
+than verified technique requirements. Both pools end up empty, and the
+generic calibrated digging loop is what actually delivers Hard and Expert
+puzzles today. The seed machinery is left in place — if better-chosen seeds
+are added later, they'll be used automatically provided they clear
+`meetsDifficultyBar`.
 
 ## 7. Three-tier hint wording, on every technique — ✅ Met
 
@@ -240,9 +279,9 @@ needed, and respect whatever pencil marks the player has already entered.
 
 - `HINT_CASCADE` is one ordered list, easiest first: Full House → Hidden
   Single → Naked Single (no candidate-tracking needed at all) → Naked Pair →
-  Pointing → Claiming → Naked Triple (medium) → X-Wing (hard) → XY-Wing →
-  XYZ-Wing → Unique Rectangle → Swordfish (expert) → fallback reveal
-  (master). Both `showHint()` (live hints) and `rateSolveWithTierCascade()`
+  Pointing → Claiming → Naked Triple → X-Wing (medium) → XY-Wing →
+  XYZ-Wing → Unique Rectangle → Swordfish (hard) → fallback reveal
+  (expert). Both `showHint()` (live hints) and `rateSolveWithTierCascade()`
   (difficulty rating) walk this exact same list, so what a player is told
   and what the generator verified a puzzle needs can never drift apart.
 - `getCandidatesGrid()` uses the player's own active pencil marks as the
@@ -335,14 +374,17 @@ and found:**
   one orientation of the pattern (a digit confined to N columns across N
   rows), never its mirror image (confined to N rows across N columns).
   Verified empirically this isn't rare: about 1 in 8 solving steps sampled
-  across Hard/Expert/Master puzzles had a column-oriented X-Wing available
+  across Medium/Hard/Expert puzzles had a column-oriented X-Wing available
   that the row-only search would never find at all — meaning some puzzles
   got shown a harder technique than actually necessary, or were mis-rated
-  as needing more than Hard when a column X-Wing would have sufficed.
+  as needing more than Medium when a column X-Wing would have sufficed
+  (this was measured before the tier consolidation, when X-Wing still had
+  its own dedicated middle tier — the underlying finding is unchanged, only
+  which tier X-Wing counts toward has moved since).
   Fixed by generalizing both into one axis-parameterized search
   (`findFishAlongAxis`) tried in both directions. Re-verified against the
   same sample: 0 missed column patterns after the fix (was 317 of 2557
-  checked steps). As a side effect, Hard's calibration hit rate also
+  checked steps). As a side effect, that tier's calibration hit rate also
   improved (roughly 50% → 65% in spot-checks) since there are now more
   valid X-Wing instances to find.
 - **The wing/rectangle techniques (XY-Wing, XYZ-Wing, Unique Rectangle) —
@@ -369,7 +411,7 @@ UI layer. Two concrete illustrations from today:
 - The previous `testDifficultyTierQuality` test asserted only that *some*
   hint technique applied to a generated puzzle, for any difficulty — which
   is true almost by construction and would pass even for a puzzle whose
-  "hint strategy" was the same for Easy and Master alike. It's been replaced
+  "hint strategy" was the same for Easy and Expert alike. It's been replaced
   by real per-tier calibration tests.
 - While building this, a test wording bug surfaced live: an early version of
   `testSeedPoolsNotEmpty` was intended to catch exactly the situation this
@@ -387,26 +429,48 @@ Current test list (`?test`):
 - `testMediumPuzzleCalibration` — item 3.
 - `testHardPuzzleCalibration` — item 4.
 - `testExpertPuzzleCalibration` — item 5.
-- `testMasterPuzzleCalibration` — item 6.
-- `testExpertSeedPuzzlesValidity` / `testMasterSeedPuzzlesValidity` — any
+- `testHardSeedPuzzlesValidity` / `testExpertSeedPuzzlesValidity` — any
   seed that does make it into the pool is itself valid and cleared the bar.
 - `testStatePersistence` — localStorage round-trip.
 - `testHintObjectsWellFormed` — item 7, every technique returns valid 3-tier text.
 
-The four calibration tests (medium/hard/expert/master) sample several
-generated puzzles and tolerate some misses rather than asserting every
-single generated puzzle hits the bar — because, as above, that's a bounded
-probabilistic search by design, not a 100% guarantee, and (as of this
-technique expansion) Hard in particular converges only around half the
-time. A test that demanded zero misses would itself be flaky and would
+The calibration tests sample several generated puzzles and tolerate some
+misses rather than asserting every single generated puzzle hits the bar —
+because that's a bounded probabilistic search by design, not a 100%
+guarantee. A test that demanded zero misses would itself be flaky and would
 erode trust in the suite the same way an untested claim does; the tolerance
 on each test is set from what was actually observed running it repeatedly,
-not guessed.
+not guessed. (As of the tier consolidation and solution-randomization fix
+above, Medium/Hard/Expert are now all spot-checked at or near 10/10 — the
+tolerances remain in place as a safety margin, not because the search is
+still known to be unreliable.)
 
-**Still not covered** (real gaps, not addressed by this pass): anything in
-the DOM/UI layer — cell clicks, Guard Pencil behavior, win detection. Those
-would need lightweight interaction tests, not just solver-engine tests, to
-be caught the same way.
+**DOM/UI-layer gaps are now covered by a separate `tests/` directory**
+(Playwright, driven from outside the page — see `tests/README.md`), added
+after the in-page suite's structural limit became a real problem: it runs
+as JavaScript *inside* the page, so it can't inspect rendered pixels,
+control real network conditions, or drive a realistic multi-click sequence.
+Each script there started as a one-off verification for a specific reported
+bug and was kept as a standalone regression test:
+- `test_app_icon.py` — the generated app icon's grid renders without a
+  broken line.
+- `test_offline_playability.py` — item 1, real offline simulation.
+- `test_deselect_on_outside_tap.py` — tapping outside the board/controls
+  clears the current selection.
+- `test_corrupted_save_recovery.py` — a corrupted (all-zero) saved game is
+  discarded rather than resumed forever.
+- `test_resume_no_spurious_glow.py` — resuming doesn't re-glow units
+  completed in a prior session.
+- `test_tap_stops_glow.py` — a tap clears in-progress glow without erasing
+  the very completion that just caused it.
+- `test_solution_grid_randomness.py` — the solveSudoku() fix above; several
+  generated puzzles must not all share the same solution grid.
+
+Cell clicks, Guard Pencil behavior, and win detection specifically are still
+only exercised indirectly (through the tests above and manual verification
+during development), not by a dedicated test of their own — a real gap if
+either regresses silently, though the interaction pattern needed to close it
+is now established by the tests already in that directory.
 
 Item 1 (offline play) is a special case: it's genuinely verified — with real
 offline simulation, not just "should work" — but not by the in-page `?test`
