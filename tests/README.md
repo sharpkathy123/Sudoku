@@ -75,6 +75,16 @@ with specifics and exits 1 on failure.
 - **`test_hint_trace_persistence.py`** — a hint's highlight survives
   clicking the hinted cell and clicking elsewhere, but clears once the
   hinted cell is correctly filled in.
+- **`test_status_height_stable.py`** — #status never overflows its
+  fixed height, and the Hint button never physically moves between
+  hint tiers (it used to move enough that a third tap in the same
+  spot could land on Guard Pencil and silently disable it).
+- **`test_build_stamp_persists.py`** — the "App updated" stamp
+  survives hint/highlight/toggle status messages instead of being
+  permanently destroyed by the first one.
+- **`test_auto_pencil_preserves_notes.py`** — Auto-Pencil leaves a
+  hand-marked cell alone instead of silently discarding its notes,
+  and pencil marks are refused on an already-filled cell.
 
 ## Adding a new one
 

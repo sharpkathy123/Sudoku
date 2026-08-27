@@ -72,18 +72,22 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 
 <script>
 window.addEventListener('DOMContentLoaded', () => {
-    const statusDiv = document.getElementById('status');
-    if (statusDiv) {
-        const buildTag = document.createElement('div');
-        buildTag.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; font-family: monospace;';
-        
+    // A separate element from #status — not a child of it — so that
+    // setStatusText()'s `statusEl.textContent = text` (which replaces
+    // #status's entire contents on every hint/toggle/message) can never
+    // wipe this out. It used to be appended inside #status and was
+    // permanently destroyed by the very first status message of any
+    // session, never to reappear until a full page reload.
+    const buildInfo = document.getElementById('buildInfo');
+    if (buildInfo) {
+        buildInfo.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; margin-bottom: 8px; font-family: monospace; text-align: center;';
+
         const modDate = new Date(document.lastModified);
         const dateStr = modDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const timeStr = modDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        
-        buildTag.textContent = `App updated: ${dateStr} ${timeStr}`;
-        buildTag.title = "When this app itself was last updated — not when your puzzle progress was last saved.";
-        statusDiv.appendChild(buildTag);
+
+        buildInfo.textContent = `App updated: ${dateStr} ${timeStr}`;
+        buildInfo.title = "When this app itself was last updated — not when your puzzle progress was last saved.";
     }
 });
 </script>
@@ -223,9 +227,17 @@ h2 {
     letter-spacing: 0.02em;
 }
 
+/* Fixed height, not min-height — a growing #status used to physically push
+   every control below it down the page as hint/status text got longer,
+   which was more than cosmetic: it could shift the Hint button far enough
+   that a repeated tap in the same spot landed on Guard Pencil instead and
+   silently turned it off. overflow-y is a safety valve for the rare
+   message longer than this box (scrolls inside it) rather than ever
+   resuming the reflow. */
 #status {
     margin-bottom: 8px;
-    min-height: 38px;
+    height: 112px;
+    overflow-y: auto;
     font-size: 13px;
     font-weight: 500;
     color: var(--text-soft);
@@ -421,6 +433,14 @@ h2 {
     margin-top: 4px;
 }
 
+/* Blocks interaction with the outgoing board while a new one is being
+   generated in the background — see setBoardInteractive(). */
+.board.generating,
+.number-bar.generating {
+    pointer-events: none;
+    opacity: 0.55;
+}
+
 .cell {
     width: var(--cell-size);
     height: var(--cell-size);
@@ -593,6 +613,7 @@ h2 {
 <div class="panel-row">
     <h2>Sudoku Game</h2>
     <div id="status"></div>
+    <div id="buildInfo"></div>
 
     <div class="top-bar">
         <label for="difficulty">Level:</label>
@@ -1072,6 +1093,16 @@ function showGeneratingStatus(text = "Generating puzzle...") {
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
 }
 
+// The old board stays fully interactive while a new one generates in the
+// background (createNewPuzzleAsync is async and can take a couple of
+// seconds on Hard/Expert) — without this, a player can select cells and
+// place digits on a puzzle that's about to be discarded out from under
+// them. Toggled around every real (non-test) generation call.
+function setBoardInteractive(enabled) {
+    board.classList.toggle("generating", !enabled);
+    numberBar.classList.toggle("generating", !enabled);
+}
+
 function clearNumberHighlights() {
     [...board.children].forEach(cell => {
         cell.classList.remove("highlight-number", "highlight-least", "selected");
@@ -1109,6 +1140,11 @@ function highlightSameNumbers(num) {
 function onCellClick(cell) {
     if (gameWon) return;
     if (selectedCell) selectedCell.classList.remove("selected");
+
+    // "Select a cell first." nudges toward exactly this action, so once it
+    // happens the nudge is stale — clear it immediately rather than
+    // leaving it on screen for the rest of its own timeout.
+    if (statusEl.textContent === "Select a cell first.") setStatusText("");
 
     selectedCell = cell;
 
@@ -1428,6 +1464,18 @@ for (let n = 1; n <= 9; n++) {
         const correctValue = solution[r][c];
 
         if (pencilMode) {
+            // A cell that already has a value (correctly guarded above for
+            // givens, but a player's own already-placed digit reaches here
+            // too) has no use for pencil marks — without this check,
+            // isSafe() only ever looks at *other* candidates for this cell,
+            // so a mark for a different digit than the one already placed
+            // could pass Guard Pencil and render on top of the answer,
+            // illegibly overlapping it.
+            if (getCurrentGrid()[r][c] !== 0) {
+                setStatusText("This cell is already filled in — no need for pencil marks here.", 2500);
+                return;
+            }
+
             if (guardNotesMode) {
                 const digits = selectedCell._pencilDigits;
                 const isCurrentlyActive = digits && digits[n] && digits[n].classList.contains("active");
@@ -1548,19 +1596,39 @@ function autoRemovePencilMarks(r, c, num) {
     }
 }
 
+function cellHasAnyPencilMarks(cell) {
+    for (let n = 1; n <= 9; n++) {
+        if (cell._pencilDigits[n].classList.contains("active")) return true;
+    }
+    return false;
+}
+
+// Only fills cells that currently have zero pencil marks of their own —
+// it used to wipe and refill every empty cell unconditionally, silently
+// discarding any marks a player had written in by hand with no warning
+// and no way to undo it. Now a cell with even one hand-entered mark is
+// left completely alone; this is a supplement for untouched cells, not
+// a wholesale replacement of the player's own notes.
 function autoFillAllPencils() {
     if (gameWon) return;
     const currentGrid = getCurrentGrid();
     let notesAdded = 0;
+    let cellsSkipped = 0;
 
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             const cell = board.children[r * 9 + c];
             if (givenMask[r][c] || currentGrid[r][c] !== 0) {
+                // A filled/given cell showing pencil marks would be stray
+                // leftover state, not a player's active notes — safe to
+                // clean up rather than something to preserve.
                 clearAllPencilsInCell(cell);
                 continue;
             }
-            clearAllPencilsInCell(cell);
+            if (cellHasAnyPencilMarks(cell)) {
+                cellsSkipped++;
+                continue;
+            }
             for (let n = 1; n <= 9; n++) {
                 if (isSafe(currentGrid, r, c, n)) {
                     cell._pencilDigits[n].classList.add("active");
@@ -1570,7 +1638,8 @@ function autoFillAllPencils() {
         }
     }
     saveGameState();
-    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil marks.`, 5000);
+    const skippedNote = cellsSkipped > 0 ? ` (left ${cellsSkipped} cell(s) with your own notes untouched)` : "";
+    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil marks${skippedNote}.`, 5000);
 }
 
 function flashWrong(cell) {
@@ -2623,7 +2692,9 @@ document.getElementById("newGameBtn").addEventListener("click", async () => {
     const diff = difficultySelect.value || "medium";
     stopBoardAnimations();
     showGeneratingStatus("Generating new puzzle...");
+    setBoardInteractive(false);
     const res = await createNewPuzzleAsync(diff);
+    setBoardInteractive(true);
     if (!res) return;
     puzzle = res.puzzle;
     solution = res.solution;
@@ -2767,7 +2838,9 @@ difficultySelect.addEventListener("change", async () => {
     const diff = difficultySelect.value;
     stopBoardAnimations();
     showGeneratingStatus("Generating puzzle...");
+    setBoardInteractive(false);
     const res = await createNewPuzzleAsync(diff);
+    setBoardInteractive(true);
     if (!res) return;
     puzzle = res.puzzle;
     solution = res.solution;
