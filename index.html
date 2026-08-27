@@ -1193,12 +1193,38 @@ function saveGameState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// Guards against a corrupted save (e.g. one written before puzzle
+// generation ever completed) getting trusted and resumed forever — a
+// blank board with an all-zero solution reads as every row/col/box/digit
+// being simultaneously "complete", which floods the board with glow and
+// can never be won to self-heal via the normal localStorage.removeItem()
+// on a real win.
+function isValidSavedPuzzleState(state) {
+    if (!state || !Array.isArray(state.puzzle) || !Array.isArray(state.solution) || !Array.isArray(state.cells)) {
+        return false;
+    }
+    if (state.puzzle.length !== 9 || state.solution.length !== 9) return false;
+
+    // A genuine solution grid is always fully filled with 1-9; any zero
+    // means this was never a real solved puzzle.
+    const solutionIsComplete = state.solution.every(row =>
+        Array.isArray(row) && row.length === 9 && row.every(v => v >= 1 && v <= 9)
+    );
+    const puzzleHasGivens = state.puzzle.some(row => Array.isArray(row) && row.some(v => v !== 0));
+    return solutionIsComplete && puzzleHasGivens;
+}
+
 function loadSavedGameState() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return false;
 
     try {
         const state = JSON.parse(saved);
+        if (!isValidSavedPuzzleState(state)) {
+            console.warn("Sudoku: discarding a corrupted saved game instead of resuming a broken board.");
+            localStorage.removeItem(STORAGE_KEY);
+            return false;
+        }
         puzzle = state.puzzle;
         solution = state.solution;
         if (state.difficulty) difficultySelect.value = state.difficulty;
@@ -2790,11 +2816,21 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
         },
 
         testStatePersistence() {
-            saveGameState();
-            const saved = localStorage.getItem(STORAGE_KEY);
-            assert(saved !== null, "localStorage failed to receive payload.");
-            const parsed = JSON.parse(saved);
-            assert(Array.isArray(parsed.puzzle), "Persisted puzzle grid missing.");
+            // STORAGE_KEY is the same key a real player's save lives under —
+            // this suite can run on the live site, not just a throwaway page,
+            // so a real save must come back exactly as it was, not get
+            // clobbered by whatever this test happens to write.
+            const previousSave = localStorage.getItem(STORAGE_KEY);
+            try {
+                saveGameState();
+                const saved = localStorage.getItem(STORAGE_KEY);
+                assert(saved !== null, "localStorage failed to receive payload.");
+                const parsed = JSON.parse(saved);
+                assert(Array.isArray(parsed.puzzle), "Persisted puzzle grid missing.");
+            } finally {
+                if (previousSave === null) localStorage.removeItem(STORAGE_KEY);
+                else localStorage.setItem(STORAGE_KEY, previousSave);
+            }
         },
 
         // REQUIREMENTS.md item 7: every technique must supply all 3 hint

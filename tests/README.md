@@ -55,6 +55,11 @@ with specifics and exits 1 on failure.
   tile to select them, then taps outside the board/controls and
   checks the selection actually clears, while confirming real
   controls (like the Hint button) still work normally afterward.
+- **`test_corrupted_save_recovery.py`** — writes an all-zero
+  puzzle/solution (the shape of a save made before the very first
+  puzzle generation ever completed) into localStorage and checks the
+  app discards it and generates a real puzzle, rather than resuming a
+  permanently blank, all-glowing board with no way to ever win it.
 
 ## Adding a new one
 
