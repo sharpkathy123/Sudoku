@@ -72,6 +72,9 @@ with specifics and exits 1 on failure.
   and checks their solution grids actually differ, catching a bug
   where every puzzle's real answer key was the exact same grid every
   time (only which cells were removed as givens was ever randomized).
+- **`test_hint_trace_persistence.py`** — a hint's highlight survives
+  clicking the hinted cell and clicking elsewhere, but clears once the
+  hinted cell is correctly filled in.
 
 ## Adding a new one
 

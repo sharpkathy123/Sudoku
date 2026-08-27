@@ -318,20 +318,46 @@ needed, and respect whatever pencil marks the player has already entered.
   giving every multi-cell technique a `highlightCells` list of every cell
   its hint text refers to (the naked subset's cells, the box cells sharing
   a confined candidate, the fish pattern's corners, the wing's pivot and
-  both pincers, the rectangle's four corners) — all styled with
-  `highlight-least`, so a Naked Pair now highlights both its cells the same
-  way Highlight Fullest highlights a whole unit, not just the first one.
+  both pincers, the rectangle's four corners) — all styled the same way, so
+  a Naked Pair now highlights both its cells the same way Highlight Fullest
+  highlights a whole unit, not just the first one. (The exact class used for
+  this styling changed since — see the next bug below.)
   Techniques with only one relevant cell (Full House, Naked Single, Hidden
   Single, the fallback reveal) are unaffected — they still highlight just
   that cell, correctly.
   Verified against the live game (not just unit-level function output):
   drove several puzzles to a state where a specific multi-cell technique
   was next, called the real `showHint()`, and confirmed the cells that
-  actually got `highlight-least` in the DOM exactly matched the technique's
+  actually got highlighted in the DOM exactly matched the technique's
   own `highlightCells` — checked for Naked Pair, Pointing Pair, and
   Claiming Pair. `testHintObjectsWellFormed` now also checks that whenever
   `highlightCells` is present, every cell in it is in-bounds and the list
   includes the hint's own primary target cell.
+- **Fixed bug: the hint highlight vanished the instant anyone tried to act
+  on it.** The fix above reused `highlight-least` — the same class Highlight
+  Fullest uses — to mark a hint's cells. But `onCellClick()`'s
+  `clearNumberHighlights()` strips that class from every cell, and clicking
+  the hinted cell (the natural first step in acting on a hint) is exactly
+  what calls `onCellClick()`. So the highlight was cleared the moment a
+  player tried to use it — reported as only ever glimpsing "remnants" of a
+  trace (a flash from the hint's blue `glow` pulse to amber
+  `highlight-least`) before it disappeared, with no way to keep track of
+  which cell a hint was about while figuring out how to act on it. The
+  shared amber color was also a separate complaint on its own — the same
+  color meaning two different things (a hint's target vs. Highlight
+  Fullest's nearly-complete unit) didn't read cleanly against the rest of
+  the palette.
+  Fixed with a dedicated `hint-trace` class (a violet distinct from every
+  other highlight color in use) and dedicated state (`hintTraceCells`,
+  `hintTraceTarget`) that `clearNumberHighlights()` deliberately does not
+  touch. The trace now survives ordinary clicking — selecting the hinted
+  cell, selecting an unrelated cell, tapping outside the board — and clears
+  only when a new hint is requested (superseding the old trace) or when the
+  hint's own target cell is filled in with the correct value (the hint has
+  been acted on). Verified with `tests/test_hint_trace_persistence.py`: the
+  trace survives clicking the hinted cell and an unrelated cell, then
+  clears on correct placement — confirmed to fail against the prior
+  `highlight-least`-based approach and pass with the fix.
 - **Known intentional edge case:** if a player's pencil marks for a cell are
   incomplete or wrong, the hint engine trusts them as the candidate universe
   for that cell anyway (garbage in, garbage out) — this matches how a real
@@ -465,6 +491,8 @@ bug and was kept as a standalone regression test:
   the very completion that just caused it.
 - `test_solution_grid_randomness.py` — the solveSudoku() fix above; several
   generated puzzles must not all share the same solution grid.
+- `test_hint_trace_persistence.py` — the hint-trace fix above; a hint's
+  highlight survives ordinary clicking and clears once acted on.
 
 Cell clicks, Guard Pencil behavior, and win detection specifically are still
 only exercised indirectly (through the tests above and manual verification

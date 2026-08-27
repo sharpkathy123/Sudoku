@@ -466,6 +466,17 @@ h2 {
     z-index: 1;
 }
 
+/* Persistent marker for the cell(s) a hint is currently about — a distinct
+   violet, not the amber .highlight-least uses for Highlight Fullest, so the
+   two don't compete for the same visual meaning. Cleared explicitly (see
+   clearHintTrace()) rather than by clearNumberHighlights(), so it survives
+   ordinary clicking around while a player works out how to act on a hint. */
+.cell.hint-trace {
+    background: #ede9fe !important;
+    outline: 2px solid #7c3aed;
+    z-index: 1;
+}
+
 .pencil-container {
     position: absolute;
     inset: 1px;
@@ -640,6 +651,12 @@ let activeGenerationId = 0;
 let currentHintState = null;
 let currentHintLevel = 0;
 let statusTimeoutId = null;
+
+// The persistent hint-trace marker (see clearHintTrace()): which cells are
+// currently marked, and the one primary cell whose correct placement means
+// this hint has been acted on and the trace should clear itself.
+let hintTraceCells = [];
+let hintTraceTarget = null;
 
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 
@@ -1065,6 +1082,20 @@ function clearNumberHighlights() {
     });
 }
 
+// Deliberately not called by clearNumberHighlights() — the whole point of
+// the hint trace is to survive ordinary cell selection and number entry, so
+// a player can look away, click around, and still find their place. Only
+// showHint() (a new hint replaces the old trace) and a correct placement in
+// the hint's own target cell (see below) clear it.
+function clearHintTrace() {
+    hintTraceCells.forEach(({ r, c }) => {
+        const cell = board.children[r * 9 + c];
+        if (cell) cell.classList.remove("hint-trace");
+    });
+    hintTraceCells = [];
+    hintTraceTarget = null;
+}
+
 function highlightSameNumbers(num) {
     clearNumberHighlights();
     [...board.children].forEach(cell => {
@@ -1123,6 +1154,8 @@ function buildBoard() {
     gameWon = false;
     currentHintState = null;
     currentHintLevel = 0;
+    hintTraceCells = [];
+    hintTraceTarget = null;
 
     for (let r = 0; r < 9; r++) {
         givenMask[r] = [];
@@ -1436,6 +1469,13 @@ for (let n = 1; n <= 9; n++) {
 
         currentHintState = null;
         currentHintLevel = 0;
+
+        // The hint this trace was marking has now actually been acted on —
+        // clear it. A correct placement elsewhere on the board (unrelated
+        // to the current hint) deliberately leaves the trace in place.
+        if (hintTraceTarget && hintTraceTarget.r === r && hintTraceTarget.c === c) {
+            clearHintTrace();
+        }
 
         if (isBoardSolved()) {
             setTimeout(onWin, 300);
@@ -2205,17 +2245,24 @@ function showHint() {
 
     // onCellClick clears every cell's highlight classes as part of selecting
     // the primary cell, so it must run BEFORE the hint's own highlights are
-    // applied below — reusing the same "highlight-least" style as Highlight
-    // Fullest, on every cell the hint actually refers to (not just the
-    // first one), is the whole point here (see REQUIREMENTS.md item 8).
+    // applied below — marking every cell the hint actually refers to (not
+    // just the first one) is the whole point here (see REQUIREMENTS.md item
+    // 8). The marker itself, "hint-trace", is a separate class from
+    // Highlight Fullest's "highlight-least" — different concept, different
+    // color — and clearNumberHighlights() (which onCellClick() just ran)
+    // deliberately doesn't touch it, so it survives clicking the cell to
+    // act on the hint instead of vanishing right when it's needed most.
     onCellClick(cell);
 
+    clearHintTrace();
     const cellsToHighlight = highlightCells && highlightCells.length ? highlightCells : [{ r, c }];
     cellsToHighlight.forEach(({ r: hr, c: hc }) => {
         const hCell = board.children[hr * 9 + hc];
-        hCell.classList.add("highlight-least", "glow");
+        hCell.classList.add("hint-trace", "glow");
         setTimeout(() => hCell.classList.remove("glow"), 2000);
     });
+    hintTraceCells = cellsToHighlight;
+    hintTraceTarget = { r, c };
 
     const hintKey = `${r}_${c}`;
     if (currentHintState === hintKey) {
