@@ -267,6 +267,18 @@ h2 {
     margin-bottom: 10px;
 }
 
+/* Its own bordered card (matching .top-bar) plus a top margin, so this
+   frequently-tapped row (Hint, Auto-Pencil, etc.) reads as visually and
+   physically separate from the all-destructive .top-bar row above it —
+   see issue #6: accidental taps between "Clear Pencil Marks" and "Hint". */
+.controls-gameplay {
+    background: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    margin-top: 6px;
+}
+
 .panel-row {
     display: flex;
     flex-direction: column;
@@ -574,10 +586,10 @@ h2 {
     </div>
 
    <div class="controls-gameplay">
-       <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
        <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
-       <button id="autoPencilBtn" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
        <button id="guardNotesToggle" class="active" title="Prevents adding pencil marks that conflict with placed numbers">Guard Pencil: ON</button>
+       <button id="autoPencilBtn" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
+       <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
    </div>
 
     <div class="input-section">
