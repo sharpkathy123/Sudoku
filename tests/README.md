@@ -46,6 +46,7 @@ with specifics and exits 1 on failure.
   exported as a data: URL) is decoded and sampled along all four
   internal grid dividers. Catches a truncated/missing line like the
   one that once left the icon's bottom-right cell without a border.
+  Also checks a real favicon is served with no fallback `/favicon.ico` 404.
 - **`test_offline_playability.py`** — verifies the Service Worker
   actually activates and controls the page, then uses Playwright's
   real network-offline simulation (not just "the code looks right")
