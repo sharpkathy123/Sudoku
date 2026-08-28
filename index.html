@@ -1738,8 +1738,8 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
                 r, c, val,
                 method: "Full House",
                 tier: "easy",
-                tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
-                tier2: `Row ${r+1} has 8 numbers filled—count 1 through 9 across this row to find the single missing number.`,
+                tier1: `Row ${r+1} has only one empty cell left. Try using "Full House".`,
+                tier2: `Scan Row ${r+1} to find its one empty cell, then count 1 through 9 across the row to see which digit is missing.`,
                 tier3: `Row ${r+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
@@ -1754,8 +1754,8 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
                 r, c, val,
                 method: "Full House",
                 tier: "easy",
-                tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
-                tier2: `Column ${c+1} has 8 numbers filled—count 1 through 9 down this column to find the single missing number.`,
+                tier1: `Column ${c+1} has only one empty cell left. Try using "Full House".`,
+                tier2: `Scan Column ${c+1} to find its one empty cell, then count 1 through 9 down the column to see which digit is missing.`,
                 tier3: `Column ${c+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
@@ -1776,8 +1776,8 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
                     r, c, val,
                     method: "Full House",
                     tier: "easy",
-                    tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Full House".`,
-                    tier2: `Box ${boxNum} has 8 numbers filled—count 1 through 9 inside this box to find the single missing number.`,
+                    tier1: `Box ${boxNum} has only one empty cell left. Try using "Full House".`,
+                    tier2: `Scan Box ${boxNum} to find its one empty cell, then count 1 through 9 inside the box to see which digit is missing.`,
                     tier3: `Box ${boxNum} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
                 };
             }
@@ -1803,8 +1803,8 @@ function findHiddenSingle(candGrid, grid = getCurrentGrid()) {
 
             const method = blockedByPlacedDigits ? "Cross-Hatching" : "Hidden Single";
             const tier1 = blockedByPlacedDigits
-                ? `Look at Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`
-                : `Look at pencil marks in Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`;
+                ? `Somewhere in ${unit.label}, one digit has only a single remaining spot. Try using "${method}".`
+                : `Somewhere in ${unit.label}, pencil marks show one digit fits in only one spot. Try using "${method}".`;
             const tier2 = blockedByPlacedDigits
                 ? `Trace filled numbers across intersecting rows, columns, and boxes into ${unit.label}. Watch how they block empty spots until only one spot remains for a specific candidate.`
                 : `Examine pencil marks in ${unit.label}. Only one open cell there can hold a specific missing digit.`;
@@ -1829,8 +1829,8 @@ function findNakedSingle(candGrid) {
                     r, c, val,
                     method: "Naked Single",
                     tier: "easy",
-                    tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
-                    tier2: `Look at the numbers already placed in Row ${r+1}, Column ${c+1}, and Box ${boxNum}. They eliminate 8 out of the 9 digits, leaving only 1 valid choice for this cell.`,
+                    tier1: `One cell in the grid already has only one possible digit left, once its row, column, and box are considered. Try using "Naked Single".`,
+                    tier2: `It's somewhere in Box ${boxNum}. Check each empty cell there against the numbers already placed in its row, column, and box — one of them eliminates 8 out of 9 digits, leaving only one valid choice.`,
                     tier3: `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
                 };
             }
@@ -2168,8 +2168,8 @@ function findXYWing(candGrid, solutionGrid = solution) {
                     eliminate,
                     highlightCells: [pivot, p1, p2],
                     tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XY-Wing".`,
-                    tier2: `Three cells, each holding only two candidates, form a chain: the pivot shares one candidate with each of the other two, and those two share a third candidate between them.`,
-                    tier3: `Because that shared third candidate must appear in one of the two outer cells, eliminate it from every cell that can see both of them.`
+                    tier2: `Three cells, each holding only two candidates, form a chain: the pivot shares one candidate with each of the other two, and those two both also carry digit ${z} as their second candidate.`,
+                    tier3: `Digit ${z} must end up in Row ${p1.r+1}, Col ${p1.c+1} or Row ${p2.r+1}, Col ${p2.c+1} — eliminate pencil mark ${z} from every other cell that can see both of them.`
                 };
             }
         }
@@ -2225,8 +2225,8 @@ function findXYZWing(candGrid, solutionGrid = solution) {
                         eliminate,
                         highlightCells: [pivot, p1, p2],
                         tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XYZ-Wing".`,
-                        tier2: `A three-candidate cell links to two two-candidate cells; all three share one candidate that must appear in one of them.`,
-                        tier3: `Because that shared candidate must appear in the pivot cell or one of its two linked cells, eliminate it from every other cell that can see all three.`
+                        tier2: `A three-candidate cell links to two two-candidate cells; all three share digit ${z} as a candidate, and it must appear in one of them.`,
+                        tier3: `Digit ${z} must end up in the pivot (Row ${pivot.r+1}, Col ${pivot.c+1}) or one of its two linked cells — eliminate pencil mark ${z} from every other cell that can see all three.`
                     };
                 }
             }
@@ -2881,9 +2881,12 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
 (async function init() {
     const resumed = loadSavedGameState();
     if (!resumed) {
-        difficultySelect.value = "medium";
+        // A brand-new player should land on Easy, not Medium — Medium
+        // already expects Naked Pair/Triple, Pointing, and Claiming, none
+        // of which a newbie has been introduced to yet.
+        difficultySelect.value = "easy";
         showGeneratingStatus("Generating initial puzzle...");
-        const res = await createNewPuzzleAsync("medium");
+        const res = await createNewPuzzleAsync("easy");
         if (res) {
             puzzle = res.puzzle;
             solution = res.solution;

@@ -631,13 +631,57 @@ genuine max-space layout, and reduced-motion), not a full re-theme (no dark
 mode, no gradient/background redesign, no button-chip recoloring like
 Pencil Mode's amber toggle) — further refinement can follow if requested.
 
-**Hint curriculum rewrite.** From the learning-design review: tier 1 gives
-away the cell location (which is the actual skill being taught), tier 2 is
-often generic/textbook rather than board-specific, XY-Wing/XYZ-Wing tier 3
-never names the digit involved, there's no onboarding/rules explainer for a
-true newbie, the app defaults to Medium instead of Easy, there's no
-technique glossary or progress tracking, and Swordfish/XYZ-Wing almost
-never actually fire in practice (rarely generated/detected).
+### Done (partial): hint curriculum — the giveaway-wording and default-difficulty pieces
+
+From the learning-design review, addressed so far:
+
+- **Default difficulty was Medium, not Easy** — a first-time visitor with
+  an empty `localStorage` got dropped straight into Medium (which already
+  expects Naked Pair/Triple, Pointing, and Claiming) rather than Easy.
+  Fixed at the one call site that set it (`init()`); anyone with a saved
+  game keeps their own last-used difficulty as before.
+- **Tier 1 gave away the answer cell for the "visual scanning" techniques**
+  — Full House, Naked Single, and Hidden Single/Cross-Hatching all had
+  tier 1 text like `"Look at Row 3, Column 5. Try using 'Naked Single'."`
+  For these three techniques specifically, *finding* the cell is the actual
+  skill (unlike, say, Pointing Pair, where knowing the cells still leaves
+  real deductive work to do) — so naming it in tier 1 skipped past the
+  point of asking for a hint at all. Naked Single's tier 2 had the same
+  problem. Rewritten so tier 1 narrows to a unit (a row/column/box, or "one
+  cell in the grid" for Naked Single, then "somewhere in Box N" at tier 2)
+  without naming the exact cell; the full "Row R, Column C" reveal is now
+  reserved for tier 3, which was already the full-answer tier and is
+  unchanged.
+- **XY-Wing and XYZ-Wing's tier 3 never named the eliminated digit** —
+  text like `"eliminate it from every cell that can see both of them"`
+  never says what "it" is. Both now name the digit explicitly in tier 2
+  and tier 3 (e.g. `"Digit 8 must end up in Row 1, Col 5 or Row 8, Col 2 —
+  eliminate pencil mark 8 from every other cell that can see both of
+  them."`).
+
+Test: `test_hint_curriculum_wording.py`, which walks the real hint cascade
+across generated puzzles at every difficulty (mirroring how
+`testHintObjectsWellFormed` already does this for structural checks) and
+confirms these four techniques' tier1/tier2 text doesn't contain a
+`Row R, Column C` coordinate pair, that XY-Wing/XYZ-Wing's tier3 names
+their eliminated digit, and that a fresh (no-`localStorage`) load starts on
+Easy.
+
+### Still open: hint curriculum
+
+- **Tier 2 is often generic/textbook** rather than board-specific for the
+  multi-cell techniques (Naked Pair/Triple, Pointing/Claiming, X-Wing,
+  Unique Rectangle) — this pass only touched tier1/tier2 wording for the
+  three single-cell techniques above and tier2/tier3 for the two wings;
+  the rest of the cascade's tier2 text is unchanged.
+- **No onboarding/rules explainer for a true newbie** — nothing currently
+  explains what Sudoku's rules are or what Pencil Mode/Guard Pencil/hints
+  even do before a first-time player is dropped onto a board.
+- **No technique glossary or progress tracking** — no way to look back at
+  which techniques a player has seen or learn about one before it's needed.
+- **Swordfish/XYZ-Wing almost never actually fire in practice** (rarely
+  generated/detected) — unchanged; a real generation/detection-rate issue,
+  not a wording one.
 
 **Accessibility** (user confirmed: *"Yes, please, for accessibility."*).
 From the accessibility review: the board and number pad are plain unlabeled

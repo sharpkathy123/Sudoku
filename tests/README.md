@@ -95,6 +95,11 @@ with specifics and exits 1 on failure.
 - **`test_visual_overhaul_colors_and_motion.py`** — "Highlight Fullest"
   no longer uses its old, disliked amber color, and animations/
   transitions collapse to near-zero under `prefers-reduced-motion`.
+- **`test_hint_curriculum_wording.py`** — Full House/Naked Single/
+  Hidden Single/Cross-Hatching no longer name the exact answer cell
+  in tier 1 (or, for Naked Single, tier 2), XY-Wing/XYZ-Wing's tier 3
+  names the digit being eliminated, and a first-ever visit defaults
+  to Easy difficulty.
 
 ## Adding a new one
 
