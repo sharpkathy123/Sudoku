@@ -338,7 +338,8 @@ h2 {
 .top-bar button,
 .controls-gameplay button,
 #pencilToggle,
-#guardNotesToggle {
+#guardNotesToggle,
+#HintBtn {
     padding: 6px 12px;
     border-radius: 999px;
     border: 1px solid var(--border-light);
@@ -352,7 +353,8 @@ h2 {
 .top-bar button:hover,
 .controls-gameplay button:hover,
 #pencilToggle:hover,
-#guardNotesToggle:hover {
+#guardNotesToggle:hover,
+#HintBtn:hover {
     background: #eef2ff;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
@@ -395,6 +397,13 @@ h2 {
     gap: 8px;
     margin: 8px 0 12px;
     width: 100%;
+}
+
+.pencil-hint-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
 }
 
 .number-bar {
@@ -636,7 +645,6 @@ h2 {
 <body>
 <div class="panel-row">
     <h2>Sudoku Game</h2>
-    <div id="status"></div>
     <div id="buildInfo"></div>
 
     <div class="top-bar">
@@ -656,11 +664,19 @@ h2 {
        <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
        <button id="guardNotesToggle" class="active" title="Prevents adding pencil marks that conflict with placed numbers">Guard Pencil: ON</button>
        <button id="autoPencilBtn" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
-       <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
    </div>
 
+    <!-- Right above the number bar/board, not up by the title, so a hint's
+         text (and every other status message) is visible in the same
+         glance as the board it's about instead of requiring a scroll back
+         up past a now much-larger board — see REQUIREMENTS.md item 10. -->
+    <div id="status"></div>
+
     <div class="input-section">
-        <button id="pencilToggle" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
+        <div class="pencil-hint-row">
+            <button id="pencilToggle" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
+            <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
+        </div>
         <div class="number-bar" id="numberBar"></div>
     </div>
 
