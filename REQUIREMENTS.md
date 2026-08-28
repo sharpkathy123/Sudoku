@@ -493,6 +493,15 @@ bug and was kept as a standalone regression test:
   generated puzzles must not all share the same solution grid.
 - `test_hint_trace_persistence.py` — the hint-trace fix above; a hint's
   highlight survives ordinary clicking and clears once acted on.
+- `test_status_height_stable.py` — item 10's #status reflow fix; the status
+  box never overflows its fixed height and the Hint button never drifts.
+- `test_build_stamp_persists.py` — item 10's build-stamp fix; the "App
+  updated" stamp survives every kind of status message.
+- `test_auto_pencil_preserves_notes.py` — item 10's Auto-Pencil fix; a
+  hand-marked cell is left alone, and filled cells refuse pencil marks.
+- `test_wrong_digit_status_message.py` — item 10's wrong-digit message; a
+  legal-but-wrong digit gets a plain-language explanation instead of a
+  400ms flash with no context, and still never lands on the board.
 
 Cell clicks, Guard Pencil behavior, and win detection specifically are still
 only exercised indirectly (through the tests above and manual verification
@@ -509,3 +518,115 @@ reloading, and confirming the page and its interactions still work) during
 development instead. If the Service Worker's caching logic changes in the
 future, it should be re-verified the same way, not assumed from reading the
 code.
+
+## 10. Human-factors overhaul (2026-08) — in progress
+
+**Origin:** four expert reviews were commissioned in parallel — interaction
+design/UX, accessibility, visual/aesthetic design, and learning design for
+newbie players — each instructed to actually play the live app with
+Playwright (click through real flows, not just read the source) and produce
+a prioritized report. Findings were synthesized into "real bugs, just fix
+them" vs. "bigger themes that need product direction before implementing."
+The agreed order, confirmed by the user, is: bugs → reversibility/safety →
+color & layout overhaul → hint curriculum rewrite → accessibility → win-state
+polish last.
+
+### Done: real bugs (fixed, each with a regression test)
+
+1. **`#status` reflow.** Two reviewers independently found the same
+   critical bug: `#status` only had a `min-height`, so a long message (hint
+   tier 2 especially) grew the box and pushed every control below it down
+   the page — enough that the Hint button could drift between taps and a
+   third press at the same screen coordinate landed on Guard Pencil instead,
+   silently disabling it. Fixed with a fixed height (112px, tuned to zero
+   overflow across 320–428px widths, all 4 difficulties, all 3 hint tiers)
+   plus `overflow-y: auto` as a safety net. Test: `test_status_height_stable.py`.
+2. **Auto-Pencil destroyed hand-written notes.** `autoFillAllPencils()`
+   used to clear and refill every empty cell unconditionally. Now a cell
+   with even one existing mark is left completely untouched; only
+   zero-mark cells get auto-filled. Test: `test_auto_pencil_preserves_notes.py`.
+3. **Build stamp destroyed by the first status message.** The "App
+   updated" stamp was a DOM child of `#status`; `setStatusText()`'s
+   `textContent = text` replaces all children, so it was permanently wiped
+   the moment any hint/toggle/action message appeared. Moved to its own
+   sibling element, `#buildInfo`. Test: `test_build_stamp_persists.py`.
+4. **Pencil marks could be drawn on top of an already-filled cell**
+   (with Guard Pencil off), producing an illegible overlap, and Guard
+   Pencil gave a factually wrong "conflicts with row/column/box" message
+   for what was actually an already-solved cell. Both fixed by refusing
+   pencil input on filled cells before any conflict check runs. Covered by
+   the second half of `test_auto_pencil_preserves_notes.py`.
+5. **"Select a cell first." lingered for its full timeout** even after a
+   cell was subsequently selected. Now clears immediately once a cell is
+   selected.
+6. **Board and number bar stayed clickable during async puzzle
+   generation.** Added a `.generating` state (`pointer-events: none;
+   opacity: 0.55;`) applied to `#board`/`#numberBar` while
+   `createNewPuzzleAsync()` is running.
+7. **A legal-but-wrong digit gave no explanation**, just a 400ms red
+   flash — easy to miss and gave no clue why it was rejected. Fixed with a
+   plain-language status message: `"6 doesn't belong in row 3, column 5.
+   Try another number."` Test: `test_wrong_digit_status_message.py`.
+
+### Product decision: no mistake counter, no Undo button
+
+One reviewer's synthesis had proposed either louder wrong-digit messaging
+*or* a mistake counter with an Undo button for recovery. The user explicitly
+rejected both the counter and the escalated messaging: **"I purposely don't
+want to make a big thing of mistakes because I fumble finger so much... I
+also don't see any point in letting users make mistakes because they'd have
+to start the game over anyway... I definitely don't want a mistake counter
+to make me concentrate on mistakes."** Since a wrong digit is never actually
+written to the board (the value check happens before anything touches the
+DOM), there is nothing to undo in the first place — Undo was dropped
+entirely, and the fix above (item 7) is deliberately just a short,
+self-clearing status line naming the digit and cell location, no counter,
+no persistent penalty, no button. Do not reintroduce a mistake counter or an
+Undo button for this purpose without a fresh, explicit ask.
+
+### Remaining chunks (not yet started)
+
+**Color & layout overhaul.** User request, verbatim: *"I'd like a designer
+to do a nice overhaul of all colors, highlighting, and animations for us.
+I'd like the board to use the maximum space it can."* The visual/aesthetic
+design review already produced a detailed spec (specific hex colors,
+spacing formulas, animation timing) that can either be used directly or
+refreshed with a new design pass before implementing. Requirements to carry
+forward: (a) a cohesive palette across all highlight states — normal
+selection, same-number highlight, hint-trace (currently violet
+`#ede9fe`/`#7c3aed`), "Highlight Fullest" (currently amber — the user
+specifically dislikes how this amber clashes with the rest of the palette:
+*"I don't think the amber highlighting looks nice with the other colors we
+use"*), completed-unit glow, and the wrong-digit flash; (b) board must use
+maximum available viewport space; (c) animations should be reviewed/redone
+as part of the same pass, respecting `prefers-reduced-motion` (also an
+accessibility finding, see below).
+
+**Hint curriculum rewrite.** From the learning-design review: tier 1 gives
+away the cell location (which is the actual skill being taught), tier 2 is
+often generic/textbook rather than board-specific, XY-Wing/XYZ-Wing tier 3
+never names the digit involved, there's no onboarding/rules explainer for a
+true newbie, the app defaults to Medium instead of Easy, there's no
+technique glossary or progress tracking, and Swordfish/XYZ-Wing almost
+never actually fire in practice (rarely generated/detected).
+
+**Accessibility** (user confirmed: *"Yes, please, for accessibility."*).
+From the accessibility review: the board and number pad are plain unlabeled
+`<div>`s with zero keyboard handlers (not operable without a mouse/touch at
+all); `#status` is not an ARIA live region, so screen reader users get none
+of the hint/status feedback; no `prefers-reduced-motion` support anywhere;
+non-text contrast failures on several borders/outlines; pencil-mark text
+contrast fails against some highlight backgrounds; toggle buttons (Pencil
+Mode, Guard Pencil) lack `aria-pressed`; several touch targets are below the
+44px minimum; missing landmark/heading structure; the win overlay is present
+in the accessibility tree from page load (screen readers can reach it)
+despite being visually hidden via opacity only.
+
+**Win-state polish** (lowest priority, by agreed order). From the UX
+review: competing simultaneous visual signals on win (confetti + banner +
+board glow + leftover cell highlights all at once), inert controls with no
+visible disabled state, the banner covers exit/next-action controls, and
+there's no clear "what's next" call to action after winning.
+
+No implementation work has started on any of these four remaining chunks —
+this section is the full carry-forward brief for resuming later.
