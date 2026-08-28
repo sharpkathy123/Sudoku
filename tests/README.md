@@ -89,6 +89,12 @@ with specifics and exits 1 on failure.
   shows a plain status message naming the digit and cell location
   (not just an easy-to-miss 400ms red flash), never actually lands on
   the board, and doesn't overflow #status's fixed height.
+- **`test_board_uses_available_space.py`** — the board fills most of
+  the viewport width on phones and keeps growing on larger screens,
+  instead of hitting a small fixed pixel cap and going no further.
+- **`test_visual_overhaul_colors_and_motion.py`** — "Highlight Fullest"
+  no longer uses its old, disliked amber color, and animations/
+  transitions collapse to near-zero under `prefers-reduced-motion`.
 
 ## Adding a new one
 

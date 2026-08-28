@@ -192,14 +192,33 @@ window.addEventListener('DOMContentLoaded', () => {
     --panel: #ffffff;
     --accent: #4a90e2;
     --accent-soft: #d9ecff;
-    --border-strong: #222;
-    --border-light: #c9ced6;
-    --text-dark: #222;
-    --text-soft: #6b7280;
-    --highlight-cell: #fff7c2;
-    --pencil-highlight: #d17b00;
-    
-    --cell-size: clamp(32px, 9.2vw, 50px);
+    --border-strong: #334155;
+    --border-light: #cbd5e1;
+    --text-dark: #1e293b;
+    --text-soft: #64748b;
+    --highlight-cell: #fef9c3;
+    --pencil-highlight: #b45309;
+    --highlight-fullest-bg: #ccfbf1;
+    --highlight-fullest-outline: #0d9488;
+    --hint-trace-bg: #ede9fe;
+    --hint-trace-outline: #7c3aed;
+    --wrong-bg: #fee2e2;
+
+    /* Sized to fill nearly all of the available viewport width (not a
+       fixed fraction chosen for one device), capped so the board stays a
+       comfortable size on tablets/desktops instead of growing without
+       bound. Tuned empirically across 300-1280px widths: zero horizontal
+       overflow at every width tested, ~90-96% fill on phones, growing
+       board (not stuck at one fixed size) all the way to the cap. */
+    --cell-size: clamp(30px, 9.8vw, 74px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
 }
 
 *,
@@ -280,7 +299,7 @@ h2 {
     flex-wrap: wrap;
     justify-content: center;
     width: 100%;
-    max-width: 480px;
+    max-width: 700px;
 }
 
 .top-bar {
@@ -312,7 +331,7 @@ h2 {
     border-radius: 16px;
     box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
     width: 100%;
-    max-width: 480px;
+    max-width: 700px;
 }
 
 .top-bar select,
@@ -386,13 +405,13 @@ h2 {
 }
 
 .number-tile {
-    width: clamp(30px, 8.8vw, 44px);
-    height: clamp(30px, 8.8vw, 44px);
+    width: clamp(30px, 9.2vw, 58px);
+    height: clamp(30px, 9.2vw, 58px);
     border-radius: 10px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: clamp(16px, 4.5vw, 20px);
+    font-size: clamp(16px, 4.8vw, 26px);
     cursor: pointer;
     user-select: none;
     transition: background 0.18s, border 0.18s, transform 0.08s, box-shadow 0.18s, opacity 0.18s, font-weight 0.18s;
@@ -466,7 +485,7 @@ h2 {
 }
 
 .cell.wrong {
-    background: #ffe0e0;
+    background: var(--wrong-bg);
 }
 
 .cell.box-right {
@@ -480,20 +499,25 @@ h2 {
     background: var(--highlight-cell) !important;
 }
 
+/* Teal, not amber — amber clashed with the rest of the palette and read as
+   too close in meaning to the hint-trace/wrong-digit warm tones. Part of a
+   deliberate 3-color highlight language: soft yellow (same-number), violet
+   (hint-trace), teal (Highlight Fullest) — each visually distinct, all in
+   the same "pastel fill + saturated outline" style so no fourth clashing
+   hue got introduced along the way. */
 .cell.highlight-least {
-    background: #fef3c7 !important;
-    outline: 2px solid #d97706;
+    background: var(--highlight-fullest-bg) !important;
+    outline: 2px solid var(--highlight-fullest-outline);
     z-index: 1;
 }
 
-/* Persistent marker for the cell(s) a hint is currently about — a distinct
-   violet, not the amber .highlight-least uses for Highlight Fullest, so the
-   two don't compete for the same visual meaning. Cleared explicitly (see
-   clearHintTrace()) rather than by clearNumberHighlights(), so it survives
-   ordinary clicking around while a player works out how to act on a hint. */
+/* Persistent marker for the cell(s) a hint is currently about. Cleared
+   explicitly (see clearHintTrace()) rather than by clearNumberHighlights(),
+   so it survives ordinary clicking around while a player works out how to
+   act on a hint. */
 .cell.hint-trace {
-    background: #ede9fe !important;
-    outline: 2px solid #7c3aed;
+    background: var(--hint-trace-bg) !important;
+    outline: 2px solid var(--hint-trace-outline);
     z-index: 1;
 }
 
@@ -503,7 +527,7 @@ h2 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    font-size: clamp(7px, 2.1vw, 10px);
+    font-size: clamp(7px, 2.3vw, 15px);
     color: var(--text-soft);
     pointer-events: none;
 }
@@ -532,7 +556,7 @@ h2 {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: clamp(16px, 4.8vw, 24px);
+    font-size: clamp(16px, 5.2vw, 34px);
 }
 
 @keyframes neonGlow {

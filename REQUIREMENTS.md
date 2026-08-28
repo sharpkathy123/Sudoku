@@ -584,23 +584,52 @@ self-clearing status line naming the digit and cell location, no counter,
 no persistent penalty, no button. Do not reintroduce a mistake counter or an
 Undo button for this purpose without a fresh, explicit ask.
 
-### Remaining chunks (not yet started)
+### Done: color & layout overhaul
 
-**Color & layout overhaul.** User request, verbatim: *"I'd like a designer
-to do a nice overhaul of all colors, highlighting, and animations for us.
-I'd like the board to use the maximum space it can."* The visual/aesthetic
-design review already produced a detailed spec (specific hex colors,
-spacing formulas, animation timing) that can either be used directly or
-refreshed with a new design pass before implementing. Requirements to carry
-forward: (a) a cohesive palette across all highlight states — normal
-selection, same-number highlight, hint-trace (currently violet
-`#ede9fe`/`#7c3aed`), "Highlight Fullest" (currently amber — the user
-specifically dislikes how this amber clashes with the rest of the palette:
-*"I don't think the amber highlighting looks nice with the other colors we
-use"*), completed-unit glow, and the wrong-digit flash; (b) board must use
-maximum available viewport space; (c) animations should be reviewed/redone
-as part of the same pass, respecting `prefers-reduced-motion` (also an
-accessibility finding, see below).
+User request, verbatim: *"I'd like a designer to do a nice overhaul of all
+colors, highlighting, and animations for us. I'd like the board to use the
+maximum space it can."*
+
+- **Board sizing.** `--cell-size` was `clamp(32px, 9.2vw, 50px)`, which
+  filled only ~86-94% of the width on phones and, worse, hit its 50px cap
+  past ~600px wide and simply stopped growing — a 1024px-wide window showed
+  the same 464px board (45% fill) as a 600px-wide one. Retuned empirically
+  (measuring actual rendered board width and horizontal overflow across
+  300-1280px) to `clamp(30px, 9.8vw, 74px)`, with `.panel-row`,
+  `.top-bar`, and `.controls-gameplay` widened from `max-width: 480px` to
+  `700px` to match. Result: ~90-96% fill on phones, growing all the way to
+  a 680px board on tablets/desktops (vs. the old fixed 464px), zero
+  horizontal overflow at any tested width. Number-tile size, cell-value
+  font size, and pencil-mark font size were scaled up proportionally so
+  text doesn't look small relative to the now-larger cells. Test:
+  `test_board_uses_available_space.py`.
+- **"Highlight Fullest" amber → teal.** The amber (`#fef3c7` bg /
+  `#d97706` outline) clashed with the rest of the palette and read as too
+  close in meaning to the warm hint-trace/wrong-digit tones — explicit
+  feedback: *"I don't think the amber highlighting looks nice with the
+  other colors we use."* Replaced with a teal (`--highlight-fullest-bg:
+  #ccfbf1`, `--highlight-fullest-outline: #0d9488`), keeping the same
+  "pastel fill + saturated outline" visual language as hint-trace (violet,
+  unchanged) and the same-number highlight (soft yellow, unchanged) — three
+  clearly distinct hues, one meaning each. Test:
+  `test_visual_overhaul_colors_and_motion.py`.
+- **Softened the near-black grid/text colors** slightly for a less harsh
+  look: `--border-strong` `#222`→`#334155`, `--border-light`
+  `#c9ced6`→`#cbd5e1`, `--text-dark` `#222`→`#1e293b`, `--text-soft`
+  `#6b7280`→`#64748b`. All highlight/flash colors were also pulled into
+  named CSS custom properties (`--highlight-fullest-*`, `--hint-trace-*`,
+  `--wrong-bg`) instead of inline hex, so the palette has one place to
+  tune further.
+- **`prefers-reduced-motion` support**, added globally (`*, *::before,
+  *::after { animation-duration: 0.001ms !important; ... }` under the
+  media query) rather than scoped to one animation, so every current and
+  future transition/animation respects it automatically. Test:
+  `test_visual_overhaul_colors_and_motion.py`.
+
+This was a deliberately scoped first pass (the specific amber complaint,
+genuine max-space layout, and reduced-motion), not a full re-theme (no dark
+mode, no gradient/background redesign, no button-chip recoloring like
+Pencil Mode's amber toggle) — further refinement can follow if requested.
 
 **Hint curriculum rewrite.** From the learning-design review: tier 1 gives
 away the cell location (which is the actual skill being taught), tier 2 is
