@@ -703,3 +703,53 @@ there's no clear "what's next" call to action after winning.
 
 No implementation work has started on any of these four remaining chunks —
 this section is the full carry-forward brief for resuming later.
+
+## 11. Hints could tell a player to place a digit the game then rejected — ✅ Fixed
+
+**Reported live:** a Unique Rectangle hint said *"eliminate pencil marks 7
+and 9 from Row 1, Column 5 — whatever extra candidate remains there must be
+the real answer,"* implying the answer was 8 (the cell's third candidate).
+Placing 8 was rejected as wrong.
+
+**Root cause:** `getCandidatesGrid()` — used only by the real `showHint()`,
+never by the test harness — silently substituted the player's own
+hand-written pencil marks for a cell's candidates whenever that cell had
+*any* marks at all, falling back to a true constraint-derived computation
+only for completely unmarked cells. A player is never obligated to have
+hand-marked every valid candidate in a cell — that's normal, ordinary
+pencil-mark use, not a mistake. But Naked Pair/Triple, Locked Candidates,
+X-Wing/Swordfish, XY-Wing/XYZ-Wing, and Unique Rectangle are only logically
+sound when "this cell has exactly these N candidates" is actually *true*.
+Trusting incomplete marks let the engine treat a genuinely tri-valent cell
+as bivalue and confidently produce an elimination that flatly contradicted
+the real solution. Full House, Naked Single, and Hidden Single aren't
+affected by this specific failure mode (they don't reason from *other*
+cells' candidate sets the way these do), but every technique from Naked
+Pair onward was exposed to it whenever the player had any pencil marks in
+play — which is most real games past the opening few moves.
+
+This also explains why the in-page `?test` suite never caught it: it always
+calls the finder functions directly with `getCandidatesGridPure()` (the
+correct, DOM-independent computation), so it never exercised the
+DOM-marks-substitution path that only the real `showHint()` used.
+
+**Fix:** `showHint()` now calls `getCandidatesGridPure()` — the same
+function the test harness already trusted — instead of `getCandidatesGrid()`.
+The old function (which had exactly one caller) was deleted entirely rather
+than left as dead, reintroducible code.
+
+**Verification:** confirmed directly rather than inferred — reconstructed
+the reported board from a screenshot and ran it through an independent
+backtracking solver, which showed the four Unique-Rectangle corner cells
+really did form a genuine "deadly pair" ambiguity (two grids differing only
+by swapping 7↔9 in the rectangle) alongside the one genuinely safe
+completion, proving the *technique's logic* was sound and the bug had to
+be in what fed it. Then reproduced the actual mechanism live: rigged an
+empty cell's pencil marks to something clearly wrong (every digit marked
+at once) and
+confirmed `showHint()` ignored it and still reasoned correctly, whereas the
+pre-fix code read the marks. Test: `test_hints_ignore_pencil_marks.py`,
+confirmed to fail against the pre-fix code (both by detecting the deleted
+function's continued existence and by proving `showHint()` never called
+`getCandidatesGridPure()`) and pass against the fix. Full suite: 10/10
+in-page tests, 16/16 Playwright tests.

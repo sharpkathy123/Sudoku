@@ -100,6 +100,11 @@ with specifics and exits 1 on failure.
   in tier 1 (or, for Naked Single, tier 2), XY-Wing/XYZ-Wing's tier 3
   names the digit being eliminated, and a first-ever visit defaults
   to Easy difficulty.
+- **`test_hints_ignore_pencil_marks.py`** — hints always reason from
+  the true, constraint-derived candidate set, never from the player's
+  own (possibly incomplete or stale) hand-written pencil marks. Catches
+  the exact bug that once let a Unique Rectangle hint tell a player to
+  place a digit the game then rejected as wrong.
 
 ## Adding a new one
 
