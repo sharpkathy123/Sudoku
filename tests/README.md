@@ -105,6 +105,9 @@ with specifics and exits 1 on failure.
   own (possibly incomplete or stale) hand-written pencil marks. Catches
   the exact bug that once let a Unique Rectangle hint tell a player to
   place a digit the game then rejected as wrong.
+- **`test_hint_and_board_both_visible.py`** — the hint/status text and
+  the whole board fit in one ordinary phone screen at the same time,
+  and the Hint button sits on the same row as the Pencil Mode toggle.
 
 ## Adding a new one
 

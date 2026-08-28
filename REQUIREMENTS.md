@@ -631,6 +631,16 @@ genuine max-space layout, and reduced-motion), not a full re-theme (no dark
 mode, no gradient/background redesign, no button-chip recoloring like
 Pencil Mode's amber toggle) — further refinement can follow if requested.
 
+**Follow-up, reported live after playing the bigger board:** the hint/status
+text sat at the very top of the page, right under the title — fine when the
+board was small, but once it grew to use much more of the viewport, the two
+no longer fit on one phone screen together: reading a hint meant scrolling
+away from the board it was about. Fixed by moving `#status` down to sit
+directly above the number bar and board, and moving the Hint button down
+onto the same row as the Pencil Mode toggle — so asking for a hint and
+reading it both happen right next to the board, no scrolling required. Test:
+`test_hint_and_board_both_visible.py`.
+
 ### Done (partial): hint curriculum — the giveaway-wording and default-difficulty pieces
 
 From the learning-design review, addressed so far:
