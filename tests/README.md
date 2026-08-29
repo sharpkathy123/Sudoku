@@ -136,6 +136,9 @@ with specifics and exits 1 on failure.
   for an iOS-Safari-only quirk (tapped buttons/selects don't get real
   focus by default there) that Chromium can't reproduce to show a
   before/after contrast.
+- **`test_all_buttons_tab_reachable.py`** — every button has an explicit
+  `tabindex`, so Tab reaches it on iOS even without Full Keyboard Access
+  turned on (which otherwise makes Tab skip plain buttons entirely).
 
 ## Adding a new one
 

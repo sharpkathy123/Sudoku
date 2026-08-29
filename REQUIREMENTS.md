@@ -782,6 +782,23 @@ issue is fixed, and whether Enter/Return (to confirm the highlighted
 option) works as an alternative, before concluding whether it needs a
 custom (non-native) dropdown to fully control.
 
+**Fourth follow-up, reported live using an attached keyboard on iOS:**
+after leaving the difficulty dropdown, Tab jumped straight to the first
+number tile, skipping New Game, Restart, Clear Pencil Marks, Highlight
+Fullest, Guard Pencil, Auto-Pencil, Pencil Mode, and Hint entirely — every
+plain `<button>` in the app. Root cause: a well-documented iOS Safari
+default — with an external keyboard, Tab only stops at form fields (like
+the `<select>`) and elements with an *explicit* `tabindex` attribute,
+skipping plain buttons entirely, unless the device has Settings >
+Accessibility > Keyboards > Full Keyboard Access turned on. Only the
+number tiles and board cells had ever been given an explicit `tabindex`
+(for the roving-focus work), so they were the only things Tab could still
+land on. Fixed by adding `tabindex="0"` to all 8 plain buttons — the
+documented workaround that makes a button Tab-reachable on iOS regardless
+of that device setting. Test: `test_all_buttons_tab_reachable.py` (freezes
+the fix directly, since Chromium's own default already Tab-stops on plain
+buttons and can't reproduce the skip itself).
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark
