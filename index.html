@@ -948,32 +948,72 @@ function solveSudoku(grid) {
     return true;
 }
 
+// Counts how many solutions `grid` has, up to `limit` (the caller only
+// ever needs to know "1" vs. "more than 1", never an exact total).
+//
+// Branches on the empty cell with the FEWEST remaining candidates first
+// (the standard "most constrained variable" heuristic), not just the
+// first empty cell in scan order. This isn't just an optimization: a
+// harder puzzle (fewer forced cells, which is exactly what makes it
+// "Hard") has a much larger, flatter search tree under naive first-cell
+// scanning, and previously hit this function's iteration cap while
+// having only ever explored ONE branch of a genuinely-ambiguous puzzle —
+// silently reporting "1 solution" (unique) for puzzles that actually had
+// several. Confirmed directly: a puzzle this function called unique
+// (with the old scan order) had at least 5 real solutions once given a
+// larger search budget. That false "unique" then broke every technique
+// whose correctness depends on real uniqueness (Unique Rectangle
+// eliminated the puzzle's own true answer, since the deadly-pattern
+// argument it relies on doesn't hold for a puzzle that isn't actually
+// unique) — this was the real root cause, not a hint-engine bug.
+//
+// If the iteration budget still runs out before a definitive count is
+// reached, returns -1 ("inconclusive") rather than whatever partial
+// count happened to be reached — every caller compares against a
+// specific expected count (1 or 2), so -1 safely reads as "not verified"
+// and gets rejected/retried instead of silently accepted as valid.
 function countSolutions(grid, limit = 2) {
     let count = 0;
     let iterations = 0;
     const MAX_ITERATIONS = 5000;
+    let inconclusive = false;
 
-    function backtrack() {
-        if (count >= limit || iterations++ > MAX_ITERATIONS) return;
+    function mostConstrainedCell() {
+        let best = null;
         for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
-                if (grid[row][col] === 0) {
-                    for (let num = 1; num <= 9; num++) {
-                        if (isSafe(grid, row, col, num)) {
-                            grid[row][col] = num;
-                            backtrack();
-                            grid[row][col] = 0;
-                            if (count >= limit || iterations > MAX_ITERATIONS) return;
-                        }
-                    }
-                    return;
+                if (grid[row][col] !== 0) continue;
+                const candidates = [];
+                for (let num = 1; num <= 9; num++) {
+                    if (isSafe(grid, row, col, num)) candidates.push(num);
+                }
+                if (candidates.length === 0) return { row, col, candidates };
+                if (!best || candidates.length < best.candidates.length) {
+                    best = { row, col, candidates };
+                    if (candidates.length === 1) return best;
                 }
             }
         }
-        count++;
+        return best;
+    }
+
+    function backtrack() {
+        if (count >= limit) return;
+        if (iterations++ > MAX_ITERATIONS) { inconclusive = true; return; }
+
+        const cell = mostConstrainedCell();
+        if (!cell) { count++; return; } // no empty cells left: a full, valid grid
+        if (cell.candidates.length === 0) return; // dead end: this branch can't complete
+
+        for (const num of cell.candidates) {
+            grid[cell.row][cell.col] = num;
+            backtrack();
+            grid[cell.row][cell.col] = 0;
+            if (count >= limit || inconclusive) return;
+        }
     }
     backtrack();
-    return count;
+    return inconclusive ? -1 : count;
 }
 
 /* ==========================================================================
