@@ -881,6 +881,19 @@ to fail against the pre-fix code (focus landed on the number tile after
 both a wrong and a correct keyboard digit entry) and pass against the
 fix; full suite (29 Playwright tests + 10 in-page tests) still green.
 
+**Eighth follow-up, reported live:** immediately after the fix above,
+"...and then nothing happens when I type the correct digit." The digit
+was actually being placed correctly the whole time — but the correct-
+placement code path never touched `#status` at all, so the stale
+"X doesn't belong in row Y, column Z" message from the earlier wrong
+attempt just sat there. With no visible change to point to, the correct
+keypress read as silently ignored. Fixed by clearing the status text as
+part of a successful placement, the same way `onCellClick()` already
+clears one specific stale nudge ("Select a cell first.") once it goes
+stale. Test: `test_correct_digit_clears_stale_status.py`, confirmed to
+fail against the pre-fix code and pass against the fix; full suite (30
+Playwright tests + 10 in-page tests) still green.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark

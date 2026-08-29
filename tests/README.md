@@ -165,6 +165,10 @@ with specifics and exits 1 on failure.
   real keyboard focus on the board cell, instead of the iOS tap-focus
   workaround silently yanking it onto the number tile the keypress
   happens to relay through.
+- **`test_correct_digit_clears_stale_status.py`** — placing a correct
+  digit clears a leftover "X doesn't belong..." message from an earlier
+  wrong attempt, instead of leaving it on screen looking like the
+  correct keypress did nothing.
 
 ## Adding a new one
 
