@@ -686,15 +686,15 @@ h1 {
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
         </select>
-        <button id="newGameBtn" class="btn-danger">New Game</button>
-        <button id="restartBtn" class="btn-danger">Restart</button>
-        <button id="clearNotesBtn" class="btn-danger" title="Clears all small pencil marks across the board">Clear Pencil Marks</button>
+        <button id="newGameBtn" class="btn-danger" tabindex="0">New Game</button>
+        <button id="restartBtn" class="btn-danger" tabindex="0">Restart</button>
+        <button id="clearNotesBtn" class="btn-danger" tabindex="0" title="Clears all small pencil marks across the board">Clear Pencil Marks</button>
     </div>
 
    <div class="controls-gameplay">
-       <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
-       <button id="guardNotesToggle" class="active" aria-pressed="true" title="Prevents adding pencil marks that conflict with placed numbers">Guard Pencil: ON</button>
-       <button id="autoPencilBtn" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
+       <button id="highlightLeastBtn" tabindex="0" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
+       <button id="guardNotesToggle" class="active" aria-pressed="true" tabindex="0" title="Prevents adding pencil marks that conflict with placed numbers">Guard Pencil: ON</button>
+       <button id="autoPencilBtn" tabindex="0" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
    </div>
 
     <!-- Right above the number bar/board, not up by the title, so a hint's
@@ -705,8 +705,8 @@ h1 {
 
     <div class="input-section">
         <div class="pencil-hint-row">
-            <button id="pencilToggle" aria-pressed="false" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
-            <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
+            <button id="pencilToggle" aria-pressed="false" tabindex="0" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
+            <button id="HintBtn" class="btn-primary" tabindex="0" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
         </div>
         <div class="number-bar" id="numberBar"></div>
     </div>
