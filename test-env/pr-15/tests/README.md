@@ -178,6 +178,16 @@ with specifics and exits 1 on failure.
   moves the roving tabindex there too, not just arrow-key moves and
   Hint, so "B" and a bare Tab always land on the cell actually selected
   instead of a stale one from an earlier Hint.
+- **`test_hint_chains_eliminations.py`** — once an elimination-only hint
+  (Naked Pair/Triple, Pointing/Claiming, X-Wing/Swordfish, the wings,
+  Unique Rectangle) has been fully cycled, the *next* Hint press can find
+  a genuinely different technique that only becomes visible after that
+  elimination is actually applied — instead of recomputing identical raw
+  candidates forever and repeating the same hint with no way to
+  progress. Searches generated puzzles for a state exhibiting exactly
+  this technique-chain dependency, since a puzzle's own difficulty
+  rating already requires this kind of chaining to be solvable by pure
+  logic at Hard/Expert.
 
 ## Adding a new one
 

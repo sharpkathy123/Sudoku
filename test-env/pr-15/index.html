@@ -757,6 +757,26 @@ let statusTimeoutId = null;
 // puzzle) — never by anything that leaves placed digits untouched.
 let seenHintKeys = new Set();
 
+// The hint engine's own working candidate grid — separate from
+// seenHintKeys above, which only tracks "don't show this exact hint
+// again," and from getCandidatesGridPure(), which always recomputes pure,
+// placed-digit-only candidates from nothing. This one *accumulates*: once
+// an elimination-only hint (Naked Pair, Pointing/Claiming, X-Wing/
+// Swordfish, the wings, Unique Rectangle) has been fully shown (tier 3),
+// its own elimination is folded into this grid, exactly the way
+// rateSolveWithTierCascade() (used to verify a puzzle is solvable by pure
+// logic at generation time — see below) and the in-page test suite's
+// testHintObjectsWellFormed already do. Without this, a technique whose
+// *only* next logical step depends on that elimination first being
+// applied could never be found — the cascade would keep re-deriving the
+// exact same already-shown hint forever from unchanged raw candidates,
+// even though the puzzle itself is provably solvable by chaining exactly
+// this sequence of techniques (see REQUIREMENTS.md item 10 — reported
+// live as "I can't finish this puzzle without making a wild guess").
+// Reseeded from scratch, like seenHintKeys, whenever the grid itself
+// changes (a real placement, or a new puzzle).
+let confirmedCandGrid = null;
+
 // The persistent hint-trace marker (see clearHintTrace()): which cells are
 // currently marked, and the one primary cell whose correct placement means
 // this hint has been acted on and the trace should clear itself.
@@ -1437,6 +1457,7 @@ function buildBoard() {
     currentHintState = null;
     currentHintLevel = 0;
     seenHintKeys.clear();
+    confirmedCandGrid = null;
     hintTraceCells = [];
     hintTraceTarget = null;
 
@@ -1798,6 +1819,7 @@ for (let n = 1; n <= 9; n++) {
         currentHintState = null;
         currentHintLevel = 0;
         seenHintKeys.clear();
+        confirmedCandGrid = null;
 
         // The hint this trace was marking has now actually been acted on —
         // clear it. A correct placement elsewhere on the board (unrelated
@@ -2555,7 +2577,17 @@ function showHint() {
     // actually true. Trusting incomplete marks let the engine treat a
     // truly tri-valent cell as bivalue and eliminate/require digits that
     // contradicted the real solution (see REQUIREMENTS.md item 10).
-    const candGrid = getCandidatesGridPure(currentGrid);
+    //
+    // confirmedCandGrid (see its declaration above) is the engine's own
+    // accumulated candidate state, not the player's pencil marks — seeded
+    // fresh here only the first time it's needed after the grid last
+    // changed, then reused and progressively narrowed as fully-shown
+    // elimination hints get folded into it below. Without reusing it, a
+    // technique whose only next step depends on an earlier elimination
+    // already being applied could never be reached — see REQUIREMENTS.md
+    // item 10.
+    if (!confirmedCandGrid) confirmedCandGrid = getCandidatesGridPure(currentGrid);
+    const candGrid = confirmedCandGrid;
 
     // Easiest-technique-first cascade, shared with the difficulty rater —
     // see HINT_CASCADE and REQUIREMENTS.md items 2-5, 7-8. Skips a hint
@@ -2623,7 +2655,27 @@ function showHint() {
     // Once tier 3 (the full reveal) has been shown, this hint is done —
     // asking for another hint on this same grid state should move on to
     // a genuinely different one instead of cycling back to tier 1 here.
-    if (currentHintLevel === 3) seenHintKeys.add(hintKey);
+    if (currentHintLevel === 3) {
+        seenHintKeys.add(hintKey);
+
+        // Fold this hint's own elimination into the engine's working
+        // candidate grid, exactly like rateSolveWithTierCascade() (used to
+        // verify a puzzle is solvable by pure logic at generation time)
+        // and the in-page test suite's testHintObjectsWellFormed already
+        // do. This is what lets the *next* Hint press find a technique
+        // that only becomes visible once this one's elimination is
+        // actually applied — without it, the same already-fully-shown
+        // hint would keep winning the cascade forever, since nothing
+        // about the raw, placed-digit-only candidates ever changes on its
+        // own. Place-kind hints (Full House, Hidden/Naked Single) have no
+        // `eliminate` list — nothing to fold in until the suggested digit
+        // is actually placed, which already resets this grid entirely.
+        if (hint.eliminate && hint.eliminate.length) {
+            hint.eliminate.forEach(({ r: er, c: ec, digits }) => {
+                confirmedCandGrid[er][ec] = confirmedCandGrid[er][ec].filter(x => !digits.includes(x));
+            });
+        }
+    }
 
     if (currentHintLevel === 1) {
         setStatusText(`💡 Tier 1 (${method}): ${tier1} (Tap Hint to see more)`);
