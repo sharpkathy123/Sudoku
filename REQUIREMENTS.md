@@ -968,6 +968,22 @@ and not what the live report actually needed (a different technique was
 available in that case). Worth revisiting if a puzzle state ever
 surfaces where this narrower limitation is the one actually in the way.
 
+**Accepted limitation, reported live:** pressing Hint again on the *same*
+cell still just advances tier 1→2→3 (see the `currentHintLevel` cycling
+above), even when the player has already mentally acted on tier 1 or 2's
+information in a way the engine has no way to detect (e.g. reasoning
+through it in their head, or writing marks the engine — deliberately,
+per the correctness fix above — doesn't read). There's no reliable signal
+to tell "already addressed, give me something new" apart from "still
+stuck, show me more of this one," short of re-opening the same
+detect-what-the-player-really-meant problem that's already been revisited
+several times in this section. Flagged directly to the user rather than
+attempted: given how many previous fixes here have each solved one report
+only to surface the next adjacent one, the user chose to accept current
+behavior over risking another round of that cycle. Not fixed; left here
+so a future session doesn't have to relitigate the same tradeoff from
+scratch.
+
 ## 12. Some "Hard" puzzles weren't actually uniquely solvable — ✅ Fixed
 
 **Reported live, following up on item 11:** the exact same "place 8, get
