@@ -130,6 +130,12 @@ with specifics and exits 1 on failure.
   stays clearly visible after arrow-navigating onto a filled cell (amid
   its same-number highlight), and a plain Tab landing directly on the
   board's tab-stop cell syncs selection too, not just arrow-key moves.
+- **`test_tap_sets_real_focus.py`** — tapping any button, the difficulty
+  select, or a board cell sets real `document.activeElement` focus, so
+  Tab afterward continues from there. Freezes the invariant behind a fix
+  for an iOS-Safari-only quirk (tapped buttons/selects don't get real
+  focus by default there) that Chromium can't reproduce to show a
+  before/after contrast.
 
 ## Adding a new one
 

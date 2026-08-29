@@ -2860,6 +2860,23 @@ document.addEventListener("click", (event) => {
     updateNumberTileStyles();
 });
 
+// iOS Safari doesn't give real keyboard focus to a tapped <button>,
+// <select>, or tabindex'd element the way every other browser does —
+// tapping one with a finger visibly "does" something (a button looks
+// pressed, a select opens its picker) without document.activeElement
+// ever actually changing. So switching to an attached keyboard afterward
+// resumed Tab from wherever focus last *genuinely* was (often nowhere in
+// particular) instead of continuing from the control just tapped. This
+// forces real focus on tap everywhere at once, rather than button by
+// button; preventScroll avoids any jump since the tapped element is
+// already on-screen by definition.
+document.addEventListener("click", (event) => {
+    const focusable = event.target.closest("button, select, [tabindex]");
+    if (focusable && document.activeElement !== focusable) {
+        focusable.focus({ preventScroll: true });
+    }
+});
+
 /* ==========================================================================
    8. EVENT BINDINGS & INIT
    ========================================================================== */
