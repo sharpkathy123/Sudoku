@@ -2930,6 +2930,16 @@ document.addEventListener("click", (event) => {
 // button; preventScroll avoids any jump since the tapped element is
 // already on-screen by definition.
 document.addEventListener("click", (event) => {
+    // Only a genuine tap/mouse click needs this fix -- event.isTrusted is
+    // false for a click our own code dispatches programmatically via
+    // .click() (digit keys routing through the number tiles, and every
+    // letter-key shortcut routing through its button -- see below). Those
+    // callers are keyboard-driven already, so real focus is already
+    // correctly wherever Tab/arrow-keys left it; forcing it onto the
+    // tile/button those calls happen to relay through would yank focus
+    // off the board after simply typing a digit or a shortcut letter.
+    if (!event.isTrusted) return;
+
     const focusable = event.target.closest("button, select, [tabindex]");
     // A click's own handler can deliberately move focus somewhere other
     // than the clicked element itself (e.g. showHint() focusing the hint's
