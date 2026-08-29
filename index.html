@@ -1253,6 +1253,17 @@ function clearHintTrace() {
 
 function highlightSameNumbers(num) {
     clearNumberHighlights();
+    // clearNumberHighlights() strips "selected" from every cell, including
+    // the currently selected one -- fine for callers that mean to deselect
+    // (they null out selectedCell themselves first), but every other
+    // caller here (a tile tap acting on the already-selected cell) doesn't
+    // touch selectedCell at all and still wants it to look selected
+    // afterward. onCellClick() re-adds it as its own last step for its own
+    // call to this function, but every direct call from the number-tile
+    // handler below has no such step of its own, which is why the
+    // selection outline was silently vanishing after placing a digit or
+    // toggling a pencil mark.
+    if (selectedCell) selectedCell.classList.add("selected");
     [...board.children].forEach(cell => {
         const val = cell.querySelector(".cell-value").textContent.trim();
         const pencilSpan = cell._pencilDigits[num];
@@ -1287,6 +1298,17 @@ function onCellClick(cell) {
 
     cell.classList.add("selected");
     updateNumberTileStyles();
+
+    // Keep the roving tabindex in sync with whatever's actually selected,
+    // not just on arrow-key moves (which already did this themselves) --
+    // a plain click/tap selects a cell without ever touching tabindex, so
+    // without this, "B" (jump to the board) or a bare Tab could land on
+    // a stale cell (e.g. wherever Hint last put it) instead of the one
+    // actually selected, once selectedCell itself was ever null even
+    // briefly in between.
+    const currentTabbable = board.querySelector('.cell[tabindex="0"]');
+    if (currentTabbable && currentTabbable !== cell) currentTabbable.tabIndex = -1;
+    cell.tabIndex = 0;
 }
 
 // Set right before code moves real focus somewhere other than the element
@@ -1309,6 +1331,21 @@ function moveSelectionAndFocusTo(cell) {
     onCellClick(cell);
     cell.focus({ preventScroll: true });
     intentionalFocusTarget = cell;
+}
+
+// Number tiles never change which cell is selected -- they only act on
+// it (place a digit, flash it wrong, toggle a pencil mark) -- so tapping
+// one should leave real keyboard focus right where it was: on the
+// selected cell, ready for the next arrow-key move or digit. Without
+// this, the iOS tap-focus workaround (a real tap is trusted, so it isn't
+// filtered out the way a keyboard-driven synthetic click is -- see
+// test_digit_key_keeps_board_focus.py) moves focus onto the tapped tile
+// instead, and arrow keys go dead immediately after until the player
+// finds their way back onto the board.
+function keepFocusOnSelectedCell() {
+    if (!selectedCell) return;
+    selectedCell.focus({ preventScroll: true });
+    intentionalFocusTarget = selectedCell;
 }
 
 // Keeps the board operable for screen reader / keyboard users: what a
@@ -1685,6 +1722,7 @@ for (let n = 1; n <= 9; n++) {
 
         if (givenMask[r][c]) {
             setStatusText("You can't change a given cell.", 2000);
+            keepFocusOnSelectedCell();
             return;
         }
 
@@ -1700,6 +1738,7 @@ for (let n = 1; n <= 9; n++) {
             // illegibly overlapping it.
             if (getCurrentGrid()[r][c] !== 0) {
                 setStatusText("This cell is already filled in — no need for pencil marks here.", 2500);
+                keepFocusOnSelectedCell();
                 return;
             }
 
@@ -1710,6 +1749,7 @@ for (let n = 1; n <= 9; n++) {
                 if (!isCurrentlyActive && !isSafe(getCurrentGrid(), r, c, n)) {
                     flashWrong(selectedCell);
                     setStatusText(`Number ${n} conflicts with this row, column, or box!`, 3000);
+                    keepFocusOnSelectedCell();
                     return;
                 }
             }
@@ -1719,6 +1759,7 @@ for (let n = 1; n <= 9; n++) {
             updateNumberTileStyles();
             highlightSameNumbers(n);
             saveGameState();
+            keepFocusOnSelectedCell();
             return;
         }
 
@@ -1728,6 +1769,7 @@ for (let n = 1; n <= 9; n++) {
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
+            keepFocusOnSelectedCell();
             return;
         }
 
@@ -1773,6 +1815,7 @@ for (let n = 1; n <= 9; n++) {
         selectedNumber = n;
         updateNumberTileStyles();
         highlightSameNumbers(n);
+        keepFocusOnSelectedCell();
     });
 
     numberBar.appendChild(tile);

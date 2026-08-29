@@ -894,6 +894,63 @@ stale. Test: `test_correct_digit_clears_stale_status.py`, confirmed to
 fail against the pre-fix code and pass against the fix; full suite (30
 Playwright tests + 10 in-page tests) still green.
 
+**Ninth follow-up, reported live:** three symptoms from one report —
+"I selected a cell, turned on pencil mode, typed the digits I wanted to
+erase, and they erased, but I can't tell that the cell is selected now.
+I tried hitting an arrow key to another cell, and couldn't tell it
+worked; it did not cause the cell I expected to be highlighted. I then
+hit B (for board) and one of the cells that had been selected by the
+Hint was selected." Three separate, compounding bugs, all in code paths
+the last two follow-ups' fixes didn't touch:
+
+1. `highlightSameNumbers()` calls `clearNumberHighlights()`, which
+   strips `.selected` from *every* cell, including whichever one is
+   still actually selected — and nothing put it back. `onCellClick()`
+   happens to re-add it as its own last step, which is why selecting a
+   cell always looked right, but every number-tile branch that calls
+   `highlightSameNumbers()` directly (wrong digit, correct digit, pencil
+   toggle) has no such last step, so the outline silently disappeared
+   the moment you acted on the cell you'd just selected. Fixed by having
+   `highlightSameNumbers()` restore `.selected` on `selectedCell` itself,
+   right after `clearNumberHighlights()`.
+
+2. A number tile is a real, trusted tap — unlike the digit-key/letter-
+   shortcut routing fixed two follow-ups up, this one isn't filtered out
+   by the `event.isTrusted` guard — so the iOS tap-focus workaround moves
+   real keyboard focus onto the tile, off the board entirely, exactly
+   like it does for every other button. Arrow keys require focus to
+   literally be on a `.cell` to do anything, so they went dead
+   immediately after using the number bar for anything, not just pencil
+   marks. Fixed with a new `keepFocusOnSelectedCell()` helper — a number
+   tile never changes *which* cell is selected, only acts on it, so
+   every branch of its click handler now explicitly refocuses
+   `selectedCell` afterward, the same way `showHint()` already refocuses
+   its own target cell.
+
+3. `onCellClick()` (what a plain click/tap runs) never updated the
+   roving tabindex — only arrow-key movement and Hint's own focus helper
+   did. So the one cell marked `tabindex="0"` (what "B" and a bare Tab
+   fall back to whenever `selectedCell` is momentarily null) could keep
+   pointing at wherever Hint last put it long after the player had
+   clicked somewhere else entirely. Fixed by having `onCellClick()` keep
+   the roving tabindex in sync with whatever cell was just selected,
+   the same inline bookkeeping arrow-key movement already did.
+
+Tests: `test_pencil_toggle_keeps_selection_visible.py` (covers 1 and 2)
+and `test_roving_tabindex_follows_click.py` (covers 3), both confirmed
+to fail against the pre-fix code and pass against the fix. Worth noting
+for next time: the first version of
+`test_pencil_toggle_keeps_selection_visible.py` picked an arbitrary
+digit to toggle, which happened to conflict with Guard Pencil for the
+chosen cell in that run — landing on the *early-return* conflict branch
+instead of the actual toggle-success branch the `.selected`-stripping
+bug lives in, so it missed catching bug 1 entirely despite still
+"passing" (a false negative on the un-fixed code, caught by rerunning
+against the pre-fix code and noticing only 2 of the expected 3 failures
+showed up). Fixed by having the test explicitly pick a digit confirmed
+safe via `isSafe()` before tapping it. Full suite (32 Playwright tests +
+10 in-page tests) still green.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark
