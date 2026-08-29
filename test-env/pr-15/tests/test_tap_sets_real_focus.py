@@ -17,7 +17,13 @@ show a real before/after contrast the way most tests here can, since the
 actual bug is iOS-only. It still freezes the underlying invariant (tap
 sets real focus) that the fix is built on. The fix itself is a single
 delegated click listener that explicitly calls .focus() on whatever
-button/select/tabindex'd element was tapped.
+button/select/tabindex'd element was tapped -- unless the click's own
+handler already moved focus somewhere else on purpose (see Hint below
+and test_hint_selects_target_cell.py), in which case that stands.
+
+Hint is deliberately the one exception to "focus stays on the tapped
+button": tapping/activating it moves focus onto the hinted cell itself,
+not the Hint button (see test_hint_selects_target_cell.py for why).
 """
 import sys
 
@@ -41,7 +47,6 @@ def main():
         page.wait_for_timeout(300)
 
         checks = [
-            ("#HintBtn", "HintBtn"),
             ("#pencilToggle", "pencilToggle"),
             ("#guardNotesToggle", "guardNotesToggle"),
             ("#highlightLeastBtn", "highlightLeastBtn"),

@@ -820,6 +820,43 @@ single stray keypress is easier to trigger by accident than a tap on a
 physically separated button. Shipped as requested (shortcuts on all 8);
 revisit if accidental triggers turn out to be a real problem in practice.
 
+**Sixth follow-up, requested live:** three more issues surfaced while
+actually testing the shortcuts above.
+
+1. *Destructive-shortcut trade-off, resolved.* Asked directly whether to
+   confirm or drop the New Game/Restart/Clear Pencil Marks shortcuts; the
+   answer was to confirm. Those three now show a native `confirm()` dialog
+   before acting, and do nothing if it's cancelled; the other five
+   shortcuts are unaffected (no dialog). Test:
+   `test_destructive_shortcuts_confirm.py`.
+
+2. *Hint left real focus stranded on the Hint button.* Reported live:
+   after Tab-reaching Hint (not tapping it) and activating it, the hinted
+   cell lit up purple, but that cell wasn't actually selected/focused —
+   the Hint button still was, so arrow keys and digit keys did nothing.
+   Two compounding causes: `showHint()` only ran `onCellClick(cell)`,
+   which adds the `.selected` CSS class but never moves real
+   `document.activeElement` focus; and even fixing that alone wasn't
+   enough, because the iOS tap-focus workaround (see
+   `test_tap_sets_real_focus.py`) re-focuses whatever was actually
+   clicked/activated on *every* click, including the synthetic click a
+   keyboard Enter/Space produces on a focused button — so it was quietly
+   stealing focus back onto the Hint button a tick later. Fixed with a new
+   `moveSelectionAndFocusTo()` helper (updates the roving tabindex, runs
+   `onCellClick`, and calls `cell.focus()`) plus a shared
+   `intentionalFocusTarget` flag the iOS workaround now checks so it
+   defers to a click handler's own deliberate focus move instead of
+   overriding it. Test: `test_hint_selects_target_cell.py` (also confirms
+   an arrow key immediately after Hint actually moves selection, proving
+   focus is really on the board, not just visually implied).
+
+3. *No way back to the board once you'd tabbed off it.* Requested
+   live, alongside the destructive-shortcut question: add a shortcut onto
+   the board if there wasn't one. Added "B", which moves focus onto the
+   currently selected cell (or the roving tab-stop cell if nothing's
+   selected) from anywhere else on the page. Test:
+   `test_board_shortcut.py`.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark

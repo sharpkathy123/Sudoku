@@ -686,9 +686,9 @@ h1 {
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
         </select>
-        <button id="newGameBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: N">New Game (N)</button>
-        <button id="restartBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: R">Restart (R)</button>
-        <button id="clearNotesBtn" class="btn-danger" tabindex="0" title="Clears all small pencil marks across the board. Keyboard shortcut: C">Clear Pencil Marks (C)</button>
+        <button id="newGameBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: N (asks to confirm)">New Game (N)</button>
+        <button id="restartBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: R (asks to confirm)">Restart (R)</button>
+        <button id="clearNotesBtn" class="btn-danger" tabindex="0" title="Clears all small pencil marks across the board. Keyboard shortcut: C (asks to confirm)">Clear Pencil Marks (C)</button>
     </div>
 
    <div class="controls-gameplay">
@@ -711,7 +711,7 @@ h1 {
         <div class="number-bar" id="numberBar"></div>
     </div>
 
-    <div class="board" id="board" role="grid" aria-label="Sudoku board"></div>
+    <div class="board" id="board" role="grid" aria-label="Sudoku board" title="Keyboard shortcut: B jumps here from any button"></div>
 
     <canvas id="confettiCanvas" aria-hidden="true"></canvas>
     <div id="winOverlay" aria-hidden="true">
@@ -1287,6 +1287,28 @@ function onCellClick(cell) {
 
     cell.classList.add("selected");
     updateNumberTileStyles();
+}
+
+// Set right before code moves real focus somewhere other than the element
+// that was actually clicked/activated (see showHint() and the "b" keyboard
+// shortcut below), so the iOS tap-focus workaround further down doesn't
+// immediately fight it and pull focus back onto the button that was
+// pressed. Read once and cleared by that listener on every click.
+let intentionalFocusTarget = null;
+
+// Moves both the roving tabindex and real keyboard focus onto `cell`, and
+// runs onCellClick's normal selection bookkeeping (highlighting, aria,
+// etc). Used whenever code -- not a direct tap/Tab/arrow-key on the cell
+// itself -- decides a particular cell should become selected, so the
+// visual "selected" cell and what Tab/arrow-keys/digit-keys actually act
+// on next stay the same cell instead of drifting apart.
+function moveSelectionAndFocusTo(cell) {
+    const currentTabbable = board.querySelector('.cell[tabindex="0"]');
+    if (currentTabbable && currentTabbable !== cell) currentTabbable.tabIndex = -1;
+    cell.tabIndex = 0;
+    onCellClick(cell);
+    cell.focus({ preventScroll: true });
+    intentionalFocusTarget = cell;
 }
 
 // Keeps the board operable for screen reader / keyboard users: what a
@@ -2513,8 +2535,13 @@ function showHint() {
     const { r, c, tier1, tier2, tier3, method, highlightCells } = hint;
     const cell = board.children[r * 9 + c];
 
-    // onCellClick clears every cell's highlight classes as part of selecting
-    // the primary cell, so it must run BEFORE the hint's own highlights are
+    // onCellClick (run via moveSelectionAndFocusTo, which also moves real
+    // keyboard focus onto this cell -- see its comment above -- so that
+    // reaching Hint by Tab, not just by tapping it, leaves the *cell* both
+    // visibly and actually selected/focused rather than leaving real focus
+    // stranded on the Hint button while only the cell looks selected)
+    // clears every cell's highlight classes as part of selecting the
+    // primary cell, so it must run BEFORE the hint's own highlights are
     // applied below — marking every cell the hint actually refers to (not
     // just the first one) is the whole point here (see REQUIREMENTS.md item
     // 8). The marker itself, "hint-trace", is a separate class from
@@ -2522,7 +2549,7 @@ function showHint() {
     // color — and clearNumberHighlights() (which onCellClick() just ran)
     // deliberately doesn't touch it, so it survives clicking the cell to
     // act on the hint instead of vanishing right when it's needed most.
-    onCellClick(cell);
+    moveSelectionAndFocusTo(cell);
 
     clearHintTrace();
     const cellsToHighlight = highlightCells && highlightCells.length ? highlightCells : [{ r, c }];
@@ -2904,9 +2931,14 @@ document.addEventListener("click", (event) => {
 // already on-screen by definition.
 document.addEventListener("click", (event) => {
     const focusable = event.target.closest("button, select, [tabindex]");
-    if (focusable && document.activeElement !== focusable) {
+    // A click's own handler can deliberately move focus somewhere other
+    // than the clicked element itself (e.g. showHint() focusing the hint's
+    // target cell instead of leaving focus on the Hint button) -- don't
+    // fight that; only step in when nothing already claimed real focus.
+    if (focusable && document.activeElement !== focusable && document.activeElement !== intentionalFocusTarget) {
         focusable.focus({ preventScroll: true });
     }
+    intentionalFocusTarget = null;
 });
 
 // Letter-key shortcuts for every button, so an attached keyboard doesn't
@@ -2914,7 +2946,10 @@ document.addEventListener("click", (event) => {
 // "H" was already Hint, so Highlight Fullest uses "F" (from "Fullest")
 // instead of clashing on its own first letter — every other shortcut is
 // just the button's own first letter. Each button's label/title spells
-// its own shortcut out (e.g. "Hint (H)") for discoverability.
+// its own shortcut out (e.g. "Hint (H)") for discoverability. "B" (Board)
+// isn't a button at all -- requested live, so an attached keyboard has a
+// direct way back onto the grid without hunting for whichever cell was
+// last selected.
 //
 // Guarded to plain, unmodified letter presses only (no Ctrl/Cmd/Alt), so
 // this never fights with a real browser/OS shortcut sharing the same
@@ -2931,12 +2966,35 @@ const KEYBOARD_SHORTCUTS = {
     p: "pencilToggle",
     h: "HintBtn",
 };
+// New Game, Restart, and Clear Pencil Marks are destructive and already
+// have no undo/confirmation on a deliberate tap (flagged as a trade-off
+// when shortcuts first shipped) -- a stray keypress is a much easier way
+// to trigger one by accident than a tap on a physically separate button,
+// so these three specifically ask for confirmation before acting. The
+// other five shortcuts are all non-destructive (reversible or purely
+// informational), so they fire immediately like a normal tap.
+const CONFIRM_BEFORE_SHORTCUT = {
+    newGameBtn: "Start a new game? This discards the current puzzle's progress.",
+    restartBtn: "Restart this puzzle? This clears every number and pencil mark you've entered.",
+    clearNotesBtn: "Clear all pencil marks across the board?",
+};
 document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.activeElement === difficultySelect) return;
-    const targetId = KEYBOARD_SHORTCUTS[e.key.toLowerCase()];
+    const key = e.key.toLowerCase();
+
+    if (key === "b") {
+        e.preventDefault();
+        const cell = selectedCell || board.querySelector('.cell[tabindex="0"]') || board.children[0];
+        moveSelectionAndFocusTo(cell);
+        return;
+    }
+
+    const targetId = KEYBOARD_SHORTCUTS[key];
     if (targetId) {
         e.preventDefault();
+        const confirmMessage = CONFIRM_BEFORE_SHORTCUT[targetId];
+        if (confirmMessage && !confirm(confirmMessage)) return;
         document.getElementById(targetId).click();
     }
 });
