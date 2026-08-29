@@ -143,6 +143,10 @@ with specifics and exits 1 on failure.
   hint right after fully cycling one (without placing anything) moves
   on to a different technique instead of repeating the same one
   forever, when more than one technique is actually available.
+- **`test_keyboard_shortcuts.py`** — every button has a working
+  letter-key shortcut, modified presses (Ctrl/Cmd/Alt) are ignored
+  rather than treated as a shortcut, and the difficulty select's own
+  native type-ahead isn't double-triggered by the same key.
 
 ## Adding a new one
 

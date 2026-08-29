@@ -799,6 +799,27 @@ of that device setting. Test: `test_all_buttons_tab_reachable.py` (freezes
 the fix directly, since Chromium's own default already Tab-stops on plain
 buttons and can't reproduce the skip itself).
 
+**Fifth follow-up, requested live:** even with every button Tab-reachable,
+tabbing all the way across the control rows to reach one was still slow.
+Added a plain, unmodified letter-key shortcut per button — each one's own
+first letter (New Game/N, Restart/R, Clear Pencil Marks/C, Guard Pencil/G,
+Auto-Pencil/A, Pencil Mode/P, Hint/H), except Highlight Fullest, which
+uses "F" (from "Fullest") since Hint already owns "H". Each button's
+visible label and title spell out its own shortcut (e.g. "Hint (H)") for
+discoverability. Guarded two ways: modified presses (Ctrl/Cmd/Alt) are
+ignored, so this never fights a real browser/OS shortcut sharing the same
+letter; and the difficulty `<select>`'s own native type-ahead (jumping to
+"Hard" on "h", etc.) is left alone whenever that select is focused, rather
+than being double-triggered by this handler too. Test:
+`test_keyboard_shortcuts.py`.
+
+Trade-off flagged to the user rather than decided unilaterally: three of
+the shortcut targets (New Game, Restart, Clear Pencil Marks) are
+destructive and already have no undo/confirmation on a deliberate tap — a
+single stray keypress is easier to trigger by accident than a tap on a
+physically separated button. Shipped as requested (shortcuts on all 8);
+revisit if accidental triggers turn out to be a real problem in practice.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark

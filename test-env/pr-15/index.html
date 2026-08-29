@@ -686,15 +686,15 @@ h1 {
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
         </select>
-        <button id="newGameBtn" class="btn-danger" tabindex="0">New Game</button>
-        <button id="restartBtn" class="btn-danger" tabindex="0">Restart</button>
-        <button id="clearNotesBtn" class="btn-danger" tabindex="0" title="Clears all small pencil marks across the board">Clear Pencil Marks</button>
+        <button id="newGameBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: N">New Game (N)</button>
+        <button id="restartBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: R">Restart (R)</button>
+        <button id="clearNotesBtn" class="btn-danger" tabindex="0" title="Clears all small pencil marks across the board. Keyboard shortcut: C">Clear Pencil Marks (C)</button>
     </div>
 
    <div class="controls-gameplay">
-       <button id="highlightLeastBtn" tabindex="0" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
-       <button id="guardNotesToggle" class="active" aria-pressed="true" tabindex="0" title="Prevents adding pencil marks that conflict with placed numbers">Guard Pencil: ON</button>
-       <button id="autoPencilBtn" tabindex="0" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
+       <button id="highlightLeastBtn" tabindex="0" title="Highlights units (row, col, box, or digit) with the fewest empty cells. Keyboard shortcut: F">Highlight Fullest (F)</button>
+       <button id="guardNotesToggle" class="active" aria-pressed="true" tabindex="0" title="Prevents adding pencil marks that conflict with placed numbers. Keyboard shortcut: G">Guard Pencil: ON (G)</button>
+       <button id="autoPencilBtn" tabindex="0" title="Automatically fills pencil marks into all open spaces. Keyboard shortcut: A">Auto‑Pencil (A)</button>
    </div>
 
     <!-- Right above the number bar/board, not up by the title, so a hint's
@@ -705,8 +705,8 @@ h1 {
 
     <div class="input-section">
         <div class="pencil-hint-row">
-            <button id="pencilToggle" aria-pressed="false" tabindex="0" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
-            <button id="HintBtn" class="btn-primary" tabindex="0" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
+            <button id="pencilToggle" aria-pressed="false" tabindex="0" title="Toggle writing small pencil marks vs solid final answers. Keyboard shortcut: P">Pencil Mode: OFF (P)</button>
+            <button id="HintBtn" class="btn-primary" tabindex="0" title="Provides step-by-step guidance on how to solve the next logical step. Keyboard shortcut: H">Hint (H)</button>
         </div>
         <div class="number-bar" id="numberBar"></div>
     </div>
@@ -1518,7 +1518,7 @@ function loadSavedGameState() {
         if (state.difficulty) difficultySelect.value = state.difficulty;
         if (typeof state.guardNotesMode !== "undefined") {
             guardNotesMode = state.guardNotesMode;
-            guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"}`;
+            guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"} (G)`;
             guardNotesToggle.classList.toggle("active", guardNotesMode);
         }
 
@@ -1760,7 +1760,7 @@ const pencilToggle = document.getElementById("pencilToggle");
 pencilToggle.addEventListener("click", () => {
     if (gameWon) return;
     pencilMode = !pencilMode;
-    pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
+    pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"} (P)`;
     pencilToggle.classList.toggle("active", pencilMode);
     pencilToggle.setAttribute("aria-pressed", String(pencilMode));
     updateNumberTileStyles();
@@ -1772,7 +1772,7 @@ const guardNotesToggle = document.getElementById("guardNotesToggle");
 guardNotesToggle.addEventListener("click", () => {
     if (gameWon) return;
     guardNotesMode = !guardNotesMode;
-    guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"}`;
+    guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"} (G)`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
     guardNotesToggle.setAttribute("aria-pressed", String(guardNotesMode));
 
@@ -2906,6 +2906,38 @@ document.addEventListener("click", (event) => {
     const focusable = event.target.closest("button, select, [tabindex]");
     if (focusable && document.activeElement !== focusable) {
         focusable.focus({ preventScroll: true });
+    }
+});
+
+// Letter-key shortcuts for every button, so an attached keyboard doesn't
+// require tabbing all the way across the control rows to reach one.
+// "H" was already Hint, so Highlight Fullest uses "F" (from "Fullest")
+// instead of clashing on its own first letter — every other shortcut is
+// just the button's own first letter. Each button's label/title spells
+// its own shortcut out (e.g. "Hint (H)") for discoverability.
+//
+// Guarded to plain, unmodified letter presses only (no Ctrl/Cmd/Alt), so
+// this never fights with a real browser/OS shortcut sharing the same
+// letter, and skipped entirely while the difficulty <select> is focused
+// so its own native type-ahead (jumping to "Hard" on "h", etc.) isn't
+// double-triggered.
+const KEYBOARD_SHORTCUTS = {
+    n: "newGameBtn",
+    r: "restartBtn",
+    c: "clearNotesBtn",
+    f: "highlightLeastBtn",
+    g: "guardNotesToggle",
+    a: "autoPencilBtn",
+    p: "pencilToggle",
+    h: "HintBtn",
+};
+document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.activeElement === difficultySelect) return;
+    const targetId = KEYBOARD_SHORTCUTS[e.key.toLowerCase()];
+    if (targetId) {
+        e.preventDefault();
+        document.getElementById(targetId).click();
     }
 });
 
