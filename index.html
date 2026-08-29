@@ -226,10 +226,13 @@ window.addEventListener('DOMContentLoaded', () => {
        the feedback instead of just removing the pulsing motion. A plain
        !important box-shadow beats a running CSS animation in the cascade
        regardless of that animation's duration, so this shows a steady
-       ring for the same ~2s window the JS-driven .glow class is present,
-       instead of a flash nobody can perceive. */
+       glow for the same ~2s window the JS-driven .glow class is present,
+       instead of a flash nobody can perceive. Same blur/spread as the
+       animation's own peak (12px blur, 6px spread) -- a thin hard-edged
+       ring here reads as a totally different, much weaker effect, not
+       just a non-pulsing version of the same glow. */
     .glow {
-        box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.85) !important;
+        box-shadow: 0 0 12px 6px rgba(0, 150, 255, 0.85) !important;
     }
 }
 
