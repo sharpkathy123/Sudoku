@@ -169,6 +169,15 @@ with specifics and exits 1 on failure.
   digit clears a leftover "X doesn't belong..." message from an earlier
   wrong attempt, instead of leaving it on screen looking like the
   correct keypress did nothing.
+- **`test_pencil_toggle_keeps_selection_visible.py`** — tapping a number
+  tile to toggle a pencil mark keeps the selected cell visibly marked
+  `.selected` and keeps real keyboard focus on the board, so an arrow
+  key right afterward still moves the selection instead of doing
+  nothing.
+- **`test_roving_tabindex_follows_click.py`** — clicking/selecting a cell
+  moves the roving tabindex there too, not just arrow-key moves and
+  Hint, so "B" and a bare Tab always land on the cell actually selected
+  instead of a stale one from an earlier Hint.
 
 ## Adding a new one
 
