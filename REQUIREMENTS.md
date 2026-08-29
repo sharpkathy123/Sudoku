@@ -693,17 +693,57 @@ Easy.
   generated/detected) — unchanged; a real generation/detection-rate issue,
   not a wording one.
 
-**Accessibility** (user confirmed: *"Yes, please, for accessibility."*).
-From the accessibility review: the board and number pad are plain unlabeled
-`<div>`s with zero keyboard handlers (not operable without a mouse/touch at
-all); `#status` is not an ARIA live region, so screen reader users get none
-of the hint/status feedback; no `prefers-reduced-motion` support anywhere;
-non-text contrast failures on several borders/outlines; pencil-mark text
-contrast fails against some highlight backgrounds; toggle buttons (Pencil
-Mode, Guard Pencil) lack `aria-pressed`; several touch targets are below the
-44px minimum; missing landmark/heading structure; the win overlay is present
-in the accessibility tree from page load (screen readers can reach it)
-despite being visually hidden via opacity only.
+### Done (partial): accessibility — keyboard operability and core ARIA semantics
+
+User confirmed: *"Yes, please, for accessibility."* From the accessibility
+review, addressed so far:
+
+- **The board and number pad had zero keyboard handlers** — not operable
+  at all without a mouse or touch. Board cells now use a roving tabindex
+  (only the focused cell is a Tab stop, so keyboard users don't tab through
+  81 stops): arrow keys move focus between cells, moving focus also selects
+  the cell (matching a tap), Enter/Space selects the focused cell, and
+  digits 1-9 place/pencil-mark through the exact same number-tile logic a
+  mouse/touch user triggers — no separate keyboard-only code path to keep
+  in sync. Number tiles are now focusable with `role="button"` and an
+  `aria-label`.
+- **Cells had no accessible description at all.** Each cell now has an
+  `aria-label` stating its row, column, box, and state ("empty" / "given
+  N" / "you entered N"), kept live-updated after every placement. The
+  board itself has `role="grid"` with a label.
+- **`#status` wasn't an ARIA live region** — screen reader users got none
+  of the hint/status feedback. Now `role="status" aria-live="polite"`.
+- **Toggle buttons (Pencil Mode, Guard Pencil) lacked `aria-pressed`** —
+  now present and kept in sync with each toggle's actual state.
+- **The win overlay was present in the accessibility tree from page
+  load** (screen readers could reach it) despite being visually hidden via
+  opacity only. Now `aria-hidden="true"` by default, flipped to `"false"`
+  only in `onWin()`.
+- **Missing landmark/heading structure** — the page's only heading was an
+  `<h2>` with no preceding `<h1>`. Now a proper `<h1>` inside a `<main>`
+  landmark.
+- `prefers-reduced-motion` support was already added as part of the color
+  & layout overhaul above.
+
+Test: `test_keyboard_accessibility.py`.
+
+### Still open: accessibility
+
+- **Non-text contrast** on several borders/outlines, and **pencil-mark
+  text contrast** against some highlight backgrounds — not audited or
+  fixed in this pass.
+- **Touch targets below the 44px minimum** — the board-space overhaul
+  raised cell/tile sizes substantially, but the *minimum* end of their
+  `clamp()` ranges (30px) is still below 44px on the narrowest supported
+  widths. Needs to be weighed against the max-space layout work rather
+  than changed in isolation.
+- **ARIA grid structure is simplified**: `role="gridcell"` cells sit
+  directly under `role="grid"` with no intervening `role="row"` (the
+  board's CSS Grid layout relies on 81 flat `.cell` children in flow
+  order; wrapping them in row containers would need a bigger layout
+  change). Most screen readers still announce position and state
+  correctly via each cell's `aria-label`, but this isn't a fully
+  spec-compliant ARIA grid.
 
 **Win-state polish** (lowest priority, by agreed order). From the UX
 review: competing simultaneous visual signals on win (confetti + banner +

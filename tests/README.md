@@ -108,6 +108,12 @@ with specifics and exits 1 on failure.
 - **`test_hint_and_board_both_visible.py`** — the hint/status text and
   the whole board fit in one ordinary phone screen at the same time,
   and the Hint button sits on the same row as the Pencil Mode toggle.
+- **`test_keyboard_accessibility.py`** — the board and number bar are
+  fully operable via keyboard (arrow keys to move, digits 1-9 to place),
+  cells expose a live-updating `aria-label`, `#status` is an ARIA live
+  region, toggle buttons expose `aria-pressed`, the win overlay is
+  `aria-hidden` until an actual win, and the page has one `<h1>` inside
+  a `<main>` landmark.
 
 ## Adding a new one
 

@@ -40,7 +40,7 @@ def main():
             failures.append("Clicking a cell did not select it (test setup problem, not the fix itself)")
 
         # 2. Tapping outside the board/controls should clear that selection.
-        page.locator("h2").click()
+        page.locator("h1").click()
         page.wait_for_timeout(200)
         if page.evaluate("() => !!document.querySelector('.cell.selected')"):
             failures.append("Cell selection survived a tap outside the board and controls")
