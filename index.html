@@ -491,6 +491,15 @@ h1 {
     transition: background 0.15s, box-shadow 0.15s, border-color 0.15s, font-weight 0.2s;
 }
 
+/* Every path that focuses a cell (arrow keys, a plain Tab landing) also
+   selects it via the board's focusin listener, so .selected's own outline
+   below is always present the instant a cell is truly focused — no need
+   for (and no risk of a visually-competing) separate browser-default
+   focus ring here. */
+.cell:focus {
+    outline: none;
+}
+
 .cell.given,
 .cell.completed-number {
     font-weight: 600;
@@ -500,9 +509,16 @@ h1 {
     background: #eef2ff;
 }
 
+/* Thicker, darker, and pulled inward (outline-offset) rather than the
+   thin 2px accent-blue line this used to be — reported live as easy to
+   lose track of once arrow-key navigation lands on a filled cell and its
+   full same-number highlight (a pale yellow fill across several other
+   cells) competes for attention. z-index above every highlight layer so
+   it's never visually buried under one. */
 .cell.selected {
-    outline: 2px solid var(--accent);
-    z-index: 2;
+    outline: 3px solid #1d4ed8;
+    outline-offset: -3px;
+    z-index: 3;
 }
 
 .cell.wrong {
@@ -1293,8 +1309,7 @@ board.addEventListener("keydown", (e) => {
         const nextCell = board.children[nr * 9 + nc];
         cell.tabIndex = -1;
         nextCell.tabIndex = 0;
-        nextCell.focus();
-        onCellClick(nextCell);
+        nextCell.focus(); // triggers the focusin listener below, which selects it
         return;
     }
 
@@ -1309,6 +1324,16 @@ board.addEventListener("keydown", (e) => {
         if (selectedCell !== cell) onCellClick(cell);
         numberBar.children[parseInt(e.key, 10) - 1].click();
     }
+});
+
+// Selection follows focus however focus arrives — arrow keys (above),
+// but also a plain Tab landing directly on the board's one tab-stop
+// cell, which used to leave selectedCell out of sync with what's
+// actually focused (relying on the browser's own inconsistent default
+// focus ring instead of this app's own, far more visible one).
+board.addEventListener("focusin", (e) => {
+    const cell = e.target.closest(".cell");
+    if (cell) onCellClick(cell);
 });
 
 function hasActivePencilMarksOnBoard() {
