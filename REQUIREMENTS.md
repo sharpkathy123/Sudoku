@@ -857,6 +857,30 @@ actually testing the shortcuts above.
    selected) from anywhere else on the page. Test:
    `test_board_shortcut.py`.
 
+**Seventh follow-up, reported live:** "When I type a wrong digit I don't
+see our error message. I do when I use the old method to enter a digit
+[tapping the number tile]." Both paths run the exact same code — the
+board's digit-key handler calls `numberBar.children[n-1].click()`, the
+same click a tap fires — so the status message was always being set;
+what was missing was focus staying put to let the player see it. The iOS
+tap-focus workaround (item 2 two follow-ups up, and see
+`test_tap_sets_real_focus.py`) reacts to *any* click whose target isn't
+the current activeElement, including a click our own code dispatches via
+`.click()` — so typing a digit silently yanked real keyboard focus off
+the cell and onto the number tile div it happens to relay through, which
+on a real device can scroll that tile into view and push the status text
+off-screen even though it's sitting right there in the DOM. The same
+mechanism affects every letter-key shortcut too (each one relays through
+`document.getElementById(id).click()`), not just digit entry. Fixed by
+gating the workaround on `event.isTrusted`, which is false for a click
+dispatched by `element.click()` and true only for a genuine tap/mouse
+click — keyboard-driven input no longer moves focus off wherever
+Tab/arrow-keys legitimately left it, while real taps on iOS still get
+the original fix. Test: `test_digit_key_keeps_board_focus.py`, confirmed
+to fail against the pre-fix code (focus landed on the number tile after
+both a wrong and a correct keyboard digit entry) and pass against the
+fix; full suite (29 Playwright tests + 10 in-page tests) still green.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark

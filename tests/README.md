@@ -160,6 +160,11 @@ with specifics and exits 1 on failure.
   Clear Pencil Marks keyboard shortcuts show a confirmation dialog before
   acting (and do nothing if it's cancelled), while the other five
   shortcuts never show one.
+- **`test_digit_key_keeps_board_focus.py`** — typing a digit on the
+  keyboard (right or wrong) shows the usual status message and leaves
+  real keyboard focus on the board cell, instead of the iOS tap-focus
+  workaround silently yanking it onto the number tile the keypress
+  happens to relay through.
 
 ## Adding a new one
 
