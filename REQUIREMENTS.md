@@ -1140,6 +1140,51 @@ tests + 10 in-page tests) still green, including
 `test_eliminations_never_contradict_solution.py`'s 60-puzzle audit and
 the in-page `testHintObjectsWellFormed`.
 
+**Follow-up, reported live — the chaining fix's own side effect:**
+"'All digits except 8 are already present across Row 6, Column 8, or Box
+6.' That's the hint displayed. Are you saying that is correct?" Good
+challenge — the final answer (8) was correct, verified by reconstructing
+the exact board from the player's screenshot and solving it, but the
+*wording* was not. "Already present" specifically means placed somewhere
+in that row/column/box; checking with `isSafe()` against just the placed
+digits left three candidates {5, 6, 8} for that cell, not one — the
+other two digits (5, 6) had only been ruled out by earlier hints' own
+eliminations (exactly what confirmedCandGrid is designed to carry
+forward), never placed anywhere the player could find them. A player
+scanning that row/column/box for 5 and 6 and not finding them was
+correctly distrusting a hint whose text made a false claim, even though
+its conclusion happened to be right.
+
+`findNakedSingle()` was written back when its input could only ever be
+pure, placed-digit-derived candidates, before hints could chain — so it
+never needed to distinguish *why* a cell was down to one candidate.
+Fixed the same way `findHiddenSingle()` already distinguishes
+"Cross-Hatching" (blocked by placed digits) from "Hidden Single" (needs
+candidate eliminations): check with `isSafe()` against the actual
+placed-digit grid whether the single candidate is explainable by
+placement alone, and use honest, different wording — "once eliminations
+from earlier hints are also accounted for" — when it isn't. `findFullHouse()`
+was checked too and needs no change: it counts empty cells directly,
+never touches candidates, so its wording was never at risk.
+
+Test: `test_naked_single_wording_matches_reasoning.py` — hand-builds a
+grid (rather than relying on a random puzzle happening to produce this
+combination) where placement alone leaves three candidates at a cell,
+then simulates an earlier hint's elimination narrowing it to one, and
+confirms the tier3 text no longer claims the eliminated digits are
+"already present." Confirmed to fail against the pre-fix code with the
+literal wording from the live report, and pass against the fix. Full
+suite still green.
+
+Noted during this investigation, not yet resolved: while stress-testing
+around this fix, `test_hint_chains_eliminations.py` produced one genuine
+"kept repeating the same Unique Rectangle hint" failure in roughly 40
+runs, distinct from its normal (and expected) "no qualifying puzzle
+found in N attempts" search-variance flakiness. Couldn't reproduce it
+again across 280+ further targeted attempts, so it's left as an
+unresolved rare flake rather than a confirmed bug — worth another look
+if it ever reproduces reliably enough to debug.
+
 ## 12. Some "Hard" puzzles weren't actually uniquely solvable — ✅ Fixed
 
 **Reported live, following up on item 11:** the exact same "place 8, get

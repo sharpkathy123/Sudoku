@@ -178,6 +178,12 @@ with specifics and exits 1 on failure.
   moves the roving tabindex there too, not just arrow-key moves and
   Hint, so "B" and a bare Tab always land on the cell actually selected
   instead of a stale one from an earlier Hint.
+- **`test_naked_single_wording_matches_reasoning.py`** — a Naked Single
+  hint only claims digits are "already present" in the row/column/box
+  when that's actually true; when the single remaining candidate depends
+  on an earlier hint's own elimination instead, it says so rather than
+  making a false claim the player can't verify by scanning for placed
+  digits.
 - **`test_hint_chains_eliminations.py`** — once an elimination-only hint
   (Naked Pair/Triple, Pointing/Claiming, X-Wing/Swordfish, the wings,
   Unique Rectangle) has been fully cycled, the *next* Hint press can find
