@@ -757,6 +757,31 @@ focus arrives, not just via arrow keys (with the cell's own default focus
 ring suppressed in favor of this always-in-sync one). Test:
 `test_keyboard_focus_stays_visible.py`.
 
+**Third follow-up, reported live using an attached keyboard on iOS:** Tab
+always resumed from the same place no matter which button had just been
+tapped with a finger. Root cause: a long-standing iOS Safari quirk — unlike
+every other browser, Safari on iOS doesn't give a tapped `<button>` or
+`<select>` real keyboard focus by default (it visually reacts without
+`document.activeElement` ever actually changing), so Tab afterward
+continues from wherever focus last *genuinely* was, not from what was just
+tapped. Fixed with one delegated `click` listener that explicitly calls
+`.focus({ preventScroll: true })` on whatever
+`button`/`select`/`[tabindex]` element was tapped, covering every control
+(and every board cell/number tile) at once rather than button by button.
+Chromium already focuses on click by default, so
+`test_tap_sets_real_focus.py` can't show a before/after contrast the way
+most tests here do (the bug itself is iOS-only) — it freezes the
+underlying invariant (tap sets real focus) that the fix relies on instead.
+
+Separately reported: Tab/Shift+Tab don't escape the difficulty dropdown's
+native picker once it's open on iOS with an external keyboard. This is
+likely a platform-level interaction between iOS's native picker overlay
+and external keyboards, not something controllable from page script —
+worth confirming whether it persists now that the Tab-resets-elsewhere
+issue is fixed, and whether Enter/Return (to confirm the highlighted
+option) works as an alternative, before concluding whether it needs a
+custom (non-native) dropdown to fully control.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark
