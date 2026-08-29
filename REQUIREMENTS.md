@@ -1078,6 +1078,68 @@ behavior over risking another round of that cycle. Not fixed; left here
 so a future session doesn't have to relitigate the same tradeoff from
 scratch.
 
+**Follow-up, reported live — this was more than cosmetic:** "This
+'acceptable limitation' means that I can't finish this puzzle without
+making a wild guess." Investigating properly (rather than repeating the
+same accepted-limitation framing) found a real, fixable bug underneath
+the cosmetic tier-cycling annoyance above, not just an extension of it.
+
+The puzzle generator's own solver, `rateSolveWithTierCascade()` (used to
+verify a puzzle is solvable by pure logic before it's ever shown to a
+player), and separately the in-page test suite's
+`testHintObjectsWellFormed`, both prove solvability by *chaining*
+techniques: applying each one's `eliminate` list into a working
+candidate grid, then re-running the cascade so the next technique in the
+chain becomes visible. `showHint()` never did this — every call
+recomputed `getCandidatesGridPure()` from placed digits only, with no
+memory of eliminations already fully shown. So whenever the *next*
+logical step genuinely depended on an earlier elimination being applied
+first, Hint could never reach it: the same already-fully-shown
+elimination-only hint would keep winning the cascade forever, since
+nothing it looks at ever changes on its own. That's a real dead end, not
+mere repetition — exactly what stranded the player.
+
+Fixed with `confirmedCandGrid`: a working candidate grid that persists
+across Hint presses (reset only when the real grid changes — a
+placement or a new puzzle, the same two reset points as `seenHintKeys`)
+and has each hint's own `eliminate` list folded into it once that hint
+reaches tier 3, mirroring exactly what the two already-trusted solvers
+above already do. `showHint()` now seeds this grid from
+`getCandidatesGridPure()` only when it's empty, and reuses/narrows it
+otherwise. This doesn't touch the narrower cosmetic annoyance in the
+"Accepted limitation" note above (tier 1→2→3 cycling on a hint the
+player has already mentally handled, when there's genuinely no other
+technique available yet) — that's still an accepted, unfixed tradeoff.
+What's fixed is the case where a *different* technique actually becomes
+available and the engine simply wasn't looking for it correctly.
+
+Test: `test_hint_chains_eliminations.py` — advances a generated puzzle
+via placements only (recomputing candidates fresh each round, exactly
+like `showHint()` does) until reaching a state where the first fireable
+technique is elimination-only, is the *only* thing fireable on the raw
+candidates, and its own elimination unlocks a different technique that
+doesn't fire otherwise; then drives the real `showHint()` through that
+hint's 3 tiers without ever placing a digit and confirms the next press
+moves to the unlocked technique. Confirmed to fail against the pre-fix
+code (repeats the same hint forever, exactly as reported) and pass
+against the fix. Worth noting for next time: an earlier version of this
+test searched for the dependency using an *accumulated* candidate grid
+built by walking the solve forward with eliminations applied at every
+step — which found "dependencies" that don't actually exist from a cold
+start, since `showHint()` (both before and after this fix, on its very
+first call for a given grid) always begins from a fresh
+`getCandidatesGridPure()` with no accumulated history. That version
+passed even against the pre-fix code, for an unrelated reason (an
+entirely separate technique happened to already be independently
+fireable on the true raw candidates). Fixed by only ever advancing the
+simulated grid through placements, and identifying the dependency fresh
+at each round — matching what the real engine can actually see — and by
+requiring the target hint to be the *only* thing fireable on that raw
+grid, ruling out the same false-pass mode. Full suite (33 Playwright
+tests + 10 in-page tests) still green, including
+`test_eliminations_never_contradict_solution.py`'s 60-puzzle audit and
+the in-page `testHintObjectsWellFormed`.
+
 ## 12. Some "Hard" puzzles weren't actually uniquely solvable — ✅ Fixed
 
 **Reported live, following up on item 11:** the exact same "place 8, get
