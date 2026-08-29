@@ -147,6 +147,19 @@ with specifics and exits 1 on failure.
   letter-key shortcut, modified presses (Ctrl/Cmd/Alt) are ignored
   rather than treated as a shortcut, and the difficulty select's own
   native type-ahead isn't double-triggered by the same key.
+- **`test_hint_selects_target_cell.py`** — activating Hint (by keyboard,
+  not a tap) moves real keyboard focus onto the hinted cell itself, not
+  just a purple highlight on top of a cell that's still only visually
+  marked while the Hint button silently keeps real focus. Also checks an
+  arrow key immediately after Hint actually moves selection, proving
+  focus is really on the board.
+- **`test_board_shortcut.py`** — "B" jumps keyboard focus straight onto
+  the board (the previously selected cell, or the roving tab-stop cell if
+  none), from anywhere else on the page.
+- **`test_destructive_shortcuts_confirm.py`** — the New Game, Restart, and
+  Clear Pencil Marks keyboard shortcuts show a confirmation dialog before
+  acting (and do nothing if it's cancelled), while the other five
+  shortcuts never show one.
 
 ## Adding a new one
 
