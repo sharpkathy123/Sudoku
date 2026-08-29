@@ -114,6 +114,14 @@ with specifics and exits 1 on failure.
   region, toggle buttons expose `aria-pressed`, the win overlay is
   `aria-hidden` until an actual win, and the page has one `<h1>` inside
   a `<main>` landmark.
+- **`test_eliminations_never_contradict_solution.py`** — audits 60
+  freshly generated puzzles across every difficulty and confirms no
+  hint ever eliminates a cell's actual solution digit. Catches the
+  `countSolutions()` uniqueness-check bug where some "Hard" puzzles
+  weren't really uniquely solvable, which broke Unique Rectangle's
+  eliminations in particular (its whole premise is that keeping a
+  digit would create a second solution — meaningless if one already
+  exists elsewhere).
 
 ## Adding a new one
 

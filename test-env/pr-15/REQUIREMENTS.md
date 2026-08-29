@@ -803,3 +803,65 @@ confirmed to fail against the pre-fix code (both by detecting the deleted
 function's continued existence and by proving `showHint()` never called
 `getCandidatesGridPure()`) and pass against the fix. Full suite: 10/10
 in-page tests, 16/16 Playwright tests.
+
+## 12. Some "Hard" puzzles weren't actually uniquely solvable — ✅ Fixed
+
+**Reported live, following up on item 11:** the exact same "place 8, get
+rejected" scenario reappeared even after item 11 shipped. Worth noting how
+this was surfaced at all — GitHub Pages serves both the live site and a
+PR's preview build from the same origin (`sharpkathy123.github.io`, just
+different paths), and `localStorage` is scoped per-origin, not per-path, so
+both share the same saved game. The puzzle being resumed predated item
+11's fix; item 11 only changes how *new* hints reason about candidates, not
+a puzzle/solution pair already sitting in `localStorage` from before the
+fix existed — so reproducing the old bug on an old save didn't mean the
+fix failed, but it did mean the underlying puzzle needed direct
+investigation rather than assuming it was the same root cause again.
+
+**Root cause, found by auditing broadly instead of re-checking the one
+report:** wrote a check that generates many fresh puzzles and confirms no
+hint's elimination ever removes a cell's *actual* solution digit — a
+stronger, technique-agnostic version of item 11's check. Run across 60
+fresh puzzles, it failed 11 times, always on Hard difficulty, always
+"Unique Rectangle." Diagnosed one failing case in full: four cells with
+candidates `{1,6}, {1,6}, {1,3,5,6}, {1,6}` — a textbook Unique Rectangle
+shape, correctly detected — but the recorded solution had `6` at the
+"extra" cell, exactly one of the two digits Unique Rectangle said to
+eliminate. Re-solving that same puzzle's original givens with a larger
+search budget than the generator itself used turned up **at least 5**
+solutions, not the 1 the generator's own uniqueness check had certified.
+
+The generator's `countSolutions()` (used everywhere a candidate puzzle's
+uniqueness gets verified) had a hard-coded `MAX_ITERATIONS = 5000` cap, and
+scanned for the first empty cell in row-major order at every step rather
+than the most-constrained one. A genuinely Hard puzzle — few forced cells,
+which is exactly what makes it Hard — has a much larger, flatter search
+tree under that naive ordering, and could exhaust the iteration cap having
+only explored one branch, silently reporting "1 solution" (unique) for a
+puzzle that actually had several. That false "unique" then broke every
+technique whose correctness depends on real uniqueness — Unique Rectangle
+chief among them, since eliminating a digit specifically because keeping
+it would allow a second solution is meaningless once a second solution
+already exists via a different cell entirely. This was never a hint-engine
+bug; item 11's fix was real and necessary, but insufficient for puzzles
+that were broken before any hint ran.
+
+**Fix:** `countSolutions()` now branches on the empty cell with the fewest
+remaining candidates first (the standard "most constrained variable"
+heuristic) instead of scanning in row-major order — this is a well-known,
+large reduction in search-tree size for Sudoku specifically, not a niche
+optimization. It also now distinguishes "confirmed count" from "iteration
+budget ran out before a definitive answer" (returning `-1` for the latter,
+which every caller's `=== 1` / `!== 1` check already treats as "not
+verified unique" and rejects) rather than ever returning a possibly-wrong
+partial count as if it were final.
+
+**Verification:** re-ran the 60-puzzle elimination audit three consecutive
+times post-fix — zero contradictions every time (was 11 failures on one
+run pre-fix). As a side effect of branching more intelligently rather than
+brute-force scanning, Hard-tier generation also got dramatically faster in
+the process (spot-checked at consistently under 1 second; a previous
+session had documented it at ~19 seconds after an unrelated randomization
+fix). Full suite: 10/10 in-page tests (which also run measurably faster
+now), 19/19 Playwright tests, including the new
+`test_eliminations_never_contradict_solution.py`.
