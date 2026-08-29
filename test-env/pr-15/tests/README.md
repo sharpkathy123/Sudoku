@@ -139,6 +139,10 @@ with specifics and exits 1 on failure.
 - **`test_all_buttons_tab_reachable.py`** — every button has an explicit
   `tabindex`, so Tab reaches it on iOS even without Full Keyboard Access
   turned on (which otherwise makes Tab skip plain buttons entirely).
+- **`test_hint_progresses_past_seen_hints.py`** — asking for another
+  hint right after fully cycling one (without placing anything) moves
+  on to a different technique instead of repeating the same one
+  forever, when more than one technique is actually available.
 
 ## Adding a new one
 

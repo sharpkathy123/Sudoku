@@ -744,6 +744,19 @@ let currentHintState = null;
 let currentHintLevel = 0;
 let statusTimeoutId = null;
 
+// Hints (method + primary cell) that have already had all 3 tiers shown
+// on the *current* grid state. Elimination-only hints (Naked Pair,
+// Pointing/Claiming, X-Wing/Swordfish, the wings, Unique Rectangle)
+// don't change the grid themselves — applying one just updates the
+// player's own pencil marks, which the hint engine deliberately never
+// reads (see REQUIREMENTS.md item 11). Without this, asking for another
+// hint right after fully cycling one would recompute the exact same
+// candidates from the exact same placed digits and show the exact same
+// hint again, forever, until a digit actually gets placed somewhere.
+// Cleared whenever the grid itself changes (a real placement, or a new
+// puzzle) — never by anything that leaves placed digits untouched.
+let seenHintKeys = new Set();
+
 // The persistent hint-trace marker (see clearHintTrace()): which cells are
 // currently marked, and the one primary cell whose correct placement means
 // this hint has been acted on and the trace should clear itself.
@@ -1364,6 +1377,7 @@ function buildBoard() {
     gameWon = false;
     currentHintState = null;
     currentHintLevel = 0;
+    seenHintKeys.clear();
     hintTraceCells = [];
     hintTraceTarget = null;
 
@@ -1710,6 +1724,7 @@ for (let n = 1; n <= 9; n++) {
 
         currentHintState = null;
         currentHintLevel = 0;
+        seenHintKeys.clear();
 
         // The hint this trace was marking has now actually been acted on —
         // clear it. A correct placement elsewhere on the board (unrelated
@@ -2469,13 +2484,26 @@ function showHint() {
     const candGrid = getCandidatesGridPure(currentGrid);
 
     // Easiest-technique-first cascade, shared with the difficulty rater —
-    // see HINT_CASCADE and REQUIREMENTS.md items 2-5, 7-8.
+    // see HINT_CASCADE and REQUIREMENTS.md items 2-5, 7-8. Skips a hint
+    // that's already had all 3 tiers shown on this exact grid state (see
+    // seenHintKeys above), so acting on an elimination-only hint by
+    // updating pencil marks (which doesn't change the grid itself) leads
+    // to a genuinely different hint next time instead of repeating the
+    // same one forever. Falls back to the first fireable hint if every
+    // one that applies has already been fully shown, rather than
+    // showing nothing.
     let hint = null;
+    let firstFireable = null;
     for (const { fn } of HINT_CASCADE) {
-        hint = fn(currentGrid, candGrid, solution);
-        if (hint) break;
+        const candidate = fn(currentGrid, candGrid, solution);
+        if (!candidate) continue;
+        if (!firstFireable) firstFireable = candidate;
+        if (!seenHintKeys.has(`${candidate.r}_${candidate.c}`)) {
+            hint = candidate;
+            break;
+        }
     }
-    hint = hint || findDirectRevealFallback(currentGrid, solution);
+    hint = hint || firstFireable || findDirectRevealFallback(currentGrid, solution);
 
     if (!hint) {
         setStatusText("No more hints available.");
@@ -2513,6 +2541,10 @@ function showHint() {
         currentHintState = hintKey;
         currentHintLevel = 1;
     }
+    // Once tier 3 (the full reveal) has been shown, this hint is done —
+    // asking for another hint on this same grid state should move on to
+    // a genuinely different one instead of cycling back to tier 1 here.
+    if (currentHintLevel === 3) seenHintKeys.add(hintKey);
 
     if (currentHintLevel === 1) {
         setStatusText(`💡 Tier 1 (${method}): ${tier1} (Tap Hint to see more)`);

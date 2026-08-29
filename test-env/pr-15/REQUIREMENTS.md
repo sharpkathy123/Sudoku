@@ -876,6 +876,40 @@ function's continued existence and by proving `showHint()` never called
 `getCandidatesGridPure()`) and pass against the fix. Full suite: 10/10
 in-page tests, 16/16 Playwright tests.
 
+**Follow-up, reported live — a different, non-conflicting problem:** a
+player correctly applied a Pointing Pair hint's tier-3 instruction by
+erasing the named pencil marks by hand, asked for another hint, and got
+the *exact same* Pointing Pair hint again. Worth being explicit that this
+is not the correctness bug above resurfacing — it's a separate gap that
+only exists *because* the fix above is correct: elimination-only hints
+(Naked Pair/Triple, Pointing/Claiming, X-Wing/Swordfish, the wings, Unique
+Rectangle) don't themselves change the grid, and since hints deliberately
+never read pencil marks, updating your own notes by hand doesn't register
+as progress — asking for another hint recomputes the exact same
+candidates from the exact same placed digits and finds the exact same
+hint, forever. The fix for *this* has to stay entirely separate from
+candidate correctness, which is why it's a different mechanism: a `Set`
+of hints (by their primary cell) that have already had all 3 tiers shown
+on the current grid state. The next `showHint()` call skips any technique
+that resolves to an already-seen cell, falling back to repeating it only
+if every fireable technique has already been fully shown. Cleared
+whenever the grid actually changes (a real placement, or a new puzzle) —
+never by anything that leaves placed digits untouched. Test:
+`test_hint_progresses_past_seen_hints.py`, confirmed to fail against the
+pre-fix code (the same cell repeated even with 5 distinct techniques
+available) and pass against the fix.
+
+Known limitation: this skips by *technique function*, not by individual
+instance — if the same technique (say, Naked Single) has several
+different valid cells available at once, cycling through the first one
+moves on to a *different technique* next, not to the second Naked Single
+instance the same finder function would otherwise have found. Doing that
+would mean threading an "avoid these cells" set through every one of the
+~12 finder functions individually — a much larger change than this fix,
+and not what the live report actually needed (a different technique was
+available in that case). Worth revisiting if a puzzle state ever
+surfaces where this narrower limitation is the one actually in the way.
+
 ## 12. Some "Hard" puzzles weren't actually uniquely solvable — ✅ Fixed
 
 **Reported live, following up on item 11:** the exact same "place 8, get
