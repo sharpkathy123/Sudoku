@@ -77,7 +77,7 @@ def main():
             )
 
         # A later, separate tap should now clear it.
-        page.locator("h2").click()
+        page.locator("h1").click()
         page.wait_for_timeout(100)
         glowing_after_next_tap = page.evaluate("() => document.querySelectorAll('.cell.glow').length")
         if glowing_after_next_tap > 0:

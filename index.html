@@ -72,18 +72,22 @@ if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || win
 
 <script>
 window.addEventListener('DOMContentLoaded', () => {
-    const statusDiv = document.getElementById('status');
-    if (statusDiv) {
-        const buildTag = document.createElement('div');
-        buildTag.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; font-family: monospace;';
-        
+    // A separate element from #status — not a child of it — so that
+    // setStatusText()'s `statusEl.textContent = text` (which replaces
+    // #status's entire contents on every hint/toggle/message) can never
+    // wipe this out. It used to be appended inside #status and was
+    // permanently destroyed by the very first status message of any
+    // session, never to reappear until a full page reload.
+    const buildInfo = document.getElementById('buildInfo');
+    if (buildInfo) {
+        buildInfo.style.cssText = 'font-size: 10px; color: #9ca3af; margin-top: 2px; margin-bottom: 8px; font-family: monospace; text-align: center;';
+
         const modDate = new Date(document.lastModified);
         const dateStr = modDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const timeStr = modDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        
-        buildTag.textContent = `App updated: ${dateStr} ${timeStr}`;
-        buildTag.title = "When this app itself was last updated — not when your puzzle progress was last saved.";
-        statusDiv.appendChild(buildTag);
+
+        buildInfo.textContent = `App updated: ${dateStr} ${timeStr}`;
+        buildInfo.title = "When this app itself was last updated — not when your puzzle progress was last saved.";
     }
 });
 </script>
@@ -188,14 +192,48 @@ window.addEventListener('DOMContentLoaded', () => {
     --panel: #ffffff;
     --accent: #4a90e2;
     --accent-soft: #d9ecff;
-    --border-strong: #222;
-    --border-light: #c9ced6;
-    --text-dark: #222;
-    --text-soft: #6b7280;
-    --highlight-cell: #fff7c2;
-    --pencil-highlight: #d17b00;
-    
-    --cell-size: clamp(32px, 9.2vw, 50px);
+    --border-strong: #334155;
+    --border-light: #cbd5e1;
+    --text-dark: #1e293b;
+    --text-soft: #64748b;
+    --highlight-cell: #fef9c3;
+    --pencil-highlight: #b45309;
+    --highlight-fullest-bg: #ccfbf1;
+    --highlight-fullest-outline: #0d9488;
+    --hint-trace-bg: #ede9fe;
+    --hint-trace-outline: #7c3aed;
+    --wrong-bg: #fee2e2;
+
+    /* Sized to fill nearly all of the available viewport width (not a
+       fixed fraction chosen for one device), capped so the board stays a
+       comfortable size on tablets/desktops instead of growing without
+       bound. Tuned empirically across 300-1280px widths: zero horizontal
+       overflow at every width tested, ~90-96% fill on phones, growing
+       board (not stuck at one fixed size) all the way to the cap. */
+    --cell-size: clamp(30px, 9.8vw, 74px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    /* .glow marks real state -- a just-completed unit, a hint's target --
+       not decoration. Collapsing its animation to near-zero above makes
+       it complete so fast it's never actually seen, silently deleting
+       the feedback instead of just removing the pulsing motion. A plain
+       !important box-shadow beats a running CSS animation in the cascade
+       regardless of that animation's duration, so this shows a steady
+       glow for the same ~2s window the JS-driven .glow class is present,
+       instead of a flash nobody can perceive. Same blur/spread as the
+       animation's own peak (12px blur, 6px spread) -- a thin hard-edged
+       ring here reads as a totally different, much weaker effect, not
+       just a non-pulsing version of the same glow. */
+    .glow {
+        box-shadow: 0 0 12px 6px rgba(0, 150, 255, 0.85) !important;
+    }
 }
 
 *,
@@ -216,16 +254,24 @@ body {
     min-height: 100vh;
 }
 
-h2 {
+h1 {
     margin: 0 0 4px;
     font-size: clamp(22px, 5vw, 28px);
     font-weight: 650;
     letter-spacing: 0.02em;
 }
 
+/* Fixed height, not min-height — a growing #status used to physically push
+   every control below it down the page as hint/status text got longer,
+   which was more than cosmetic: it could shift the Hint button far enough
+   that a repeated tap in the same spot landed on Guard Pencil instead and
+   silently turned it off. overflow-y is a safety valve for the rare
+   message longer than this box (scrolls inside it) rather than ever
+   resuming the reflow. */
 #status {
     margin-bottom: 8px;
-    min-height: 38px;
+    height: 112px;
+    overflow-y: auto;
     font-size: 13px;
     font-weight: 500;
     color: var(--text-soft);
@@ -268,7 +314,7 @@ h2 {
     flex-wrap: wrap;
     justify-content: center;
     width: 100%;
-    max-width: 480px;
+    max-width: 700px;
 }
 
 .top-bar {
@@ -300,14 +346,15 @@ h2 {
     border-radius: 16px;
     box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
     width: 100%;
-    max-width: 480px;
+    max-width: 700px;
 }
 
 .top-bar select,
 .top-bar button,
 .controls-gameplay button,
 #pencilToggle,
-#guardNotesToggle {
+#guardNotesToggle,
+#HintBtn {
     padding: 6px 12px;
     border-radius: 999px;
     border: 1px solid var(--border-light);
@@ -321,7 +368,8 @@ h2 {
 .top-bar button:hover,
 .controls-gameplay button:hover,
 #pencilToggle:hover,
-#guardNotesToggle:hover {
+#guardNotesToggle:hover,
+#HintBtn:hover {
     background: #eef2ff;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
@@ -366,6 +414,13 @@ h2 {
     width: 100%;
 }
 
+.pencil-hint-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
 .number-bar {
     display: flex;
     gap: 6px;
@@ -374,13 +429,13 @@ h2 {
 }
 
 .number-tile {
-    width: clamp(30px, 8.8vw, 44px);
-    height: clamp(30px, 8.8vw, 44px);
+    width: clamp(30px, 9.2vw, 58px);
+    height: clamp(30px, 9.2vw, 58px);
     border-radius: 10px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: clamp(16px, 4.5vw, 20px);
+    font-size: clamp(16px, 4.8vw, 26px);
     cursor: pointer;
     user-select: none;
     transition: background 0.18s, border 0.18s, transform 0.08s, box-shadow 0.18s, opacity 0.18s, font-weight 0.18s;
@@ -421,6 +476,14 @@ h2 {
     margin-top: 4px;
 }
 
+/* Blocks interaction with the outgoing board while a new one is being
+   generated in the background — see setBoardInteractive(). */
+.board.generating,
+.number-bar.generating {
+    pointer-events: none;
+    opacity: 0.55;
+}
+
 .cell {
     width: var(--cell-size);
     height: var(--cell-size);
@@ -429,6 +492,15 @@ h2 {
     position: relative;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s, border-color 0.15s, font-weight 0.2s;
+}
+
+/* Every path that focuses a cell (arrow keys, a plain Tab landing) also
+   selects it via the board's focusin listener, so .selected's own outline
+   below is always present the instant a cell is truly focused — no need
+   for (and no risk of a visually-competing) separate browser-default
+   focus ring here. */
+.cell:focus {
+    outline: none;
 }
 
 .cell.given,
@@ -440,13 +512,20 @@ h2 {
     background: #eef2ff;
 }
 
+/* Thicker, darker, and pulled inward (outline-offset) rather than the
+   thin 2px accent-blue line this used to be — reported live as easy to
+   lose track of once arrow-key navigation lands on a filled cell and its
+   full same-number highlight (a pale yellow fill across several other
+   cells) competes for attention. z-index above every highlight layer so
+   it's never visually buried under one. */
 .cell.selected {
-    outline: 2px solid var(--accent);
-    z-index: 2;
+    outline: 3px solid #1d4ed8;
+    outline-offset: -3px;
+    z-index: 3;
 }
 
 .cell.wrong {
-    background: #ffe0e0;
+    background: var(--wrong-bg);
 }
 
 .cell.box-right {
@@ -460,9 +539,25 @@ h2 {
     background: var(--highlight-cell) !important;
 }
 
+/* Teal, not amber — amber clashed with the rest of the palette and read as
+   too close in meaning to the hint-trace/wrong-digit warm tones. Part of a
+   deliberate 3-color highlight language: soft yellow (same-number), violet
+   (hint-trace), teal (Highlight Fullest) — each visually distinct, all in
+   the same "pastel fill + saturated outline" style so no fourth clashing
+   hue got introduced along the way. */
 .cell.highlight-least {
-    background: #fef3c7 !important;
-    outline: 2px solid #d97706;
+    background: var(--highlight-fullest-bg) !important;
+    outline: 2px solid var(--highlight-fullest-outline);
+    z-index: 1;
+}
+
+/* Persistent marker for the cell(s) a hint is currently about. Cleared
+   explicitly (see clearHintTrace()) rather than by clearNumberHighlights(),
+   so it survives ordinary clicking around while a player works out how to
+   act on a hint. */
+.cell.hint-trace {
+    background: var(--hint-trace-bg) !important;
+    outline: 2px solid var(--hint-trace-outline);
     z-index: 1;
 }
 
@@ -472,7 +567,7 @@ h2 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    font-size: clamp(7px, 2.1vw, 10px);
+    font-size: clamp(7px, 2.3vw, 15px);
     color: var(--text-soft);
     pointer-events: none;
 }
@@ -501,7 +596,7 @@ h2 {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: clamp(16px, 4.8vw, 24px);
+    font-size: clamp(16px, 5.2vw, 34px);
 }
 
 @keyframes neonGlow {
@@ -579,9 +674,9 @@ h2 {
 </head>
 
 <body>
-<div class="panel-row">
-    <h2>Sudoku Game</h2>
-    <div id="status"></div>
+<main class="panel-row">
+    <h1>Sudoku Game</h1>
+    <div id="buildInfo"></div>
 
     <div class="top-bar">
         <label for="difficulty">Level:</label>
@@ -591,27 +686,35 @@ h2 {
             <option value="hard">Hard</option>
             <option value="expert">Expert</option>
         </select>
-        <button id="newGameBtn" class="btn-danger">New Game</button>
-        <button id="restartBtn" class="btn-danger">Restart</button>
-        <button id="clearNotesBtn" class="btn-danger" title="Clears all small pencil marks across the board">Clear Pencil Marks</button>
+        <button id="newGameBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: N (asks to confirm)">New Game (N)</button>
+        <button id="restartBtn" class="btn-danger" tabindex="0" title="Keyboard shortcut: R (asks to confirm)">Restart (R)</button>
+        <button id="clearNotesBtn" class="btn-danger" tabindex="0" title="Clears all small pencil marks across the board. Keyboard shortcut: C (asks to confirm)">Clear Pencil Marks (C)</button>
     </div>
 
    <div class="controls-gameplay">
-       <button id="highlightLeastBtn" title="Highlights units (row, col, box, or digit) with the fewest empty cells">Highlight Fullest</button>
-       <button id="guardNotesToggle" class="active" title="Prevents adding pencil marks that conflict with placed numbers">Guard Pencil: ON</button>
-       <button id="autoPencilBtn" title="Automatically fills pencil marks into all open spaces">Auto‑Pencil</button>
-       <button id="HintBtn" class="btn-primary" title="Provides step-by-step guidance on how to solve the next logical step">Hint</button>
+       <button id="highlightLeastBtn" tabindex="0" title="Highlights units (row, col, box, or digit) with the fewest empty cells. Keyboard shortcut: F">Highlight Fullest (F)</button>
+       <button id="guardNotesToggle" class="active" aria-pressed="true" tabindex="0" title="Prevents adding pencil marks that conflict with placed numbers. Keyboard shortcut: G">Guard Pencil: ON (G)</button>
+       <button id="autoPencilBtn" tabindex="0" title="Automatically fills pencil marks into all open spaces. Keyboard shortcut: A">Auto‑Pencil (A)</button>
    </div>
 
+    <!-- Right above the number bar/board, not up by the title, so a hint's
+         text (and every other status message) is visible in the same
+         glance as the board it's about instead of requiring a scroll back
+         up past a now much-larger board — see REQUIREMENTS.md item 10. -->
+    <div id="status" role="status" aria-live="polite"></div>
+
     <div class="input-section">
-        <button id="pencilToggle" title="Toggle writing small pencil marks vs solid final answers">Pencil Mode: OFF</button>
+        <div class="pencil-hint-row">
+            <button id="pencilToggle" aria-pressed="false" tabindex="0" title="Toggle writing small pencil marks vs solid final answers. Keyboard shortcut: P">Pencil Mode: OFF (P)</button>
+            <button id="HintBtn" class="btn-primary" tabindex="0" title="Provides step-by-step guidance on how to solve the next logical step. Keyboard shortcut: H">Hint (H)</button>
+        </div>
         <div class="number-bar" id="numberBar"></div>
     </div>
 
-    <div class="board" id="board"></div>
+    <div class="board" id="board" role="grid" aria-label="Sudoku board" title="Keyboard shortcut: B jumps here from any button"></div>
 
-    <canvas id="confettiCanvas"></canvas>
-    <div id="winOverlay">
+    <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+    <div id="winOverlay" aria-hidden="true">
         <div class="win-banner">Puzzle Complete! 🎉</div>
     </div>
 
@@ -622,7 +725,7 @@ h2 {
             View Documentation on GitHub
         </a>
     </footer>
-</div>
+</main>
 
 <script>
 /* ==========================================================================
@@ -640,6 +743,45 @@ let activeGenerationId = 0;
 let currentHintState = null;
 let currentHintLevel = 0;
 let statusTimeoutId = null;
+
+// Hints (method + primary cell) that have already had all 3 tiers shown
+// on the *current* grid state. Elimination-only hints (Naked Pair,
+// Pointing/Claiming, X-Wing/Swordfish, the wings, Unique Rectangle)
+// don't change the grid themselves — applying one just updates the
+// player's own pencil marks, which the hint engine deliberately never
+// reads (see REQUIREMENTS.md item 11). Without this, asking for another
+// hint right after fully cycling one would recompute the exact same
+// candidates from the exact same placed digits and show the exact same
+// hint again, forever, until a digit actually gets placed somewhere.
+// Cleared whenever the grid itself changes (a real placement, or a new
+// puzzle) — never by anything that leaves placed digits untouched.
+let seenHintKeys = new Set();
+
+// The hint engine's own working candidate grid — separate from
+// seenHintKeys above, which only tracks "don't show this exact hint
+// again," and from getCandidatesGridPure(), which always recomputes pure,
+// placed-digit-only candidates from nothing. This one *accumulates*: once
+// an elimination-only hint (Naked Pair, Pointing/Claiming, X-Wing/
+// Swordfish, the wings, Unique Rectangle) has been fully shown (tier 3),
+// its own elimination is folded into this grid, exactly the way
+// rateSolveWithTierCascade() (used to verify a puzzle is solvable by pure
+// logic at generation time — see below) and the in-page test suite's
+// testHintObjectsWellFormed already do. Without this, a technique whose
+// *only* next logical step depends on that elimination first being
+// applied could never be found — the cascade would keep re-deriving the
+// exact same already-shown hint forever from unchanged raw candidates,
+// even though the puzzle itself is provably solvable by chaining exactly
+// this sequence of techniques (see REQUIREMENTS.md item 10 — reported
+// live as "I can't finish this puzzle without making a wild guess").
+// Reseeded from scratch, like seenHintKeys, whenever the grid itself
+// changes (a real placement, or a new puzzle).
+let confirmedCandGrid = null;
+
+// The persistent hint-trace marker (see clearHintTrace()): which cells are
+// currently marked, and the one primary cell whose correct placement means
+// this hint has been acted on and the trace should clear itself.
+let hintTraceCells = [];
+let hintTraceTarget = null;
 
 const placements = {1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[],9:[]};
 
@@ -740,7 +882,7 @@ function combinations(arr, k) {
 const HINT_CASCADE = [
     { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findFullHouse(grid, candGrid, solutionGrid) },
     { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findHiddenSingle(candGrid, grid, solutionGrid) },
-    { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findNakedSingle(candGrid) },
+    { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findNakedSingle(candGrid, grid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findNakedPair(candGrid, solutionGrid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findLockedCandidates(candGrid, solutionGrid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findClaimingCandidates(candGrid, solutionGrid) },
@@ -870,32 +1012,72 @@ function solveSudoku(grid) {
     return true;
 }
 
+// Counts how many solutions `grid` has, up to `limit` (the caller only
+// ever needs to know "1" vs. "more than 1", never an exact total).
+//
+// Branches on the empty cell with the FEWEST remaining candidates first
+// (the standard "most constrained variable" heuristic), not just the
+// first empty cell in scan order. This isn't just an optimization: a
+// harder puzzle (fewer forced cells, which is exactly what makes it
+// "Hard") has a much larger, flatter search tree under naive first-cell
+// scanning, and previously hit this function's iteration cap while
+// having only ever explored ONE branch of a genuinely-ambiguous puzzle —
+// silently reporting "1 solution" (unique) for puzzles that actually had
+// several. Confirmed directly: a puzzle this function called unique
+// (with the old scan order) had at least 5 real solutions once given a
+// larger search budget. That false "unique" then broke every technique
+// whose correctness depends on real uniqueness (Unique Rectangle
+// eliminated the puzzle's own true answer, since the deadly-pattern
+// argument it relies on doesn't hold for a puzzle that isn't actually
+// unique) — this was the real root cause, not a hint-engine bug.
+//
+// If the iteration budget still runs out before a definitive count is
+// reached, returns -1 ("inconclusive") rather than whatever partial
+// count happened to be reached — every caller compares against a
+// specific expected count (1 or 2), so -1 safely reads as "not verified"
+// and gets rejected/retried instead of silently accepted as valid.
 function countSolutions(grid, limit = 2) {
     let count = 0;
     let iterations = 0;
     const MAX_ITERATIONS = 5000;
+    let inconclusive = false;
 
-    function backtrack() {
-        if (count >= limit || iterations++ > MAX_ITERATIONS) return;
+    function mostConstrainedCell() {
+        let best = null;
         for (let row = 0; row < 9; row++) {
             for (let col = 0; col < 9; col++) {
-                if (grid[row][col] === 0) {
-                    for (let num = 1; num <= 9; num++) {
-                        if (isSafe(grid, row, col, num)) {
-                            grid[row][col] = num;
-                            backtrack();
-                            grid[row][col] = 0;
-                            if (count >= limit || iterations > MAX_ITERATIONS) return;
-                        }
-                    }
-                    return;
+                if (grid[row][col] !== 0) continue;
+                const candidates = [];
+                for (let num = 1; num <= 9; num++) {
+                    if (isSafe(grid, row, col, num)) candidates.push(num);
+                }
+                if (candidates.length === 0) return { row, col, candidates };
+                if (!best || candidates.length < best.candidates.length) {
+                    best = { row, col, candidates };
+                    if (candidates.length === 1) return best;
                 }
             }
         }
-        count++;
+        return best;
+    }
+
+    function backtrack() {
+        if (count >= limit) return;
+        if (iterations++ > MAX_ITERATIONS) { inconclusive = true; return; }
+
+        const cell = mostConstrainedCell();
+        if (!cell) { count++; return; } // no empty cells left: a full, valid grid
+        if (cell.candidates.length === 0) return; // dead end: this branch can't complete
+
+        for (const num of cell.candidates) {
+            grid[cell.row][cell.col] = num;
+            backtrack();
+            grid[cell.row][cell.col] = 0;
+            if (count >= limit || inconclusive) return;
+        }
     }
     backtrack();
-    return count;
+    return inconclusive ? -1 : count;
 }
 
 /* ==========================================================================
@@ -1055,6 +1237,16 @@ function showGeneratingStatus(text = "Generating puzzle...") {
     statusEl.innerHTML = `<span class="status-msg">${gearSVG} ${text}</span>`;
 }
 
+// The old board stays fully interactive while a new one generates in the
+// background (createNewPuzzleAsync is async and can take a couple of
+// seconds on Hard/Expert) — without this, a player can select cells and
+// place digits on a puzzle that's about to be discarded out from under
+// them. Toggled around every real (non-test) generation call.
+function setBoardInteractive(enabled) {
+    board.classList.toggle("generating", !enabled);
+    numberBar.classList.toggle("generating", !enabled);
+}
+
 function clearNumberHighlights() {
     [...board.children].forEach(cell => {
         cell.classList.remove("highlight-number", "highlight-least", "selected");
@@ -1065,8 +1257,33 @@ function clearNumberHighlights() {
     });
 }
 
+// Deliberately not called by clearNumberHighlights() — the whole point of
+// the hint trace is to survive ordinary cell selection and number entry, so
+// a player can look away, click around, and still find their place. Only
+// showHint() (a new hint replaces the old trace) and a correct placement in
+// the hint's own target cell (see below) clear it.
+function clearHintTrace() {
+    hintTraceCells.forEach(({ r, c }) => {
+        const cell = board.children[r * 9 + c];
+        if (cell) cell.classList.remove("hint-trace");
+    });
+    hintTraceCells = [];
+    hintTraceTarget = null;
+}
+
 function highlightSameNumbers(num) {
     clearNumberHighlights();
+    // clearNumberHighlights() strips "selected" from every cell, including
+    // the currently selected one -- fine for callers that mean to deselect
+    // (they null out selectedCell themselves first), but every other
+    // caller here (a tile tap acting on the already-selected cell) doesn't
+    // touch selectedCell at all and still wants it to look selected
+    // afterward. onCellClick() re-adds it as its own last step for its own
+    // call to this function, but every direct call from the number-tile
+    // handler below has no such step of its own, which is why the
+    // selection outline was silently vanishing after placing a digit or
+    // toggling a pencil mark.
+    if (selectedCell) selectedCell.classList.add("selected");
     [...board.children].forEach(cell => {
         const val = cell.querySelector(".cell-value").textContent.trim();
         const pencilSpan = cell._pencilDigits[num];
@@ -1078,6 +1295,11 @@ function highlightSameNumbers(num) {
 function onCellClick(cell) {
     if (gameWon) return;
     if (selectedCell) selectedCell.classList.remove("selected");
+
+    // "Select a cell first." nudges toward exactly this action, so once it
+    // happens the nudge is stale — clear it immediately rather than
+    // leaving it on screen for the rest of its own timeout.
+    if (statusEl.textContent === "Select a cell first.") setStatusText("");
 
     selectedCell = cell;
 
@@ -1096,7 +1318,118 @@ function onCellClick(cell) {
 
     cell.classList.add("selected");
     updateNumberTileStyles();
+
+    // Keep the roving tabindex in sync with whatever's actually selected,
+    // not just on arrow-key moves (which already did this themselves) --
+    // a plain click/tap selects a cell without ever touching tabindex, so
+    // without this, "B" (jump to the board) or a bare Tab could land on
+    // a stale cell (e.g. wherever Hint last put it) instead of the one
+    // actually selected, once selectedCell itself was ever null even
+    // briefly in between.
+    const currentTabbable = board.querySelector('.cell[tabindex="0"]');
+    if (currentTabbable && currentTabbable !== cell) currentTabbable.tabIndex = -1;
+    cell.tabIndex = 0;
 }
+
+// Set right before code moves real focus somewhere other than the element
+// that was actually clicked/activated (see showHint() and the "b" keyboard
+// shortcut below), so the iOS tap-focus workaround further down doesn't
+// immediately fight it and pull focus back onto the button that was
+// pressed. Read once and cleared by that listener on every click.
+let intentionalFocusTarget = null;
+
+// Moves both the roving tabindex and real keyboard focus onto `cell`, and
+// runs onCellClick's normal selection bookkeeping (highlighting, aria,
+// etc). Used whenever code -- not a direct tap/Tab/arrow-key on the cell
+// itself -- decides a particular cell should become selected, so the
+// visual "selected" cell and what Tab/arrow-keys/digit-keys actually act
+// on next stay the same cell instead of drifting apart.
+function moveSelectionAndFocusTo(cell) {
+    const currentTabbable = board.querySelector('.cell[tabindex="0"]');
+    if (currentTabbable && currentTabbable !== cell) currentTabbable.tabIndex = -1;
+    cell.tabIndex = 0;
+    onCellClick(cell);
+    cell.focus({ preventScroll: true });
+    intentionalFocusTarget = cell;
+}
+
+// Number tiles never change which cell is selected -- they only act on
+// it (place a digit, flash it wrong, toggle a pencil mark) -- so tapping
+// one should leave real keyboard focus right where it was: on the
+// selected cell, ready for the next arrow-key move or digit. Without
+// this, the iOS tap-focus workaround (a real tap is trusted, so it isn't
+// filtered out the way a keyboard-driven synthetic click is -- see
+// test_digit_key_keeps_board_focus.py) moves focus onto the tapped tile
+// instead, and arrow keys go dead immediately after until the player
+// finds their way back onto the board.
+function keepFocusOnSelectedCell() {
+    if (!selectedCell) return;
+    selectedCell.focus({ preventScroll: true });
+    intentionalFocusTarget = selectedCell;
+}
+
+// Keeps the board operable for screen reader / keyboard users: what a
+// cell "is" (its position, and whether it's given/empty/player-filled)
+// has to be announced in text, since sighted play reads it straight off
+// the rendered digit and cell styling.
+function updateCellAriaLabel(cell) {
+    const r = parseInt(cell.dataset.row, 10);
+    const c = parseInt(cell.dataset.col, 10);
+    const boxNum = Math.floor(r / 3) * 3 + Math.floor(c / 3) + 1;
+    const val = cell.querySelector(".cell-value").textContent.trim();
+    const state = !val ? "empty" : (givenMask[r][c] ? `given ${val}` : `you entered ${val}`);
+    cell.setAttribute("aria-label", `Row ${r + 1}, column ${c + 1}, box ${boxNum}, ${state}`);
+}
+
+// Arrow-key navigation across the board, with a roving tabindex (only the
+// focused cell is ever a Tab stop) so the board is fully operable without
+// a mouse or touch — previously it had no keyboard handling at all.
+// Moving focus also selects the cell (matching a tap), and 1-9 while a
+// cell is focused places/pencil-marks that digit via the same number tile
+// a mouse/touch user would press, so no separate keyboard-only input path
+// has to be kept in sync with the real placement logic.
+board.addEventListener("keydown", (e) => {
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+
+    const r = parseInt(cell.dataset.row, 10);
+    const c = parseInt(cell.dataset.col, 10);
+
+    const deltas = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (deltas[e.key]) {
+        e.preventDefault();
+        const [dr, dc] = deltas[e.key];
+        const nr = Math.min(8, Math.max(0, r + dr));
+        const nc = Math.min(8, Math.max(0, c + dc));
+        const nextCell = board.children[nr * 9 + nc];
+        cell.tabIndex = -1;
+        nextCell.tabIndex = 0;
+        nextCell.focus(); // triggers the focusin listener below, which selects it
+        return;
+    }
+
+    if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onCellClick(cell);
+        return;
+    }
+
+    if (e.key >= "1" && e.key <= "9") {
+        e.preventDefault();
+        if (selectedCell !== cell) onCellClick(cell);
+        numberBar.children[parseInt(e.key, 10) - 1].click();
+    }
+});
+
+// Selection follows focus however focus arrives — arrow keys (above),
+// but also a plain Tab landing directly on the board's one tab-stop
+// cell, which used to leave selectedCell out of sync with what's
+// actually focused (relying on the browser's own inconsistent default
+// focus ring instead of this app's own, far more visible one).
+board.addEventListener("focusin", (e) => {
+    const cell = e.target.closest(".cell");
+    if (cell) onCellClick(cell);
+});
 
 function hasActivePencilMarksOnBoard() {
     for (let i = 0; i < board.children.length; i++) {
@@ -1123,6 +1456,10 @@ function buildBoard() {
     gameWon = false;
     currentHintState = null;
     currentHintLevel = 0;
+    seenHintKeys.clear();
+    confirmedCandGrid = null;
+    hintTraceCells = [];
+    hintTraceTarget = null;
 
     for (let r = 0; r < 9; r++) {
         givenMask[r] = [];
@@ -1168,6 +1505,14 @@ function buildBoard() {
             cell.dataset.row = r;
             cell.dataset.col = c;
             cell._pencilDigits = pencilDigits;
+
+            // Roving tabindex: only one cell is ever a Tab stop at a time
+            // (arrow keys move it — see the board keydown handler below),
+            // so keyboard users don't have to tab through 81 stops to
+            // reach the board or move within it.
+            cell.setAttribute("role", "gridcell");
+            cell.tabIndex = (r === 0 && c === 0) ? 0 : -1;
+            updateCellAriaLabel(cell);
 
             cell.addEventListener("click", () => onCellClick(cell));
             board.appendChild(cell);
@@ -1253,7 +1598,7 @@ function loadSavedGameState() {
         if (state.difficulty) difficultySelect.value = state.difficulty;
         if (typeof state.guardNotesMode !== "undefined") {
             guardNotesMode = state.guardNotesMode;
-            guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"}`;
+            guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"} (G)`;
             guardNotesToggle.classList.toggle("active", guardNotesMode);
         }
 
@@ -1372,6 +1717,15 @@ for (let n = 1; n <= 9; n++) {
     const tile = document.createElement("div");
     tile.className = "number-tile ink";
     tile.textContent = n;
+    tile.setAttribute("role", "button");
+    tile.setAttribute("aria-label", `Enter ${n}`);
+    tile.tabIndex = 0;
+    tile.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            tile.click();
+        }
+    });
 
     tile.addEventListener("click", () => {
         if (gameWon) return;
@@ -1389,12 +1743,26 @@ for (let n = 1; n <= 9; n++) {
 
         if (givenMask[r][c]) {
             setStatusText("You can't change a given cell.", 2000);
+            keepFocusOnSelectedCell();
             return;
         }
 
         const correctValue = solution[r][c];
 
         if (pencilMode) {
+            // A cell that already has a value (correctly guarded above for
+            // givens, but a player's own already-placed digit reaches here
+            // too) has no use for pencil marks — without this check,
+            // isSafe() only ever looks at *other* candidates for this cell,
+            // so a mark for a different digit than the one already placed
+            // could pass Guard Pencil and render on top of the answer,
+            // illegibly overlapping it.
+            if (getCurrentGrid()[r][c] !== 0) {
+                setStatusText("This cell is already filled in — no need for pencil marks here.", 2500);
+                keepFocusOnSelectedCell();
+                return;
+            }
+
             if (guardNotesMode) {
                 const digits = selectedCell._pencilDigits;
                 const isCurrentlyActive = digits && digits[n] && digits[n].classList.contains("active");
@@ -1402,6 +1770,7 @@ for (let n = 1; n <= 9; n++) {
                 if (!isCurrentlyActive && !isSafe(getCurrentGrid(), r, c, n)) {
                     flashWrong(selectedCell);
                     setStatusText(`Number ${n} conflicts with this row, column, or box!`, 3000);
+                    keepFocusOnSelectedCell();
                     return;
                 }
             }
@@ -1411,20 +1780,33 @@ for (let n = 1; n <= 9; n++) {
             updateNumberTileStyles();
             highlightSameNumbers(n);
             saveGameState();
+            keepFocusOnSelectedCell();
             return;
         }
 
         if (n !== correctValue) {
             flashWrong(selectedCell);
+            setStatusText(`${n} doesn't belong in row ${r + 1}, column ${c + 1}. Try another number.`, 2000);
             selectedNumber = n;
             updateNumberTileStyles();
             highlightSameNumbers(n);
+            keepFocusOnSelectedCell();
             return;
         }
 
         const valueSpan = selectedCell.querySelector(".cell-value");
         clearAllPencilsInCell(selectedCell);
         valueSpan.textContent = correctValue;
+        updateCellAriaLabel(selectedCell);
+
+        // A correct placement makes any earlier wrong-digit message (or
+        // stale hint text — currentHintState is cleared right below) about
+        // this exact situation obsolete. Without this, typing the wrong
+        // digit and then the right one left the old "X doesn't belong..."
+        // message on screen with nothing to show the correction actually
+        // registered, which read as "nothing happened" even though the
+        // digit was placed (see REQUIREMENTS.md item 10).
+        setStatusText("");
 
         const index = r * 9 + c;
         if (!placements[correctValue].includes(index)) {
@@ -1436,6 +1818,15 @@ for (let n = 1; n <= 9; n++) {
 
         currentHintState = null;
         currentHintLevel = 0;
+        seenHintKeys.clear();
+        confirmedCandGrid = null;
+
+        // The hint this trace was marking has now actually been acted on —
+        // clear it. A correct placement elsewhere on the board (unrelated
+        // to the current hint) deliberately leaves the trace in place.
+        if (hintTraceTarget && hintTraceTarget.r === r && hintTraceTarget.c === c) {
+            clearHintTrace();
+        }
 
         if (isBoardSolved()) {
             setTimeout(onWin, 300);
@@ -1446,6 +1837,7 @@ for (let n = 1; n <= 9; n++) {
         selectedNumber = n;
         updateNumberTileStyles();
         highlightSameNumbers(n);
+        keepFocusOnSelectedCell();
     });
 
     numberBar.appendChild(tile);
@@ -1464,8 +1856,9 @@ const pencilToggle = document.getElementById("pencilToggle");
 pencilToggle.addEventListener("click", () => {
     if (gameWon) return;
     pencilMode = !pencilMode;
-    pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"}`;
+    pencilToggle.textContent = `Pencil Mode: ${pencilMode ? "ON" : "OFF"} (P)`;
     pencilToggle.classList.toggle("active", pencilMode);
+    pencilToggle.setAttribute("aria-pressed", String(pencilMode));
     updateNumberTileStyles();
 
     setStatusText(`Pencil Mode ${pencilMode ? "ON" : "OFF"}: ${pencilMode ? "Use it to note down all the numbers a cell could still be, instead of a final answer." : "Numbers you enter now go in as final answers again."}`);
@@ -1475,9 +1868,10 @@ const guardNotesToggle = document.getElementById("guardNotesToggle");
 guardNotesToggle.addEventListener("click", () => {
     if (gameWon) return;
     guardNotesMode = !guardNotesMode;
-    guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"}`;
+    guardNotesToggle.textContent = `Guard Pencil: ${guardNotesMode ? "ON" : "OFF"} (G)`;
     guardNotesToggle.classList.toggle("active", guardNotesMode);
-    
+    guardNotesToggle.setAttribute("aria-pressed", String(guardNotesMode));
+
     setStatusText(`Guard Pencil ${guardNotesMode ? "ON" : "OFF"}: ${guardNotesMode ? "Prevents adding pencil marks that conflict with placed numbers." : "Allows manual pencil freedom."}`);
     
     saveGameState();
@@ -1508,19 +1902,39 @@ function autoRemovePencilMarks(r, c, num) {
     }
 }
 
+function cellHasAnyPencilMarks(cell) {
+    for (let n = 1; n <= 9; n++) {
+        if (cell._pencilDigits[n].classList.contains("active")) return true;
+    }
+    return false;
+}
+
+// Only fills cells that currently have zero pencil marks of their own —
+// it used to wipe and refill every empty cell unconditionally, silently
+// discarding any marks a player had written in by hand with no warning
+// and no way to undo it. Now a cell with even one hand-entered mark is
+// left completely alone; this is a supplement for untouched cells, not
+// a wholesale replacement of the player's own notes.
 function autoFillAllPencils() {
     if (gameWon) return;
     const currentGrid = getCurrentGrid();
     let notesAdded = 0;
+    let cellsSkipped = 0;
 
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             const cell = board.children[r * 9 + c];
             if (givenMask[r][c] || currentGrid[r][c] !== 0) {
+                // A filled/given cell showing pencil marks would be stray
+                // leftover state, not a player's active notes — safe to
+                // clean up rather than something to preserve.
                 clearAllPencilsInCell(cell);
                 continue;
             }
-            clearAllPencilsInCell(cell);
+            if (cellHasAnyPencilMarks(cell)) {
+                cellsSkipped++;
+                continue;
+            }
             for (let n = 1; n <= 9; n++) {
                 if (isSafe(currentGrid, r, c, n)) {
                     cell._pencilDigits[n].classList.add("active");
@@ -1530,7 +1944,8 @@ function autoFillAllPencils() {
         }
     }
     saveGameState();
-    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil marks.`, 5000);
+    const skippedNote = cellsSkipped > 0 ? ` (left ${cellsSkipped} cell(s) with your own notes untouched)` : "";
+    setStatusText(`Auto-Pencil: Filled ${notesAdded} pencil marks${skippedNote}.`, 5000);
 }
 
 function flashWrong(cell) {
@@ -1561,36 +1976,6 @@ function getCurrentGrid() {
 /* ==========================================================================
    5. COMPLETE MULTI-TIER HINT & SOLVING ENGINE
    ========================================================================== */
-function getCandidatesGrid(grid) {
-    const cand = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            if (grid[r][c] === 0) {
-                const cell = board.children[r * 9 + c];
-                let hasUserPencilMarks = false;
-                const activePencils = [];
-
-                if (cell && cell._pencilDigits) {
-                    for (let n = 1; n <= 9; n++) {
-                        if (cell._pencilDigits[n].classList.contains("active")) {
-                            hasUserPencilMarks = true;
-                            activePencils.push(n);
-                        }
-                    }
-                }
-
-                if (hasUserPencilMarks) {
-                    cand[r][c] = activePencils;
-                } else {
-                    for (let n = 1; n <= 9; n++) {
-                        if (isSafe(grid, r, c, n)) cand[r][c].push(n);
-                    }
-                }
-            }
-        }
-    }
-    return cand;
-}
 
 // 1. Full House (Visual Scanning)
 function findFullHouse(grid, candGrid, solutionGrid = solution) {
@@ -1604,8 +1989,8 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
                 r, c, val,
                 method: "Full House",
                 tier: "easy",
-                tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
-                tier2: `Row ${r+1} has 8 numbers filled—count 1 through 9 across this row to find the single missing number.`,
+                tier1: `Row ${r+1} has only one empty cell left. Try using "Full House".`,
+                tier2: `Scan Row ${r+1} to find its one empty cell, then count 1 through 9 across the row to see which digit is missing.`,
                 tier3: `Row ${r+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
@@ -1620,8 +2005,8 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
                 r, c, val,
                 method: "Full House",
                 tier: "easy",
-                tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Full House".`,
-                tier2: `Column ${c+1} has 8 numbers filled—count 1 through 9 down this column to find the single missing number.`,
+                tier1: `Column ${c+1} has only one empty cell left. Try using "Full House".`,
+                tier2: `Scan Column ${c+1} to find its one empty cell, then count 1 through 9 down the column to see which digit is missing.`,
                 tier3: `Column ${c+1} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
             };
         }
@@ -1642,8 +2027,8 @@ function findFullHouse(grid, candGrid, solutionGrid = solution) {
                     r, c, val,
                     method: "Full House",
                     tier: "easy",
-                    tier1: `Look at Row ${r+1}, Column ${c+1} in Box ${boxNum}. Try using "Full House".`,
-                    tier2: `Box ${boxNum} has 8 numbers filled—count 1 through 9 inside this box to find the single missing number.`,
+                    tier1: `Box ${boxNum} has only one empty cell left. Try using "Full House".`,
+                    tier2: `Scan Box ${boxNum} to find its one empty cell, then count 1 through 9 inside the box to see which digit is missing.`,
                     tier3: `Box ${boxNum} is missing ${val}. Place ${val} in Row ${r+1}, Column ${c+1}!`
                 };
             }
@@ -1669,8 +2054,8 @@ function findHiddenSingle(candGrid, grid = getCurrentGrid()) {
 
             const method = blockedByPlacedDigits ? "Cross-Hatching" : "Hidden Single";
             const tier1 = blockedByPlacedDigits
-                ? `Look at Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`
-                : `Look at pencil marks in Row ${r+1}, Column ${c+1} in ${unit.label}. Try using "${method}".`;
+                ? `Somewhere in ${unit.label}, one digit has only a single remaining spot. Try using "${method}".`
+                : `Somewhere in ${unit.label}, pencil marks show one digit fits in only one spot. Try using "${method}".`;
             const tier2 = blockedByPlacedDigits
                 ? `Trace filled numbers across intersecting rows, columns, and boxes into ${unit.label}. Watch how they block empty spots until only one spot remains for a specific candidate.`
                 : `Examine pencil marks in ${unit.label}. Only one open cell there can hold a specific missing digit.`;
@@ -1685,20 +2070,40 @@ function findHiddenSingle(candGrid, grid = getCurrentGrid()) {
 }
 
 // 3. Naked Singles (Visual Intersection Check)
-function findNakedSingle(candGrid) {
+//
+// candGrid can now be confirmedCandGrid (see showHint()), which accumulates
+// eliminations from advanced techniques already fully shown, not just plain
+// row/column/box placement — so a cell can drop to one candidate for two
+// very different reasons: every other digit is genuinely *placed* somewhere
+// in its row/column/box (the original, "purely visual" Naked Single this
+// text was written for), or some of those digits were only ruled out by an
+// earlier hint's own elimination. Claiming "already present" for the second
+// case is flatly false — reported live when a player checked the named row/
+// column/box for placed digits and couldn't find several of them there.
+// Distinguishes the two with `isSafe()` against the *actual* placed-digit
+// grid, mirroring the same explainable-by-placement check findHiddenSingle
+// already does for Cross-Hatching vs. Hidden Single below.
+function findNakedSingle(candGrid, grid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (candGrid[r][c].length === 1) {
                 const val = candGrid[r][c][0];
                 const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
-                return {
-                    r, c, val,
-                    method: "Naked Single",
-                    tier: "easy",
-                    tier1: `Look at Row ${r+1}, Column ${c+1}. Try using "Naked Single".`,
-                    tier2: `Look at the numbers already placed in Row ${r+1}, Column ${c+1}, and Box ${boxNum}. They eliminate 8 out of the 9 digits, leaving only 1 valid choice for this cell.`,
-                    tier3: `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
-                };
+                const explainedByPlacedDigitsAlone = grid
+                    ? [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(n => isSafe(grid, r, c, n)).length === 1
+                    : true;
+
+                const tier1 = explainedByPlacedDigitsAlone
+                    ? `One cell in the grid already has only one possible digit left, once its row, column, and box are considered. Try using "Naked Single".`
+                    : `One cell in the grid is down to only one possible digit, once eliminations from earlier hints are also accounted for. Try using "Naked Single".`;
+                const tier2 = explainedByPlacedDigitsAlone
+                    ? `It's somewhere in Box ${boxNum}. Check each empty cell there against the numbers already placed in its row, column, and box — one of them eliminates 8 out of 9 digits, leaving only one valid choice.`
+                    : `It's somewhere in Box ${boxNum}. The placed digits alone don't narrow it down all the way — combine them with eliminations from earlier hints to find the one cell left with a single candidate.`;
+                const tier3 = explainedByPlacedDigitsAlone
+                    ? `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
+                    : `Between digits already placed and candidates already eliminated by earlier hints, ${val} is the only one left for Row ${r+1}, Column ${c+1}. Place ${val} here!`;
+
+                return { r, c, val, method: "Naked Single", tier: "easy", tier1, tier2, tier3 };
             }
         }
     }
@@ -2034,8 +2439,8 @@ function findXYWing(candGrid, solutionGrid = solution) {
                     eliminate,
                     highlightCells: [pivot, p1, p2],
                     tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XY-Wing".`,
-                    tier2: `Three cells, each holding only two candidates, form a chain: the pivot shares one candidate with each of the other two, and those two share a third candidate between them.`,
-                    tier3: `Because that shared third candidate must appear in one of the two outer cells, eliminate it from every cell that can see both of them.`
+                    tier2: `Three cells, each holding only two candidates, form a chain: the pivot shares one candidate with each of the other two, and those two both also carry digit ${z} as their second candidate.`,
+                    tier3: `Digit ${z} must end up in Row ${p1.r+1}, Col ${p1.c+1} or Row ${p2.r+1}, Col ${p2.c+1} — eliminate pencil mark ${z} from every other cell that can see both of them.`
                 };
             }
         }
@@ -2091,8 +2496,8 @@ function findXYZWing(candGrid, solutionGrid = solution) {
                         eliminate,
                         highlightCells: [pivot, p1, p2],
                         tier1: `Look at pencil marks in Row ${pivot.r+1}, Col ${pivot.c+1} (pivot) / Row ${p1.r+1}, Col ${p1.c+1} / Row ${p2.r+1}, Col ${p2.c+1}. Try using "XYZ-Wing".`,
-                        tier2: `A three-candidate cell links to two two-candidate cells; all three share one candidate that must appear in one of them.`,
-                        tier3: `Because that shared candidate must appear in the pivot cell or one of its two linked cells, eliminate it from every other cell that can see all three.`
+                        tier2: `A three-candidate cell links to two two-candidate cells; all three share digit ${z} as a candidate, and it must appear in one of them.`,
+                        tier3: `Digit ${z} must end up in the pivot (Row ${pivot.r+1}, Col ${pivot.c+1}) or one of its two linked cells — eliminate pencil mark ${z} from every other cell that can see all three.`
                     };
                 }
             }
@@ -2184,16 +2589,47 @@ function showHint() {
     clearNumberHighlights();
 
     const currentGrid = getCurrentGrid();
-    const candGrid = getCandidatesGrid(currentGrid);
+    // Hints must reason from the *true*, constraint-derived candidate set,
+    // never from the player's own hand-written pencil marks — a player is
+    // never obligated to have marked every valid candidate in a cell, and
+    // techniques like Naked Pair, X-Wing, or Unique Rectangle are only
+    // logically sound when "this cell has exactly these N candidates" is
+    // actually true. Trusting incomplete marks let the engine treat a
+    // truly tri-valent cell as bivalue and eliminate/require digits that
+    // contradicted the real solution (see REQUIREMENTS.md item 10).
+    //
+    // confirmedCandGrid (see its declaration above) is the engine's own
+    // accumulated candidate state, not the player's pencil marks — seeded
+    // fresh here only the first time it's needed after the grid last
+    // changed, then reused and progressively narrowed as fully-shown
+    // elimination hints get folded into it below. Without reusing it, a
+    // technique whose only next step depends on an earlier elimination
+    // already being applied could never be reached — see REQUIREMENTS.md
+    // item 10.
+    if (!confirmedCandGrid) confirmedCandGrid = getCandidatesGridPure(currentGrid);
+    const candGrid = confirmedCandGrid;
 
     // Easiest-technique-first cascade, shared with the difficulty rater —
-    // see HINT_CASCADE and REQUIREMENTS.md items 2-5, 7-8.
+    // see HINT_CASCADE and REQUIREMENTS.md items 2-5, 7-8. Skips a hint
+    // that's already had all 3 tiers shown on this exact grid state (see
+    // seenHintKeys above), so acting on an elimination-only hint by
+    // updating pencil marks (which doesn't change the grid itself) leads
+    // to a genuinely different hint next time instead of repeating the
+    // same one forever. Falls back to the first fireable hint if every
+    // one that applies has already been fully shown, rather than
+    // showing nothing.
     let hint = null;
+    let firstFireable = null;
     for (const { fn } of HINT_CASCADE) {
-        hint = fn(currentGrid, candGrid, solution);
-        if (hint) break;
+        const candidate = fn(currentGrid, candGrid, solution);
+        if (!candidate) continue;
+        if (!firstFireable) firstFireable = candidate;
+        if (!seenHintKeys.has(`${candidate.r}_${candidate.c}`)) {
+            hint = candidate;
+            break;
+        }
     }
-    hint = hint || findDirectRevealFallback(currentGrid, solution);
+    hint = hint || firstFireable || findDirectRevealFallback(currentGrid, solution);
 
     if (!hint) {
         setStatusText("No more hints available.");
@@ -2203,19 +2639,31 @@ function showHint() {
     const { r, c, tier1, tier2, tier3, method, highlightCells } = hint;
     const cell = board.children[r * 9 + c];
 
-    // onCellClick clears every cell's highlight classes as part of selecting
-    // the primary cell, so it must run BEFORE the hint's own highlights are
-    // applied below — reusing the same "highlight-least" style as Highlight
-    // Fullest, on every cell the hint actually refers to (not just the
-    // first one), is the whole point here (see REQUIREMENTS.md item 8).
-    onCellClick(cell);
+    // onCellClick (run via moveSelectionAndFocusTo, which also moves real
+    // keyboard focus onto this cell -- see its comment above -- so that
+    // reaching Hint by Tab, not just by tapping it, leaves the *cell* both
+    // visibly and actually selected/focused rather than leaving real focus
+    // stranded on the Hint button while only the cell looks selected)
+    // clears every cell's highlight classes as part of selecting the
+    // primary cell, so it must run BEFORE the hint's own highlights are
+    // applied below — marking every cell the hint actually refers to (not
+    // just the first one) is the whole point here (see REQUIREMENTS.md item
+    // 8). The marker itself, "hint-trace", is a separate class from
+    // Highlight Fullest's "highlight-least" — different concept, different
+    // color — and clearNumberHighlights() (which onCellClick() just ran)
+    // deliberately doesn't touch it, so it survives clicking the cell to
+    // act on the hint instead of vanishing right when it's needed most.
+    moveSelectionAndFocusTo(cell);
 
+    clearHintTrace();
     const cellsToHighlight = highlightCells && highlightCells.length ? highlightCells : [{ r, c }];
     cellsToHighlight.forEach(({ r: hr, c: hc }) => {
         const hCell = board.children[hr * 9 + hc];
-        hCell.classList.add("highlight-least", "glow");
+        hCell.classList.add("hint-trace", "glow");
         setTimeout(() => hCell.classList.remove("glow"), 2000);
     });
+    hintTraceCells = cellsToHighlight;
+    hintTraceTarget = { r, c };
 
     const hintKey = `${r}_${c}`;
     if (currentHintState === hintKey) {
@@ -2223,6 +2671,30 @@ function showHint() {
     } else {
         currentHintState = hintKey;
         currentHintLevel = 1;
+    }
+    // Once tier 3 (the full reveal) has been shown, this hint is done —
+    // asking for another hint on this same grid state should move on to
+    // a genuinely different one instead of cycling back to tier 1 here.
+    if (currentHintLevel === 3) {
+        seenHintKeys.add(hintKey);
+
+        // Fold this hint's own elimination into the engine's working
+        // candidate grid, exactly like rateSolveWithTierCascade() (used to
+        // verify a puzzle is solvable by pure logic at generation time)
+        // and the in-page test suite's testHintObjectsWellFormed already
+        // do. This is what lets the *next* Hint press find a technique
+        // that only becomes visible once this one's elimination is
+        // actually applied — without it, the same already-fully-shown
+        // hint would keep winning the cascade forever, since nothing
+        // about the raw, placed-digit-only candidates ever changes on its
+        // own. Place-kind hints (Full House, Hidden/Naked Single) have no
+        // `eliminate` list — nothing to fold in until the suggested digit
+        // is actually placed, which already resets this grid entirely.
+        if (hint.eliminate && hint.eliminate.length) {
+            hint.eliminate.forEach(({ r: er, c: ec, digits }) => {
+                confirmedCandGrid[er][ec] = confirmedCandGrid[er][ec].filter(x => !digits.includes(x));
+            });
+        }
     }
 
     if (currentHintLevel === 1) {
@@ -2512,6 +2984,7 @@ function stopConfetti() {
 
 function stopBoardAnimations() {
     winOverlay.classList.remove("visible");
+    winOverlay.setAttribute("aria-hidden", "true");
     board.classList.remove("board-win");
     stopConfetti();
 }
@@ -2521,6 +2994,7 @@ function onWin() {
     gameWon = true;
     board.classList.add("board-win");
     winOverlay.classList.add("visible");
+    winOverlay.setAttribute("aria-hidden", "false");
     winMessage.textContent = "Puzzle complete! Great job.";
     localStorage.removeItem(STORAGE_KEY);
     startConfetti();
@@ -2569,6 +3043,96 @@ document.addEventListener("click", (event) => {
     updateNumberTileStyles();
 });
 
+// iOS Safari doesn't give real keyboard focus to a tapped <button>,
+// <select>, or tabindex'd element the way every other browser does —
+// tapping one with a finger visibly "does" something (a button looks
+// pressed, a select opens its picker) without document.activeElement
+// ever actually changing. So switching to an attached keyboard afterward
+// resumed Tab from wherever focus last *genuinely* was (often nowhere in
+// particular) instead of continuing from the control just tapped. This
+// forces real focus on tap everywhere at once, rather than button by
+// button; preventScroll avoids any jump since the tapped element is
+// already on-screen by definition.
+document.addEventListener("click", (event) => {
+    // Only a genuine tap/mouse click needs this fix -- event.isTrusted is
+    // false for a click our own code dispatches programmatically via
+    // .click() (digit keys routing through the number tiles, and every
+    // letter-key shortcut routing through its button -- see below). Those
+    // callers are keyboard-driven already, so real focus is already
+    // correctly wherever Tab/arrow-keys left it; forcing it onto the
+    // tile/button those calls happen to relay through would yank focus
+    // off the board after simply typing a digit or a shortcut letter.
+    if (!event.isTrusted) return;
+
+    const focusable = event.target.closest("button, select, [tabindex]");
+    // A click's own handler can deliberately move focus somewhere other
+    // than the clicked element itself (e.g. showHint() focusing the hint's
+    // target cell instead of leaving focus on the Hint button) -- don't
+    // fight that; only step in when nothing already claimed real focus.
+    if (focusable && document.activeElement !== focusable && document.activeElement !== intentionalFocusTarget) {
+        focusable.focus({ preventScroll: true });
+    }
+    intentionalFocusTarget = null;
+});
+
+// Letter-key shortcuts for every button, so an attached keyboard doesn't
+// require tabbing all the way across the control rows to reach one.
+// "H" was already Hint, so Highlight Fullest uses "F" (from "Fullest")
+// instead of clashing on its own first letter — every other shortcut is
+// just the button's own first letter. Each button's label/title spells
+// its own shortcut out (e.g. "Hint (H)") for discoverability. "B" (Board)
+// isn't a button at all -- requested live, so an attached keyboard has a
+// direct way back onto the grid without hunting for whichever cell was
+// last selected.
+//
+// Guarded to plain, unmodified letter presses only (no Ctrl/Cmd/Alt), so
+// this never fights with a real browser/OS shortcut sharing the same
+// letter, and skipped entirely while the difficulty <select> is focused
+// so its own native type-ahead (jumping to "Hard" on "h", etc.) isn't
+// double-triggered.
+const KEYBOARD_SHORTCUTS = {
+    n: "newGameBtn",
+    r: "restartBtn",
+    c: "clearNotesBtn",
+    f: "highlightLeastBtn",
+    g: "guardNotesToggle",
+    a: "autoPencilBtn",
+    p: "pencilToggle",
+    h: "HintBtn",
+};
+// New Game, Restart, and Clear Pencil Marks are destructive and already
+// have no undo/confirmation on a deliberate tap (flagged as a trade-off
+// when shortcuts first shipped) -- a stray keypress is a much easier way
+// to trigger one by accident than a tap on a physically separate button,
+// so these three specifically ask for confirmation before acting. The
+// other five shortcuts are all non-destructive (reversible or purely
+// informational), so they fire immediately like a normal tap.
+const CONFIRM_BEFORE_SHORTCUT = {
+    newGameBtn: "Start a new game? This discards the current puzzle's progress.",
+    restartBtn: "Restart this puzzle? This clears every number and pencil mark you've entered.",
+    clearNotesBtn: "Clear all pencil marks across the board?",
+};
+document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.activeElement === difficultySelect) return;
+    const key = e.key.toLowerCase();
+
+    if (key === "b") {
+        e.preventDefault();
+        const cell = selectedCell || board.querySelector('.cell[tabindex="0"]') || board.children[0];
+        moveSelectionAndFocusTo(cell);
+        return;
+    }
+
+    const targetId = KEYBOARD_SHORTCUTS[key];
+    if (targetId) {
+        e.preventDefault();
+        const confirmMessage = CONFIRM_BEFORE_SHORTCUT[targetId];
+        if (confirmMessage && !confirm(confirmMessage)) return;
+        document.getElementById(targetId).click();
+    }
+});
+
 /* ==========================================================================
    8. EVENT BINDINGS & INIT
    ========================================================================== */
@@ -2576,7 +3140,9 @@ document.getElementById("newGameBtn").addEventListener("click", async () => {
     const diff = difficultySelect.value || "medium";
     stopBoardAnimations();
     showGeneratingStatus("Generating new puzzle...");
+    setBoardInteractive(false);
     const res = await createNewPuzzleAsync(diff);
+    setBoardInteractive(true);
     if (!res) return;
     puzzle = res.puzzle;
     solution = res.solution;
@@ -2720,7 +3286,9 @@ difficultySelect.addEventListener("change", async () => {
     const diff = difficultySelect.value;
     stopBoardAnimations();
     showGeneratingStatus("Generating puzzle...");
+    setBoardInteractive(false);
     const res = await createNewPuzzleAsync(diff);
+    setBoardInteractive(true);
     if (!res) return;
     puzzle = res.puzzle;
     solution = res.solution;
@@ -2736,9 +3304,12 @@ document.getElementById("HintBtn").addEventListener("click", showHint);
 (async function init() {
     const resumed = loadSavedGameState();
     if (!resumed) {
-        difficultySelect.value = "medium";
+        // A brand-new player should land on Easy, not Medium — Medium
+        // already expects Naked Pair/Triple, Pointing, and Claiming, none
+        // of which a newbie has been introduced to yet.
+        difficultySelect.value = "easy";
         showGeneratingStatus("Generating initial puzzle...");
-        const res = await createNewPuzzleAsync("medium");
+        const res = await createNewPuzzleAsync("easy");
         if (res) {
             puzzle = res.puzzle;
             solution = res.solution;
