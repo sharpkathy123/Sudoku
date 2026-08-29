@@ -1736,6 +1736,15 @@ for (let n = 1; n <= 9; n++) {
         valueSpan.textContent = correctValue;
         updateCellAriaLabel(selectedCell);
 
+        // A correct placement makes any earlier wrong-digit message (or
+        // stale hint text — currentHintState is cleared right below) about
+        // this exact situation obsolete. Without this, typing the wrong
+        // digit and then the right one left the old "X doesn't belong..."
+        // message on screen with nothing to show the correction actually
+        // registered, which read as "nothing happened" even though the
+        // digit was placed (see REQUIREMENTS.md item 10).
+        setStatusText("");
+
         const index = r * 9 + c;
         if (!placements[correctValue].includes(index)) {
             placements[correctValue].push(index);
