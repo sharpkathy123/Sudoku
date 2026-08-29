@@ -882,7 +882,7 @@ function combinations(arr, k) {
 const HINT_CASCADE = [
     { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findFullHouse(grid, candGrid, solutionGrid) },
     { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findHiddenSingle(candGrid, grid, solutionGrid) },
-    { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findNakedSingle(candGrid) },
+    { tier: "easy",   kind: "place",     fn: (grid, candGrid, solutionGrid) => findNakedSingle(candGrid, grid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findNakedPair(candGrid, solutionGrid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findLockedCandidates(candGrid, solutionGrid) },
     { tier: "medium", kind: "eliminate", fn: (grid, candGrid, solutionGrid) => findClaimingCandidates(candGrid, solutionGrid) },
@@ -2070,20 +2070,40 @@ function findHiddenSingle(candGrid, grid = getCurrentGrid()) {
 }
 
 // 3. Naked Singles (Visual Intersection Check)
-function findNakedSingle(candGrid) {
+//
+// candGrid can now be confirmedCandGrid (see showHint()), which accumulates
+// eliminations from advanced techniques already fully shown, not just plain
+// row/column/box placement — so a cell can drop to one candidate for two
+// very different reasons: every other digit is genuinely *placed* somewhere
+// in its row/column/box (the original, "purely visual" Naked Single this
+// text was written for), or some of those digits were only ruled out by an
+// earlier hint's own elimination. Claiming "already present" for the second
+// case is flatly false — reported live when a player checked the named row/
+// column/box for placed digits and couldn't find several of them there.
+// Distinguishes the two with `isSafe()` against the *actual* placed-digit
+// grid, mirroring the same explainable-by-placement check findHiddenSingle
+// already does for Cross-Hatching vs. Hidden Single below.
+function findNakedSingle(candGrid, grid) {
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (candGrid[r][c].length === 1) {
                 const val = candGrid[r][c][0];
                 const boxNum = Math.floor(r/3)*3 + Math.floor(c/3) + 1;
-                return {
-                    r, c, val,
-                    method: "Naked Single",
-                    tier: "easy",
-                    tier1: `One cell in the grid already has only one possible digit left, once its row, column, and box are considered. Try using "Naked Single".`,
-                    tier2: `It's somewhere in Box ${boxNum}. Check each empty cell there against the numbers already placed in its row, column, and box — one of them eliminates 8 out of 9 digits, leaving only one valid choice.`,
-                    tier3: `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
-                };
+                const explainedByPlacedDigitsAlone = grid
+                    ? [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(n => isSafe(grid, r, c, n)).length === 1
+                    : true;
+
+                const tier1 = explainedByPlacedDigitsAlone
+                    ? `One cell in the grid already has only one possible digit left, once its row, column, and box are considered. Try using "Naked Single".`
+                    : `One cell in the grid is down to only one possible digit, once eliminations from earlier hints are also accounted for. Try using "Naked Single".`;
+                const tier2 = explainedByPlacedDigitsAlone
+                    ? `It's somewhere in Box ${boxNum}. Check each empty cell there against the numbers already placed in its row, column, and box — one of them eliminates 8 out of 9 digits, leaving only one valid choice.`
+                    : `It's somewhere in Box ${boxNum}. The placed digits alone don't narrow it down all the way — combine them with eliminations from earlier hints to find the one cell left with a single candidate.`;
+                const tier3 = explainedByPlacedDigitsAlone
+                    ? `All digits except ${val} are already present across Row ${r+1}, Column ${c+1}, or Box ${boxNum}. Place ${val} here!`
+                    : `Between digits already placed and candidates already eliminated by earlier hints, ${val} is the only one left for Row ${r+1}, Column ${c+1}. Place ${val} here!`;
+
+                return { r, c, val, method: "Naked Single", tier: "easy", tier1, tier2, tier3 };
             }
         }
     }
