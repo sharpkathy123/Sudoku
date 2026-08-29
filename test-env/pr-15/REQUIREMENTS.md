@@ -742,6 +742,21 @@ review, addressed so far:
 
 Test: `test_keyboard_accessibility.py`.
 
+**Follow-up, reported live using an attached keyboard:** arrow-navigating
+onto a filled cell lit up every other cell holding the same digit (pale
+yellow), and the thin 2px selection outline got lost amid that highlight —
+easy to lose track of where you were. Separately, this surfaced a real gap:
+only the arrow-key handler explicitly kept `selectedCell` in sync with
+focus; a plain Tab landing directly on the board's one tab-stop cell left
+selection out of sync entirely, relying on the browser's own inconsistent
+default focus ring instead of this app's own. Fixed both: the selection
+outline is now thicker (3px), pulled inward (`outline-offset`), a darker
+more saturated blue, and raised above every highlight layer (`z-index: 3`);
+and a single `focusin` listener on the board now syncs selection however
+focus arrives, not just via arrow keys (with the cell's own default focus
+ring suppressed in favor of this always-in-sync one). Test:
+`test_keyboard_focus_stays_visible.py`.
+
 ### Still open: accessibility
 
 - **Non-text contrast** on several borders/outlines, and **pencil-mark

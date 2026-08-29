@@ -126,6 +126,10 @@ with specifics and exits 1 on failure.
   and the hint arrival-glow are still visibly present (a steady ring,
   not a pulse) under `prefers-reduced-motion`, instead of being
   collapsed to an animation so fast nobody can ever see it.
+- **`test_keyboard_focus_stays_visible.py`** — the selection outline
+  stays clearly visible after arrow-navigating onto a filled cell (amid
+  its same-number highlight), and a plain Tab landing directly on the
+  board's tab-stop cell syncs selection too, not just arrow-key moves.
 
 ## Adding a new one
 
