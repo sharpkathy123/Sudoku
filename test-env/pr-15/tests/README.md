@@ -122,6 +122,10 @@ with specifics and exits 1 on failure.
   eliminations in particular (its whole premise is that keeping a
   digit would create a second solution — meaningless if one already
   exists elsewhere).
+- **`test_glow_visible_under_reduced_motion.py`** — completion glow
+  and the hint arrival-glow are still visibly present (a steady ring,
+  not a pulse) under `prefers-reduced-motion`, instead of being
+  collapsed to an animation so fast nobody can ever see it.
 
 ## Adding a new one
 

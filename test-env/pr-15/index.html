@@ -219,6 +219,18 @@ window.addEventListener('DOMContentLoaded', () => {
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
     }
+
+    /* .glow marks real state -- a just-completed unit, a hint's target --
+       not decoration. Collapsing its animation to near-zero above makes
+       it complete so fast it's never actually seen, silently deleting
+       the feedback instead of just removing the pulsing motion. A plain
+       !important box-shadow beats a running CSS animation in the cascade
+       regardless of that animation's duration, so this shows a steady
+       ring for the same ~2s window the JS-driven .glow class is present,
+       instead of a flash nobody can perceive. */
+    .glow {
+        box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.85) !important;
+    }
 }
 
 *,

@@ -641,6 +641,21 @@ onto the same row as the Pencil Mode toggle — so asking for a hint and
 reading it both happen right next to the board, no scrolling required. Test:
 `test_hint_and_board_both_visible.py`.
 
+**Second follow-up, reported live with iOS Reduce Motion on:** unit-completion
+glow appeared to have vanished, and a hint's target cell was momentarily hard
+to spot. Root cause: the `prefers-reduced-motion` fix above collapsed *every*
+animation's duration to 0.001ms globally — which doesn't just remove the
+pulsing motion, it makes the glow complete so fast nobody can ever actually
+see it, silently deleting real state feedback (a just-completed unit, a
+hint's target) rather than just removing the motion. "Reduced motion" should
+mean no distracting pulsing, not no acknowledgment at all. Fixed with a
+specific override: under reduced motion, `.glow` gets a plain, non-animated
+`box-shadow` ring instead of the pulsing one, staying visible for the same
+~2s window the JS-driven `.glow` class is present. Confirmed the underlying
+animation itself is still suppressed (no actual motion) — only the
+visibility of the feedback changed. Test:
+`test_glow_visible_under_reduced_motion.py`.
+
 ### Done (partial): hint curriculum — the giveaway-wording and default-difficulty pieces
 
 From the learning-design review, addressed so far:
